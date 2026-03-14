@@ -1,0 +1,5 @@
+{
+  "name": "FarmView QR",
+  "description": "A mobile-first farm monitoring app accessible via QR code.",
+  "requestFramePermissions": ["geolocation"]
+}

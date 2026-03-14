@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "用户信息",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "用户邮箱" },
+        "name": { "type": "string", "description": "用户姓名" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "用户角色" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Plot": {
+      "title": "Plot",
+      "description": "地块信息",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "description": "地块所有者 UID" },
+        "name": { "type": "string", "description": "地块名称" },
+        "location": { "type": "string", "description": "地理位置信息" },
+        "area": { "type": "number", "description": "面积" },
+        "crop": { "type": "string", "description": "种植作物" }
+      },
+      "required": ["ownerId", "name"]
+    },
+    "Camera": {
+      "title": "Camera",
+      "description": "物联网摄像头",
+      "type": "object",
+      "properties": {
+        "plotId": { "type": "string", "description": "所属地块 ID" },
+        "name": { "type": "string", "description": "摄像头名称" },
+        "streamUrl": { "type": "string", "format": "url", "description": "实时视频流地址" },
+        "coordinates": { "type": "string", "description": "地图坐标" }
+      },
+      "required": ["plotId", "streamUrl"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "用户个人资料"
+    },
+    "/plots/{plotId}": {
+      "schema": { "$ref": "Plot" },
+      "description": "用户地块信息"
+    },
+    "/cameras/{cameraId}": {
+      "schema": { "$ref": "Camera" },
+      "description": "物联网摄像头配置"
+    }
+  }
+}
