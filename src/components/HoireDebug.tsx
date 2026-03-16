@@ -1,6 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getHoireToken, getHoireDevices, getHoireInsectDevices, getHoireCameraDevices } from '../services/hoireService';
-import { DEFAULT_SITE_KEY, SITE_DEVICE_BINDINGS } from '../config/siteDeviceBindings';
+
+type SiteBindingResponse = {
+  requestedSite: string;
+  resolvedSite: string;
+  fallback: boolean;
+  binding: {
+    siteName: string;
+    weatherId: number;
+    insectId: number;
+    cameraId: number;
+  };
+};
 
 export const HoireDebug: React.FC = () => {
   // TODO: 正式版将下线该调试面板，设备状态改为在地图区统一展示。
@@ -9,13 +20,12 @@ export const HoireDebug: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
+  const [siteBinding, setSiteBinding] = useState<SiteBindingResponse | null>(null);
 
   const siteKey = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get('site') || DEFAULT_SITE_KEY;
+    return searchParams.get('site') || 'base-current';
   }, []);
-
-  const selectedSite = SITE_DEVICE_BINDINGS[siteKey] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
 
   const fetchData = async () => {
     setLoading(true);
@@ -23,10 +33,11 @@ export const HoireDebug: React.FC = () => {
     try {
       const token = await getHoireToken();
       
-      const [weatherDevices, insectDevices, cameraDevices] = await Promise.all([
+      const [weatherDevices, insectDevices, cameraDevices, bindingRes] = await Promise.all([
         getHoireDevices(token),
         getHoireInsectDevices(token),
-        getHoireCameraDevices(token)
+        getHoireCameraDevices(token),
+        fetch(`/api/site-binding?site=${encodeURIComponent(siteKey)}`).then((res) => res.json())
       ]);
 
       setDevices([
@@ -35,8 +46,10 @@ export const HoireDebug: React.FC = () => {
         { type: '摄像头', list: cameraDevices || [] }
       ]);
 
-      if (!SITE_DEVICE_BINDINGS[siteKey]) {
-        setError(`未找到基地标识“${siteKey}”，已回退到默认基地“${DEFAULT_SITE_KEY}”。`);
+      setSiteBinding(bindingRes);
+
+      if (bindingRes?.fallback) {
+        setError(`未找到基地标识“${bindingRes.requestedSite}”，已回退到“${bindingRes.resolvedSite}”。`);
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || '未知错误';
@@ -47,56 +60,39 @@ export const HoireDebug: React.FC = () => {
     }
   };
 
-  const subscribeToDevice = async (token: string, id: number, type: string) => {
-    const response = await fetch('/api/hoire/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, id, type })
-    });
-    
-    // 获取响应数据
-    const data = await response.json();
-    
-    // 如果响应不成功，且不是 1006（已订阅），才抛出异常
-    if (!response.ok && data.code !== 1006) {
-      throw new Error(data.details || data.message || '订阅失败');
-    }
-    
-    // 即使 response.ok 为 false，如果是 1006，我们也返回 data
-    return data;
-  };
-
   const handleSubscribe = async () => {
     console.log("开始执行订阅流程...");
     setSubscribing(true);
     try {
       const token = await getHoireToken();
       console.log("Token 获取成功:", token);
-      
-      const results = await Promise.allSettled([
-        subscribeToDevice(token, selectedSite.weatherId, 'weather'),
-        subscribeToDevice(token, selectedSite.insectId, 'insect'),
-        subscribeToDevice(token, selectedSite.cameraId, 'camera')
-      ]);
-      
-      console.log("订阅请求结果:", results);
-      
-      // 直接在控制台打印详细结果，方便调试
-      console.log("详细订阅结果:", JSON.stringify(results, null, 2));
-      
-      const messages = results.map((res, i) => {
-        const names = ['气象站', '虫情设备', '摄像头'];
-        if (res.status === 'fulfilled') {
-          const data = res.value;
-          // 如果 code 为 1006，说明已经订阅过，视为成功
-          if (data.code === 1006 || data.code === 0) {
-            return `${names[i]}订阅成功（已存在）`;
-          }
-          return `${names[i]}订阅失败: ${data.message || '未知错误'}`;
-        }
-        return `${names[i]}订阅失败: ${res.reason.message}`;
+
+      const res = await fetch('/api/hoire/subscribe-by-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, site: siteKey })
       });
-      
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.details || data.error || '按基地订阅失败');
+
+      const messages = (data.results || []).map((item: any) => {
+        const nameMap: Record<string, string> = {
+          weather: '气象站',
+          insect: '虫情设备',
+          camera: '摄像头',
+        };
+
+        const label = nameMap[item.type] || item.type;
+        if (item.status === 'fulfilled') {
+          const code = item.data?.code;
+          if (code === 0 || code === 1006) return `${label}订阅成功（${code === 1006 ? '已存在' : '新订阅'}）`;
+          return `${label}订阅失败: ${item.data?.message || '未知错误'}`;
+        }
+
+        return `${label}订阅失败: ${item.reason || '未知错误'}`;
+      });
+
       alert(messages.join('\n'));
     } catch (err: any) {
       console.error("订阅流程捕获到异常:", err);
@@ -147,9 +143,13 @@ export const HoireDebug: React.FC = () => {
       </div>
       {error && <div className="text-red-500 p-4 bg-red-50 rounded-lg mb-4 text-sm">{error}</div>}
 
-      <div className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2 mb-4">
-        当前基地: <span className="font-semibold">{selectedSite.siteName}</span>（site={siteKey}） | 绑定设备ID: weather={selectedSite.weatherId}, insect={selectedSite.insectId}, camera={selectedSite.cameraId}
-      </div>
+      {siteBinding && (
+        <div className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2 mb-4">
+          当前基地: <span className="font-semibold">{siteBinding.binding.siteName}</span>
+          （site={siteBinding.requestedSite} / resolved={siteBinding.resolvedSite}）
+          {' '}| 绑定设备ID: weather={siteBinding.binding.weatherId}, insect={siteBinding.binding.insectId}, camera={siteBinding.binding.cameraId}
+        </div>
+      )}
       
       <div className="space-y-4">
         {devices.map((group) => (
