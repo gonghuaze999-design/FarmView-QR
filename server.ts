@@ -32,10 +32,31 @@ const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
 
 const DEFAULT_SITE_KEY = 'base-current';
 
+function loadSiteBindingsFromEnv() {
+  const raw = process.env.SITE_DEVICE_BINDINGS_JSON;
+  if (!raw) return SITE_DEVICE_BINDINGS;
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, SiteDeviceBinding>;
+    const keys = Object.keys(parsed || {});
+    if (keys.length === 0) {
+      console.warn('[SiteBinding] SITE_DEVICE_BINDINGS_JSON 为空对象，回退默认绑定。');
+      return SITE_DEVICE_BINDINGS;
+    }
+
+    console.log(`[SiteBinding] 已从环境变量加载 ${keys.length} 个基地绑定。`);
+    return parsed;
+  } catch (error: any) {
+    console.warn('[SiteBinding] SITE_DEVICE_BINDINGS_JSON 解析失败，回退默认绑定:', error.message);
+    return SITE_DEVICE_BINDINGS;
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
   const APP_URL = process.env.APP_URL?.replace(/\/$/, '');
+  const siteBindings = loadSiteBindingsFromEnv();
 
   if (!APP_URL) {
     throw new Error('APP_URL 未配置，无法生成 Hoire 回调地址。请在环境变量中设置 APP_URL，例如: https://farm-api.example.com');
@@ -122,8 +143,8 @@ async function startServer() {
 
   app.get('/api/site-binding', (req, res) => {
     const requestedSite = String(req.query.site || DEFAULT_SITE_KEY);
-    const selected = SITE_DEVICE_BINDINGS[requestedSite] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
-    const fallback = !SITE_DEVICE_BINDINGS[requestedSite];
+    const selected = siteBindings[requestedSite] || siteBindings[DEFAULT_SITE_KEY];
+    const fallback = !siteBindings[requestedSite];
 
     res.json({
       requestedSite,
@@ -136,8 +157,8 @@ async function startServer() {
   app.post('/api/hoire/subscribe-by-site', async (req, res) => {
     const { token, site } = req.body;
     const requestedSite = site || DEFAULT_SITE_KEY;
-    const selected = SITE_DEVICE_BINDINGS[requestedSite] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
-    const resolvedSite = SITE_DEVICE_BINDINGS[requestedSite] ? requestedSite : DEFAULT_SITE_KEY;
+    const selected = siteBindings[requestedSite] || siteBindings[DEFAULT_SITE_KEY];
+    const resolvedSite = siteBindings[requestedSite] ? requestedSite : DEFAULT_SITE_KEY;
 
     if (!token) {
       return res.status(400).json({ error: 'token is required' });
