@@ -36,6 +36,23 @@
         "coordinates": { "type": "string", "description": "地图坐标" }
       },
       "required": ["plotId", "streamUrl"]
+    },
+    "JoinRequest": {
+      "title": "JoinRequest",
+      "description": "用户加入/申报基地请求",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "真实姓名" },
+        "province": { "type": "string", "description": "省" },
+        "city": { "type": "string", "description": "市" },
+        "county": { "type": "string", "description": "县" },
+        "address": { "type": "string", "description": "详细地址" },
+        "area": { "type": "number", "description": "面积" },
+        "phone": { "type": "string", "description": "联系电话" },
+        "status": { "type": "string", "enum": ["pending", "processed"], "description": "处理状态" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "创建时间" }
+      },
+      "required": ["name", "phone", "address", "area", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -50,6 +67,10 @@
     "/cameras/{cameraId}": {
       "schema": { "$ref": "Camera" },
       "description": "物联网摄像头配置"
+    },
+    "/joinRequests/{requestId}": {
+      "schema": { "$ref": "JoinRequest" },
+      "description": "加入/申报请求"
     }
   }
 }

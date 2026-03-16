@@ -29,5 +29,12 @@ service cloud.firestore {
       allow read: if isAuthenticated() && get(/databases/$(database)/documents/plots/$(resource.data.plotId)).data.ownerId == request.auth.uid;
       allow write: if isAuthenticated() && get(/databases/$(database)/documents/plots/$(request.resource.data.plotId)).data.ownerId == request.auth.uid;
     }
+
+    match /joinRequests/{requestId} {
+      // Allow anyone to submit a join request (even unauthenticated users)
+      allow create: if true;
+      // Only admins can read or update (for now, we'll restrict to false until admin role is implemented)
+      allow read, update, delete: if false;
+    }
   }
 }

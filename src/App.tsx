@@ -27,19 +27,19 @@ const UnknownSiteState: React.FC<{ siteKey: string; availableSites: string[] }> 
       <Header />
       <main className="p-4 space-y-6">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-          <h2 className="text-xl font-bold text-red-700 mb-2">站点不存在</h2>
+          <h2 className="text-xl font-bold text-red-700 mb-2">基地不存在</h2>
           <p className="text-sm text-stone-700 leading-6">
-            当前访问的站点标识 <span className="font-semibold">{siteKey}</span> 未配置。
+            当前访问的基地标识 <span className="font-semibold">{siteKey}</span> 未配置。
           </p>
-          <p className="text-sm text-stone-600 mt-2">请联系管理员配置站点，或先点击下方“我要加入”提交信息。</p>
+          <p className="text-sm text-stone-600 mt-2">请联系管理员配置基地，或先点击下方“我要申报基地”提交信息。</p>
           {availableSites.length > 0 && (
             <p className="text-xs text-stone-500 mt-3 break-all">
-              已配置站点：{availableSites.join('、')}
+              已配置基地：{availableSites.join('、')}
             </p>
           )}
         </div>
 
-        <JoinUsButton />
+        <JoinUsButton label="我要申报基地" />
       </main>
     </div>
   </div>

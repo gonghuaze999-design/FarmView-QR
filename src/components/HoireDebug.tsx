@@ -31,12 +31,10 @@ export const HoireDebug: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const token = await getHoireToken();
-      
       const [weatherDevices, insectDevices, cameraDevices, bindingRes] = await Promise.all([
-        getHoireDevices(token),
-        getHoireInsectDevices(token),
-        getHoireCameraDevices(token),
+        getHoireDevices(),
+        getHoireInsectDevices(),
+        getHoireCameraDevices(),
         fetch(`/api/site-binding?site=${encodeURIComponent(siteKey)}`).then((res) => res.json())
       ]);
 
@@ -64,13 +62,10 @@ export const HoireDebug: React.FC = () => {
     console.log("开始执行订阅流程...");
     setSubscribing(true);
     try {
-      const token = await getHoireToken();
-      console.log("Token 获取成功:", token);
-
       const res = await fetch('/api/hoire/subscribe-by-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, site: siteKey })
+        body: JSON.stringify({ site: siteKey })
       });
 
       const data = await res.json();

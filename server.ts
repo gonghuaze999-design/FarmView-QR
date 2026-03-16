@@ -89,10 +89,38 @@ async function startServer() {
     });
   });
 
+  let cachedToken: string | null = null;
+  let tokenExpiration: number = 0;
+
+  async function getValidToken() {
+    const now = Math.floor(Date.now() / 1000);
+    if (cachedToken && tokenExpiration > now + 300) {
+      return cachedToken;
+    }
+    const account = process.env.HOIRE_ACCOUNT;
+    const password = process.env.HOIRE_PASSWORD;
+    if (!account || !password) {
+      throw new Error("HOIRE_ACCOUNT or HOIRE_PASSWORD is not set in environment variables");
+    }
+    console.log(`[Token] 请求新 Token: ${HOIRE_BASE_URL}/open/token/get, 账号: ${account}`);
+    const response = await axios.post(`${HOIRE_BASE_URL}/open/token/get`, 
+      `account=${encodeURIComponent(account)}&password=${encodeURIComponent(password)}&timestamp=${now}`,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    if (response.data?.code === 0 && response.data?.data?.token) {
+      cachedToken = response.data.data.token;
+      tokenExpiration = response.data.data.expiration;
+      console.log("[Token] 获取成功, 过期时间:", new Date(tokenExpiration * 1000).toLocaleString());
+      return cachedToken;
+    }
+    throw new Error(response.data?.message || "Failed to get token");
+  }
+
   // 代理接口：订阅设备
   app.post("/api/hoire/subscribe", async (req, res) => {
-    const { token, id, type } = req.body;
+    const { id, type } = req.body;
     try {
+      const token = await getValidToken();
       const timestamp = Math.floor(Date.now() / 1000);
       const webhookUrl = `${APP_URL}/api/iot/receive`;
       
@@ -106,10 +134,10 @@ async function startServer() {
       console.log('[Subscribe] 发起订阅请求', { type, id, endpoint, webhookUrl, timestamp });
 
       const response = await axios.post(endpoint,
-        `token=${token}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
+        `token=${encodeURIComponent(token)}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
         { 
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          timeout: 5000 // 增加 5 秒超时
+          timeout: 5000
         }
       );
       
@@ -152,36 +180,34 @@ async function startServer() {
   });
 
   app.post('/api/hoire/subscribe-by-site', async (req, res) => {
-    const { token, site } = req.body;
+    const { site } = req.body;
     const requestedSite = site || DEFAULT_SITE_KEY;
     const selected = siteBindings[requestedSite] || siteBindings[DEFAULT_SITE_KEY];
     const resolvedSite = siteBindings[requestedSite] ? requestedSite : DEFAULT_SITE_KEY;
 
-    if (!token) {
-      return res.status(400).json({ error: 'token is required' });
-    }
-
-    const subscribeOne = async (id: number, type: 'weather' | 'insect' | 'camera') => {
-      const timestamp = Math.floor(Date.now() / 1000);
-      const webhookUrl = `${APP_URL}/api/iot/receive`;
-
-      let endpoint = '';
-      if (type === 'weather') endpoint = `${HOIRE_BASE_URL}/open/monitor/subscribe`;
-      else if (type === 'insect') endpoint = `${HOIRE_BASE_URL}/open/Insect/subscribe`;
-      else endpoint = `${HOIRE_BASE_URL}/open/camera/subscribe`;
-
-      const response = await axios.post(endpoint,
-        `token=${token}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
-        {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          timeout: 5000,
-        }
-      );
-
-      return { id, type, data: response.data };
-    };
-
     try {
+      const token = await getValidToken();
+
+      const subscribeOne = async (id: number, type: 'weather' | 'insect' | 'camera') => {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const webhookUrl = `${APP_URL}/api/iot/receive`;
+
+        let endpoint = '';
+        if (type === 'weather') endpoint = `${HOIRE_BASE_URL}/open/monitor/subscribe`;
+        else if (type === 'insect') endpoint = `${HOIRE_BASE_URL}/open/Insect/subscribe`;
+        else endpoint = `${HOIRE_BASE_URL}/open/camera/subscribe`;
+
+        const response = await axios.post(endpoint,
+          `token=${encodeURIComponent(token)}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
+          {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout: 5000,
+          }
+        );
+
+        return { id, type, data: response.data };
+      };
+
       const results = await Promise.allSettled([
         subscribeOne(selected.weatherId, 'weather'),
         subscribeOne(selected.insectId, 'insect'),
@@ -254,11 +280,11 @@ async function startServer() {
   // 代理接口：获取设备列表
   app.get("/api/hoire/devices", async (req, res) => {
     try {
-      const token = req.query.token;
+      const token = await getValidToken();
       const timestamp = Math.floor(Date.now() / 1000);
       console.log(`[Devices] 请求: ${HOIRE_BASE_URL}/open/monitor/list`);
       const response = await axios.post(`${HOIRE_BASE_URL}/open/monitor/list`,
-        `token=${token}&timestamp=${timestamp}`,
+        `token=${encodeURIComponent(token)}&timestamp=${timestamp}`,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
       console.log("[Devices] 响应:", response.data);
@@ -272,10 +298,10 @@ async function startServer() {
   // 代理接口：获取虫情设备列表
   app.get("/api/hoire/insect-devices", async (req, res) => {
     try {
-      const token = req.query.token;
+      const token = await getValidToken();
       const timestamp = Math.floor(Date.now() / 1000);
       const response = await axios.post(`${HOIRE_BASE_URL}/open/Insect/list`,
-        `token=${token}&timestamp=${timestamp}`,
+        `token=${encodeURIComponent(token)}&timestamp=${timestamp}`,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
       res.json(response.data);
@@ -287,10 +313,10 @@ async function startServer() {
   // 代理接口：获取摄像头设备列表
   app.get("/api/hoire/camera-devices", async (req, res) => {
     try {
-      const token = req.query.token;
+      const token = await getValidToken();
       const timestamp = Math.floor(Date.now() / 1000);
       const response = await axios.post(`${HOIRE_BASE_URL}/open/camera/list`,
-        `token=${token}&timestamp=${timestamp}`,
+        `token=${encodeURIComponent(token)}&timestamp=${timestamp}`,
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );
       res.json(response.data);
