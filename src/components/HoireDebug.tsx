@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getHoireToken, getHoireDevices, getHoireInsectDevices, getHoireCameraDevices } from '../services/hoireService';
+import { DEFAULT_SITE_KEY, SITE_DEVICE_BINDINGS } from '../config/siteDeviceBindings';
 
 export const HoireDebug: React.FC = () => {
   // TODO: 正式版将下线该调试面板，设备状态改为在地图区统一展示。
@@ -8,6 +9,13 @@ export const HoireDebug: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
+
+  const siteKey = useMemo(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('site') || DEFAULT_SITE_KEY;
+  }, []);
+
+  const selectedSite = SITE_DEVICE_BINDINGS[siteKey] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
 
   const fetchData = async () => {
     setLoading(true);
@@ -26,6 +34,10 @@ export const HoireDebug: React.FC = () => {
         { type: '虫情设备', list: insectDevices || [] },
         { type: '摄像头', list: cameraDevices || [] }
       ]);
+
+      if (!SITE_DEVICE_BINDINGS[siteKey]) {
+        setError(`未找到基地标识“${siteKey}”，已回退到默认基地“${DEFAULT_SITE_KEY}”。`);
+      }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || '未知错误';
       setError(`获取物联网设备失败: ${errorMsg}`);
@@ -62,9 +74,9 @@ export const HoireDebug: React.FC = () => {
       console.log("Token 获取成功:", token);
       
       const results = await Promise.allSettled([
-        subscribeToDevice(token, 11828, 'weather'),
-        subscribeToDevice(token, 2734, 'insect'),
-        subscribeToDevice(token, 313793, 'camera')
+        subscribeToDevice(token, selectedSite.weatherId, 'weather'),
+        subscribeToDevice(token, selectedSite.insectId, 'insect'),
+        subscribeToDevice(token, selectedSite.cameraId, 'camera')
       ]);
       
       console.log("订阅请求结果:", results);
@@ -99,7 +111,7 @@ export const HoireDebug: React.FC = () => {
     fetchData();
   }, []);
 
-  if (loading) return <div className="p-4 text-stone-500">正连接物联网平台...</div>;
+  if (loading) return <div className="p-4 text-stone-500">正在连接物联网平台...</div>;
 
   return (
     <div className="p-4 bg-white rounded-xl shadow-sm border border-stone-200">
@@ -134,6 +146,10 @@ export const HoireDebug: React.FC = () => {
         </div>
       </div>
       {error && <div className="text-red-500 p-4 bg-red-50 rounded-lg mb-4 text-sm">{error}</div>}
+
+      <div className="text-xs text-stone-500 bg-stone-50 border border-stone-200 rounded-lg p-2 mb-4">
+        当前基地: <span className="font-semibold">{selectedSite.siteName}</span>（site={siteKey}） | 绑定设备ID: weather={selectedSite.weatherId}, insect={selectedSite.insectId}, camera={selectedSite.cameraId}
+      </div>
       
       <div className="space-y-4">
         {devices.map((group) => (
