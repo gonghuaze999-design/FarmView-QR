@@ -8,6 +8,30 @@ import 'dotenv/config';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOIRE_BASE_URL = 'https://api.hoire.cn';
 
+type SiteDeviceBinding = {
+  siteName: string;
+  weatherId: number;
+  insectId: number;
+  cameraId: number;
+};
+
+const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
+  'base-current': {
+    siteName: '当前基地',
+    weatherId: 11828,
+    insectId: 2734,
+    cameraId: 313793,
+  },
+  'base-legacy': {
+    siteName: '历史基地',
+    weatherId: 8041,
+    insectId: 1314,
+    cameraId: 5224,
+  },
+};
+
+const DEFAULT_SITE_KEY = 'base-current';
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
@@ -93,6 +117,95 @@ async function startServer() {
         time: new Date().toISOString(),
       };
       res.status(500).json({ error: "Failed to subscribe to device", details: error.message });
+    }
+  });
+
+  app.get('/api/site-binding', (req, res) => {
+    const requestedSite = String(req.query.site || DEFAULT_SITE_KEY);
+    const selected = SITE_DEVICE_BINDINGS[requestedSite] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
+    const fallback = !SITE_DEVICE_BINDINGS[requestedSite];
+
+    res.json({
+      requestedSite,
+      resolvedSite: fallback ? DEFAULT_SITE_KEY : requestedSite,
+      fallback,
+      binding: selected,
+    });
+  });
+
+  app.post('/api/hoire/subscribe-by-site', async (req, res) => {
+    const { token, site } = req.body;
+    const requestedSite = site || DEFAULT_SITE_KEY;
+    const selected = SITE_DEVICE_BINDINGS[requestedSite] || SITE_DEVICE_BINDINGS[DEFAULT_SITE_KEY];
+    const resolvedSite = SITE_DEVICE_BINDINGS[requestedSite] ? requestedSite : DEFAULT_SITE_KEY;
+
+    if (!token) {
+      return res.status(400).json({ error: 'token is required' });
+    }
+
+    const subscribeOne = async (id: number, type: 'weather' | 'insect' | 'camera') => {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const webhookUrl = `${APP_URL}/api/iot/receive`;
+
+      let endpoint = '';
+      if (type === 'weather') endpoint = `${HOIRE_BASE_URL}/open/monitor/subscribe`;
+      else if (type === 'insect') endpoint = `${HOIRE_BASE_URL}/open/Insect/subscribe`;
+      else endpoint = `${HOIRE_BASE_URL}/open/camera/subscribe`;
+
+      const response = await axios.post(endpoint,
+        `token=${token}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 5000,
+        }
+      );
+
+      return { id, type, data: response.data };
+    };
+
+    try {
+      const results = await Promise.allSettled([
+        subscribeOne(selected.weatherId, 'weather'),
+        subscribeOne(selected.insectId, 'insect'),
+        subscribeOne(selected.cameraId, 'camera'),
+      ]);
+
+      const normalized = results.map((result, i) => {
+        const typeMap: Array<'weather' | 'insect' | 'camera'> = ['weather', 'insect', 'camera'];
+        const idMap = [selected.weatherId, selected.insectId, selected.cameraId];
+
+        if (result.status === 'fulfilled') {
+          return {
+            status: 'fulfilled',
+            type: typeMap[i],
+            id: idMap[i],
+            data: result.value.data,
+          };
+        }
+
+        return {
+          status: 'rejected',
+          type: typeMap[i],
+          id: idMap[i],
+          reason: result.reason?.message || 'unknown error',
+        };
+      });
+
+      lastSubscriptionResult = {
+        mode: 'site',
+        requestedSite,
+        resolvedSite,
+        binding: selected,
+        results: normalized,
+        time: new Date().toISOString(),
+      };
+
+      res.json(lastSubscriptionResult);
+    } catch (error: any) {
+      res.status(500).json({
+        error: 'Failed to subscribe by site',
+        details: error.message,
+      });
     }
   });
 
