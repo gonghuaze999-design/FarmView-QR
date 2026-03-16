@@ -1,7 +1,9 @@
 version: '3.8'
 services:
   iot-backend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.txt
     container_name: iot-backend
     ports:
       - "3001:3000"
