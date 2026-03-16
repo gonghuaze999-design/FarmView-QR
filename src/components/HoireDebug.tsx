@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getHoireToken, getHoireDevices, getHoireInsectDevices, getHoireCameraDevices } from '../services/hoireService';
 
 export const HoireDebug: React.FC = () => {
+  // TODO: 正式版将下线该调试面板，设备状态改为在地图区统一展示。
   console.log("HoireDebug 组件已加载 (v2)");
   const [devices, setDevices] = useState<{ type: string, list: any[] }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,9 +62,9 @@ export const HoireDebug: React.FC = () => {
       console.log("Token 获取成功:", token);
       
       const results = await Promise.allSettled([
-        subscribeToDevice(token, 8041, 'weather'),
-        subscribeToDevice(token, 1314, 'insect'),
-        subscribeToDevice(token, 5224, 'camera')
+        subscribeToDevice(token, 11828, 'weather'),
+        subscribeToDevice(token, 2734, 'insect'),
+        subscribeToDevice(token, 313793, 'camera')
       ]);
       
       console.log("订阅请求结果:", results);
@@ -98,12 +99,12 @@ export const HoireDebug: React.FC = () => {
     fetchData();
   }, []);
 
-  if (loading) return <div className="p-4 text-stone-500">正在连接物联网平台...</div>;
+  if (loading) return <div className="p-4 text-stone-500">正连接物联网平台...</div>;
 
   return (
     <div className="p-4 bg-white rounded-xl shadow-sm border border-stone-200">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold text-stone-900">物联网设备列表</h2>
+        <h2 className="text-lg font-bold text-stone-900">物联网设备列表（调试）</h2>
         <div className="flex gap-2">
           <button 
             onClick={fetchData}
