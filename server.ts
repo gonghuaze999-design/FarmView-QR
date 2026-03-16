@@ -22,12 +22,6 @@ const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
     insectId: 2734,
     cameraId: 313793,
   },
-  'base-legacy': {
-    siteName: '历史基地',
-    weatherId: 8041,
-    insectId: 1314,
-    cameraId: 5224,
-  },
 };
 
 const DEFAULT_SITE_KEY = 'base-current';
@@ -143,13 +137,16 @@ async function startServer() {
 
   app.get('/api/site-binding', (req, res) => {
     const requestedSite = String(req.query.site || DEFAULT_SITE_KEY);
-    const selected = siteBindings[requestedSite] || siteBindings[DEFAULT_SITE_KEY];
-    const fallback = !siteBindings[requestedSite];
+    const exists = Boolean(siteBindings[requestedSite]);
+    const selected = exists ? siteBindings[requestedSite] : siteBindings[DEFAULT_SITE_KEY];
+    const fallback = !exists;
 
     res.json({
       requestedSite,
       resolvedSite: fallback ? DEFAULT_SITE_KEY : requestedSite,
+      exists,
       fallback,
+      availableSites: Object.keys(siteBindings),
       binding: selected,
     });
   });
