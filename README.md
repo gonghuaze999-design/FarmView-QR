@@ -25,4 +25,4 @@ For Tencent Cloud / VPS deployment with Hoire callback stabilization, see:
 
 - [DEPLOYMENT.md](./DEPLOYMENT.md)
 
-Quick note: during early validation, you can deploy and access via server IP directly (for example `http://43.156.153.252:3001`) before binding a domain.
+Quick note: during early validation, you can deploy and access via server IP directly (for example `http://43.156.153.252:3101`) before binding a domain.
