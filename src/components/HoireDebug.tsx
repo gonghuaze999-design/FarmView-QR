@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getHoireToken, getHoireDevices, getHoireInsectDevices, getHoireCameraDevices } from '../services/hoireService';
-import { Settings2, RefreshCw, Link2, FileJson } from 'lucide-react';
+import { Settings2, RefreshCw, Link2, FileJson, Activity, List } from 'lucide-react';
 
 type SiteBindingResponse = {
   requestedSite: string;
@@ -15,9 +15,10 @@ type SiteBindingResponse = {
 };
 
 export const HoireDebug: React.FC = () => {
-  // TODO: 正式版将下线该调试面板，设备状态改为在地图区统一展示。
   console.log("HoireDebug 组件已加载 (v2)");
+  const [activeTab, setActiveTab] = useState<'devices' | 'raw-data'>('devices');
   const [devices, setDevices] = useState<{ type: string, list: any[] }[]>([]);
+  const [rawData, setRawData] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscribing, setSubscribing] = useState(false);
@@ -33,27 +34,28 @@ export const HoireDebug: React.FC = () => {
     setIsRefreshing(true);
     setError(null);
     try {
-      const [weatherDevices, insectDevices, cameraDevices, bindingRes] = await Promise.all([
-        getHoireDevices(),
-        getHoireInsectDevices(),
-        getHoireCameraDevices(),
-        fetch(`/api/site-binding?site=${encodeURIComponent(siteKey)}`).then((res) => res.json())
-      ]);
+      if (activeTab === 'devices') {
+        const [weatherDevices, insectDevices, cameraDevices, bindingRes] = await Promise.all([
+          getHoireDevices(),
+          getHoireInsectDevices(),
+          getHoireCameraDevices(),
+          fetch(`/api/site-binding?site=${encodeURIComponent(siteKey)}`).then((res) => res.json())
+        ]);
 
-      setDevices([
-        { type: '气象站', list: weatherDevices || [] },
-        { type: '虫情设备', list: insectDevices || [] },
-        { type: '摄像头', list: cameraDevices || [] }
-      ]);
-
-      setSiteBinding(bindingRes);
-
-      if (bindingRes?.fallback) {
-        setError(`未找到基地标识“${bindingRes.requestedSite}”，已回退到“${bindingRes.resolvedSite}”。`);
+        setDevices([
+          { type: '气象站', list: weatherDevices || [] },
+          { type: '虫情设备', list: insectDevices || [] },
+          { type: '摄像头', list: cameraDevices || [] }
+        ]);
+        setSiteBinding(bindingRes);
+      } else {
+        const res = await fetch('/api/iot/raw-data');
+        const data = await res.json();
+        setRawData(data);
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || '未知错误';
-      setError(`获取物联网设备失败: ${errorMsg}`);
+      setError(`获取数据失败: ${errorMsg}`);
       console.error('Hoire API Error:', err.response?.data || err);
     } finally {
       setLoading(false);
@@ -103,7 +105,7 @@ export const HoireDebug: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeTab]);
 
   if (loading) {
     return (
@@ -116,7 +118,7 @@ export const HoireDebug: React.FC = () => {
 
   return (
     <div className="farm-card p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <Settings2 className="text-zinc-400" size={20} />
           <h2 className="text-lg font-bold text-zinc-800">设备调试面板</h2>
@@ -137,20 +139,24 @@ export const HoireDebug: React.FC = () => {
             <Link2 size={14} />
             {subscribing ? '订阅中...' : '订阅设备'}
           </button>
-          <button 
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/hoire/last-subscription-result');
-                const data = await res.json();
-                alert(JSON.stringify(data, null, 2));
-              } catch { alert("无法获取结果"); }
-            }}
-            className="text-xs bg-zinc-800 text-white hover:bg-zinc-900 px-3 py-1.5 rounded-full font-medium shadow-sm transition-colors flex items-center gap-1.5"
-          >
-            <FileJson size={14} />
-            详情
-          </button>
         </div>
+      </div>
+
+      <div className="flex gap-2 mb-6 border-b border-zinc-100 pb-2">
+        <button
+          onClick={() => setActiveTab('devices')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'devices' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}
+        >
+          <List size={16} />
+          设备列表
+        </button>
+        <button
+          onClick={() => setActiveTab('raw-data')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'raw-data' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}
+        >
+          <Activity size={16} />
+          实时推送数据
+        </button>
       </div>
       
       {error && (
@@ -159,43 +165,75 @@ export const HoireDebug: React.FC = () => {
         </div>
       )}
 
-      {siteBinding && (
-        <div className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-xl p-4 mb-5 leading-relaxed">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-semibold text-zinc-800">当前基地:</span>
-            <span className="px-2 py-0.5 bg-white border border-zinc-200 rounded-md shadow-sm">{siteBinding.binding.siteName}</span>
+      {activeTab === 'devices' && (
+        <>
+          {siteBinding && (
+            <div className="text-xs text-zinc-600 bg-zinc-50 border border-zinc-100 rounded-xl p-4 mb-5 leading-relaxed">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-semibold text-zinc-800">当前基地:</span>
+                <span className="px-2 py-0.5 bg-white border border-zinc-200 rounded-md shadow-sm">{siteBinding.binding.siteName}</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">气象站: {siteBinding.binding.weatherId}</span>
+                <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">虫情: {siteBinding.binding.insectId}</span>
+                <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">监控: {siteBinding.binding.cameraId}</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="space-y-4">
+            {devices.map((group) => (
+              <div key={group.type} className="border border-zinc-100 rounded-xl overflow-hidden">
+                <div className="bg-zinc-50 px-4 py-2 border-b border-zinc-100 flex justify-between items-center">
+                  <h3 className="font-semibold text-zinc-700 text-sm">{group.type}</h3>
+                  <span className="text-xs font-medium bg-zinc-200 text-zinc-600 px-2 py-0.5 rounded-full">{group.list.length}</span>
+                </div>
+                <div className="p-4 bg-white">
+                  {group.list.length === 0 ? (
+                    <p className="text-zinc-400 text-xs text-center py-2">无设备</p>
+                  ) : (
+                    <pre className="bg-zinc-50 p-3 rounded-lg text-[10px] overflow-x-auto text-zinc-600 border border-zinc-100">
+                      {JSON.stringify(group.list, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="text-zinc-500 mb-2">
-            请求标识: <code className="bg-zinc-100 px-1 rounded">{siteBinding.requestedSite}</code> / 
-            解析标识: <code className="bg-zinc-100 px-1 rounded">{siteBinding.resolvedSite}</code>
+        </>
+      )}
+
+      {activeTab === 'raw-data' && (
+        <div className="space-y-4">
+          <div className="text-xs text-zinc-500 mb-4 bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-100">
+            <strong>提示：</strong> 这里显示的是 Hoire 平台主动推送到服务器的原始数据。请先点击右上角“订阅设备”，等待几分钟后点击“刷新”查看最新数据。每个设备最多保留最近 5 条记录。
           </div>
-          <div className="flex gap-3 flex-wrap">
-            <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">气象站: {siteBinding.binding.weatherId}</span>
-            <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">虫情: {siteBinding.binding.insectId}</span>
-            <span className="bg-white px-2 py-1 rounded-md border border-zinc-200 shadow-sm">监控: {siteBinding.binding.cameraId}</span>
-          </div>
+          {Object.keys(rawData).length === 0 ? (
+            <div className="text-center py-8 text-zinc-400 text-sm">暂无任何设备推送数据</div>
+          ) : (
+            Object.entries(rawData).map(([deviceId, payloads]) => (
+              <div key={deviceId} className="border border-zinc-100 rounded-xl overflow-hidden">
+                <div className="bg-zinc-50 px-4 py-2 border-b border-zinc-100 flex justify-between items-center">
+                  <h3 className="font-semibold text-zinc-700 text-sm">设备 ID: {deviceId}</h3>
+                  <span className="text-xs font-medium bg-zinc-200 text-zinc-600 px-2 py-0.5 rounded-full">{payloads.length} 条记录</span>
+                </div>
+                <div className="p-4 bg-white space-y-4">
+                  {payloads.map((item, index) => (
+                    <div key={index} className="border border-zinc-100 rounded-lg overflow-hidden">
+                      <div className="bg-zinc-50 px-3 py-1.5 text-[10px] text-zinc-500 border-b border-zinc-100">
+                        接收时间: {new Date(item.receiveTime).toLocaleString()}
+                      </div>
+                      <pre className="p-3 text-[10px] overflow-x-auto text-zinc-600">
+                        {JSON.stringify(item.payload, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
-      
-      <div className="space-y-4">
-        {devices.map((group) => (
-          <div key={group.type} className="border border-zinc-100 rounded-xl overflow-hidden">
-            <div className="bg-zinc-50 px-4 py-2 border-b border-zinc-100 flex justify-between items-center">
-              <h3 className="font-semibold text-zinc-700 text-sm">{group.type}</h3>
-              <span className="text-xs font-medium bg-zinc-200 text-zinc-600 px-2 py-0.5 rounded-full">{group.list.length}</span>
-            </div>
-            <div className="p-4 bg-white">
-              {group.list.length === 0 ? (
-                <p className="text-zinc-400 text-xs text-center py-2">无设备</p>
-              ) : (
-                <pre className="bg-zinc-50 p-3 rounded-lg text-[10px] overflow-x-auto text-zinc-600 border border-zinc-100">
-                  {JSON.stringify(group.list, null, 2)}
-                </pre>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
