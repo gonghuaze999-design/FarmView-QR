@@ -78,7 +78,10 @@ export const MapComponent = forwardRef(({ isFullScreen }: { isFullScreen: boolea
 
   useEffect(() => {
     if (mapInstance.current) {
-      mapInstance.current.resize();
+      // 延迟 resize 以确保容器尺寸已更新
+      setTimeout(() => {
+        mapInstance.current.resize();
+      }, 100);
     }
   }, [isFullScreen]);
 
@@ -92,5 +95,5 @@ export const MapComponent = forwardRef(({ isFullScreen }: { isFullScreen: boolea
     );
   }
 
-  return <div ref={mapRef} className="w-full h-full bg-zinc-100" />;
+  return <div ref={mapRef} className="w-full h-full bg-zinc-100 absolute inset-0 z-0" />;
 });
