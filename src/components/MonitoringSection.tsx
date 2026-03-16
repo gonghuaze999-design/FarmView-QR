@@ -28,6 +28,18 @@ export const MonitoringSection: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // 提取实际的传感器数据数组
+  const getSensorData = () => {
+    if (!iotData) return [];
+    // 兼容不同的数据结构
+    if (Array.isArray(iotData.data?.data)) return iotData.data.data;
+    if (Array.isArray(iotData.data)) return iotData.data;
+    if (Array.isArray(iotData)) return iotData;
+    return [];
+  };
+
+  const sensorData = getSensorData();
+
   return (
     <section className="farm-card p-6">
       <div className="flex justify-between items-center mb-6">
@@ -48,7 +60,7 @@ export const MonitoringSection: React.FC = () => {
           <RefreshCw size={24} className="animate-spin mb-2 text-zinc-300" />
           <p className="text-sm">正在连接设备...</p>
         </div>
-      ) : !iotData ? (
+      ) : !iotData || sensorData.length === 0 ? (
         <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-6 text-center">
           <p className="text-zinc-500 text-sm mb-1">暂无设备数据</p>
           <p className="text-zinc-400 text-xs">请确保传感器已连接并正在推送数据</p>
@@ -67,7 +79,7 @@ export const MonitoringSection: React.FC = () => {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {(iotData.data?.data || iotData.data || []).map((item: any, i: number) => (
+              {sensorData.map((item: any, i: number) => (
                 <div key={i} className="p-4 bg-white border border-zinc-100 rounded-xl shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-xs font-medium text-zinc-500 mb-1">{item.name || '未知指标'}</p>
                   <div className="flex items-baseline gap-1">
