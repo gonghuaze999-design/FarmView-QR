@@ -10,7 +10,17 @@ const HOIRE_BASE_URL = 'https://api.hoire.cn';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
+  const APP_URL = process.env.APP_URL?.replace(/\/$/, '');
+
+  if (!APP_URL) {
+    throw new Error('APP_URL 未配置，无法生成 Hoire 回调地址。请在环境变量中设置 APP_URL，例如: https://farm-api.example.com');
+  }
+
+  const isValidHttpUrl = /^https?:\/\//.test(APP_URL);
+  if (!isValidHttpUrl) {
+    throw new Error(`APP_URL 格式不合法: ${APP_URL}。必须以 http:// 或 https:// 开头。`);
+  }
 
   // 内存存储最新数据和订阅结果
   let latestIotData: any = null;
@@ -22,17 +32,30 @@ async function startServer() {
   
   // 真实推送接口
   app.post("/api/iot/receive", (req, res) => {
-    console.log("收到物联网平台推送请求");
+    console.log("[IOT Push] 收到物联网平台推送请求", {
+      ip: req.ip,
+      ua: req.headers['user-agent'],
+      time: new Date().toISOString(),
+    });
     latestIotData = req.body;
     res.status(200).json({ code: 0, message: "接收成功" });
   });
 
+  app.get('/api/iot/ping', (req, res) => {
+    res.status(200).json({
+      ok: true,
+      message: 'IoT callback endpoint is reachable',
+      callbackUrl: `${APP_URL}/api/iot/receive`,
+      time: new Date().toISOString(),
+    });
+  });
+
   // 代理接口：订阅设备
   app.post("/api/hoire/subscribe", async (req, res) => {
+    const { token, id, type } = req.body;
     try {
-      const { token, id, type } = req.body;
       const timestamp = Math.floor(Date.now() / 1000);
-      const webhookUrl = `${process.env.APP_URL}/api/iot/receive`;
+      const webhookUrl = `${APP_URL}/api/iot/receive`;
       
       let endpoint = '';
       if (type === 'weather') endpoint = `${HOIRE_BASE_URL}/open/monitor/subscribe`;
@@ -40,6 +63,8 @@ async function startServer() {
       else if (type === 'camera') endpoint = `${HOIRE_BASE_URL}/open/camera/subscribe`;
       
       if (!endpoint) return res.status(400).json({ error: "Invalid device type" });
+
+      console.log('[Subscribe] 发起订阅请求', { type, id, endpoint, webhookUrl, timestamp });
 
       const response = await axios.post(endpoint,
         `token=${token}&id=${id}&url=${encodeURIComponent(webhookUrl)}&timestamp=${timestamp}`,
@@ -50,10 +75,23 @@ async function startServer() {
       );
       
       lastSubscriptionResult = { type, id, data: response.data, time: new Date().toISOString() };
+      console.log('[Subscribe] Hoire 返回', {
+        type,
+        id,
+        code: response.data?.code,
+        message: response.data?.message,
+      });
       res.json(response.data);
     } catch (error: any) {
       console.error(`[订阅错误] ${type} (ID: ${id}):`, error.message);
-      lastSubscriptionResult = { type, id, error: error.message, time: new Date().toISOString() };
+      lastSubscriptionResult = {
+        type,
+        id,
+        error: error.message,
+        details: error.response?.data || null,
+        webhookUrl: `${APP_URL}/api/iot/receive`,
+        time: new Date().toISOString(),
+      };
       res.status(500).json({ error: "Failed to subscribe to device", details: error.message });
     }
   });
@@ -167,6 +205,8 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[Startup] APP_URL=${APP_URL}`);
+    console.log(`[Startup] Hoire callback URL=${APP_URL}/api/iot/receive`);
   });
 }
 
