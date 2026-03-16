@@ -62,7 +62,7 @@ async function startServer() {
   }
 
   // 内存存储最新数据和订阅结果
-  let latestIotData: any = null;
+  let latestIotData: Record<string, any[]> = {};
   let lastSubscriptionResult: any = null;
 
   // API routes
@@ -76,7 +76,24 @@ async function startServer() {
       ua: req.headers['user-agent'],
       time: new Date().toISOString(),
     });
-    latestIotData = req.body;
+    
+    // 尝试从 payload 中提取设备 ID
+    const deviceId = req.body?.id || req.body?.device_id || req.body?.deviceId || 'unknown';
+    
+    if (!latestIotData[deviceId]) {
+      latestIotData[deviceId] = [];
+    }
+    
+    // 将新数据插入到数组开头，并保留最多 5 条历史记录
+    latestIotData[deviceId].unshift({
+      receiveTime: new Date().toISOString(),
+      payload: req.body
+    });
+    
+    if (latestIotData[deviceId].length > 5) {
+      latestIotData[deviceId].pop();
+    }
+
     res.status(200).json({ code: 0, message: "接收成功" });
   });
 
@@ -87,6 +104,11 @@ async function startServer() {
       callbackUrl: `${APP_URL}/api/iot/receive`,
       time: new Date().toISOString(),
     });
+  });
+
+  // 新增：获取所有设备的原始推送数据
+  app.get("/api/iot/raw-data", (req, res) => {
+    res.status(200).json(latestIotData);
   });
 
   let cachedToken: string | null = null;
