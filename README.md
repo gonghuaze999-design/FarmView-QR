@@ -18,3 +18,11 @@ View your app in AI Studio: https://ai.studio/apps/05b9e5e9-fbaa-45cc-8527-521cc
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Deployment
+
+For Tencent Cloud / VPS deployment with Hoire callback stabilization, see:
+
+- [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+Quick note: during early validation, you can deploy and access via server IP directly (for example `http://43.156.153.252:3001`) before binding a domain.
