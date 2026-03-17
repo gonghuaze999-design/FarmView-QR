@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
 import { MapSection } from './components/MapSection';
 import { TimelineSection } from './components/TimelineSection';
+import { AgriMonitoringSection } from './components/AgriMonitoringSection';
 import { MonitoringSection } from './components/MonitoringSection';
 import { JoinUsButton } from './components/JoinUsButton';
 import { AdminPage } from './pages/AdminPage';
@@ -111,6 +112,7 @@ const AppContent = () => {
             <HoireDebug />
             <MapSection />
             <TimelineSection />
+            <AgriMonitoringSection />
             <MonitoringSection />
             <div className="pt-4 pb-8">
               <JoinUsButton />
