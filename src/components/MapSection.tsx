@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Video, Thermometer, Droplets, Activity, Play } from 'lucide-react';
+import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Video, Thermometer, Droplets, Activity, Play, Bug } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
 
@@ -15,7 +15,7 @@ export const MapSection: React.FC = () => {
 
   const mockDevices: DeviceMarker[] = [
     { id: 'w1', type: 'weather', name: '1号气象站', position: [center[0] - 0.001, center[1] + 0.001], status: 'online' },
-    { id: 's1', type: 'soil', name: '2号土壤传感器', position: [center[0] + 0.001, center[1] - 0.0005], status: 'online' },
+    { id: 'i1', type: 'insect', name: '1号虫情测报站', position: [center[0] + 0.001, center[1] - 0.0005], status: 'online' },
     { id: 'c1', type: 'camera', name: '主监控摄像头', position: [center[0] + 0.0015, center[1] + 0.001], status: 'online' },
   ];
 
@@ -180,6 +180,18 @@ export const MapSection: React.FC = () => {
               <div className="flex justify-between text-sm text-zinc-500 px-1">
                 <span>分辨率: 1080P</span>
                 <span>网络延迟: 45ms</span>
+              </div>
+            </div>
+          ) : selectedDevice?.type === 'insect' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 flex flex-col items-center justify-center text-center">
+                <Bug className="text-violet-500 mb-2" size={24} />
+                <span className="text-xs text-violet-600/70 mb-1">今日诱虫</span>
+                <span className="font-bold text-violet-700 text-xl">128<span className="text-sm font-normal ml-0.5">只</span></span>
+              </div>
+              <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
+                <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
+                <span className="font-bold text-zinc-700 text-lg">草地贪夜蛾</span>
               </div>
             </div>
           ) : (
