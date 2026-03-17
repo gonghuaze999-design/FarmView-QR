@@ -13,6 +13,7 @@ type SiteDeviceBinding = {
   weatherId: number;
   insectId: number;
   cameraId: number;
+  farmlandId?: number;
 };
 
 const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
@@ -21,6 +22,7 @@ const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
     weatherId: 11828,
     insectId: 2734,
     cameraId: 313793,
+    farmlandId: 12,
   },
 };
 
@@ -344,6 +346,51 @@ async function startServer() {
       res.json(response.data);
     } catch (error) {
       res.status(500).json({ error: "Failed to get camera devices" });
+    }
+  });
+
+  // 大数据平台农情监测接口代理
+  app.post("/api/bigdata/growsHight", async (req, res) => {
+    try {
+      const { farmlandId, startTime, endTime, dimension = "Growth_status" } = req.body;
+      
+      if (!farmlandId) {
+        return res.status(400).json({ error: "farmlandId is required" });
+      }
+
+      const bigDataToken = process.env.BIG_DATA_TOKEN;
+      if (!bigDataToken) {
+        console.warn("[BigData] BIG_DATA_TOKEN is not set in environment variables");
+        return res.status(500).json({ error: "Server configuration error: Missing Big Data Token" });
+      }
+
+      const targetUrl = "http://cpca.hyspi.com:54082/center/base/growsHight";
+      console.log(`[BigData] Requesting: ${targetUrl} for farmlandId: ${farmlandId}`);
+
+      const response = await axios.post(
+        targetUrl,
+        {
+          dimension,
+          farmlandId,
+          startTime: startTime || "2023-01-01 00:00:00",
+          endTime: endTime || "2026-12-31 00:00:00"
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": bigDataToken
+          },
+          timeout: 10000
+        }
+      );
+
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("[BigData] Error calling growsHight API:", error.message);
+      res.status(500).json({ 
+        error: "Failed to fetch data from Big Data Platform", 
+        details: error.response?.data || error.message 
+      });
     }
   });
 
