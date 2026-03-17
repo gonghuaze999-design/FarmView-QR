@@ -82,10 +82,10 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true }));
   
   // 统一代理到麦芒/大数据平台
-  app.use('/cpca-api', createProxyMiddleware({
+  app.use('/api', createProxyMiddleware({
     target: 'http://cpca.hyspi.com:54082',
     changeOrigin: true,
-    pathRewrite: { '^/cpca-api': '' },
+    pathRewrite: { '^/api': '' },
     on: {
       proxyReq: (proxyReq, req, res) => {
         const token = process.env.BIG_DATA_TOKEN;
