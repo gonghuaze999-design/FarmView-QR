@@ -20,7 +20,7 @@ type SiteDeviceBinding = {
 
 const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
   'base-current': {
-    siteName: '当前基地',
+    siteName: 'A区 种植地',
     weatherId: 11828,
     insectId: 2734,
     cameraId: 313793,
@@ -414,7 +414,10 @@ async function startServer() {
       ],
       time: new Date().toISOString()
     };
-    latestIotData = mockData;
+    latestIotData['1812'] = [{
+      receiveTime: new Date().toISOString(),
+      payload: mockData
+    }];
     console.log("模拟推送数据:", JSON.stringify(mockData, null, 2));
     res.status(200).json({ code: 0, message: "模拟推送成功", data: mockData });
   });
