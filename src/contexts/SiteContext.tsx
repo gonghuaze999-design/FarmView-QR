@@ -6,6 +6,8 @@ export type SiteBinding = {
   insectId: number;
   cameraId: number;
   farmlandId?: number; // 大数据平台的地块ID
+  center?: [number, number];
+  polygon?: [number, number][];
 };
 
 type SiteContextType = {
