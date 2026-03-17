@@ -25,7 +25,7 @@ export const MapComponent = forwardRef(({
   }));
 
   useEffect(() => {
-    const amapKey = import.meta.env.VITE_AMAP_KEY;
+    const amapKey = (import.meta as any).env.VITE_AMAP_KEY;
     if (!amapKey) {
       setError('未配置高德地图 Key (VITE_AMAP_KEY)，无法加载地图');
       return;
@@ -33,7 +33,7 @@ export const MapComponent = forwardRef(({
 
     // 设置安全密钥
     (window as any)._AMapSecurityConfig = {
-      securityJsCode: import.meta.env.VITE_AMAP_SECURITY_CODE || '',
+      securityJsCode: (import.meta as any).env.VITE_AMAP_SECURITY_CODE || '',
     };
 
     // 加载地图脚本
