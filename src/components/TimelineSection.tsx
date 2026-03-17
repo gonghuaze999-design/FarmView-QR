@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, Calendar } from 'lucide-react';
+import { getMachineTasks } from '../services/api';
+import { useSiteContext } from '../contexts/SiteContext';
 
 interface Activity {
   id: string;
@@ -7,40 +9,63 @@ interface Activity {
   title: string;
   description: string;
   summary?: string;
-  type: 'planting' | 'fertilizing' | 'harvesting' | 'other';
+  type: string;
 }
 
-const mockActivities: Activity[] = [
-  { id: '1', date: '2026-04-15', title: '施肥', description: '全区域施用氮肥，促进作物生长。', summary: '用量：50kg/亩', type: 'fertilizing' },
-  { id: '2', date: '2026-03-10', title: '播种', description: '完成A区玉米种子播种工作。', type: 'planting' },
-  { id: '3', date: '2025-10-20', title: '秋收', description: '完成2025年度玉米收割。', summary: '亩产：800kg', type: 'harvesting' },
-  { id: '4', date: '2025-04-10', title: '施肥', description: '春季追肥。', type: 'fertilizing' },
-  { id: '5', date: '2025-03-05', title: '播种', description: '2025年度玉米播种。', type: 'planting' },
-];
-
 export const TimelineSection: React.FC = () => {
+  const { binding } = useSiteContext();
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setLoading(true);
+      try {
+        const res = await getMachineTasks(1); // 默认 baseId 1
+        if (res.code === "200" && res.content?.page) {
+          const tasks = res.content.page.map((task: any) => ({
+            id: task.ID || String(Math.random()),
+            date: task.jobTime?.split(' ')[0] || '未知时间',
+            title: task.jobType || '农事作业',
+            description: `设备: ${task.productType || '未知设备'}`,
+            summary: `作业面积: ${task.area || 0}亩`,
+            type: 'other'
+          }));
+          setActivities(tasks);
+        }
+      } catch (e) {
+        console.error('Failed to fetch machine tasks', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTasks();
+  }, [binding]);
+
   // 动态计算数据包含的年份，并降序排列
   const years = useMemo(() => {
-    const y = Array.from(new Set(mockActivities.map(a => new Date(a.date).getFullYear())));
+    if (activities.length === 0) return [new Date().getFullYear()];
+    const y = Array.from(new Set(activities.map(a => new Date(a.date).getFullYear())));
     return y.sort((a, b) => b - a);
-  }, []);
+  }, [activities]);
 
-  const [selectedYear, setSelectedYear] = useState<number>(years[0] || new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  useEffect(() => {
+    if (years.length > 0 && !years.includes(selectedYear)) {
+      setSelectedYear(years[0]);
+    }
+  }, [years]);
 
   // 根据选择的年份过滤数据，并按时间倒序排列
   const filteredActivities = useMemo(() => {
-    return mockActivities
+    return activities
       .filter(a => new Date(a.date).getFullYear() === selectedYear)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [selectedYear]);
+  }, [selectedYear, activities]);
 
   const getTypeColor = (type: string) => {
-    switch(type) {
-      case 'planting': return 'bg-emerald-500';
-      case 'fertilizing': return 'bg-blue-500';
-      case 'harvesting': return 'bg-amber-500';
-      default: return 'bg-zinc-400';
-    }
+    return 'bg-emerald-500';
   };
 
   return (
@@ -65,7 +90,9 @@ export const TimelineSection: React.FC = () => {
         )}
       </div>
 
-      {filteredActivities.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-zinc-400 text-sm">加载中...</div>
+      ) : filteredActivities.length === 0 ? (
         <div className="text-center py-8 text-zinc-400 text-sm">暂无该年度农事记录</div>
       ) : (
         <div className="relative border-l-2 border-zinc-100 ml-2">
