@@ -4,7 +4,7 @@ const SITE_NAME = import.meta.env.VITE_SITE_NAME || 'default-site';
 const DEVICE_ID = import.meta.env.VITE_DEVICE_ID || 'default-device';
 
 const api = axios.create({
-  baseURL: '/cpca-api',
+  baseURL: '/api',
   timeout: 10000,
   headers: {
     'X-Site-Name': SITE_NAME,
