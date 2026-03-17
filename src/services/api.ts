@@ -4,7 +4,7 @@ const SITE_NAME = import.meta.env.VITE_SITE_NAME || 'default-site';
 const DEVICE_ID = import.meta.env.VITE_DEVICE_ID || 'default-device';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/cpca',
   timeout: 10000,
   headers: {
     'X-Site-Name': SITE_NAME,
@@ -12,26 +12,59 @@ const api = axios.create({
   }
 });
 
-api.interceptors.request.use((config) => {
-  // 优先使用后端代理注入的 token，如果需要前端注入，保留此逻辑
-  const token = localStorage.getItem('cpca_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-export const login = async (data: any) => {
-  const response = await api.post('/auth/login', { ...data, siteName: SITE_NAME });
-  return response.data;
-};
-
 export const getFarmlandList = async (baseId: number) => {
-  const response = await api.get(`/farm/land/list?baseId=${baseId}&deviceId=${DEVICE_ID}`);
+  const response = await api.get(`/farm/land/list?baseId=${baseId}`);
   return response.data;
 };
 
-export const getGrowthData = async (data: any) => {
-  const response = await api.post('/center/base/growsHight', { ...data, deviceId: DEVICE_ID });
+export const getIotLocations = async (baseId: number) => {
+  const response = await api.get(`/collect/iot/locationList?baseId=${baseId}`);
+  return response.data;
+};
+
+export const getEnvData = async (farmlandId: number, startTime: string, endTime: string) => {
+  const response = await api.post('/collect/iot/getEnvInformationNew', {
+    farmlandId,
+    dimension: 'air_temperature,air_humidity',
+    startTime,
+    endTime
+  });
+  return response.data;
+};
+
+export const getInsectData = async (farmlandId: number, startTime: string, endTime: string) => {
+  const response = await api.post('/collect/iot/insectQuantity', {
+    farmlandId,
+    startTime,
+    endTime
+  });
+  return response.data;
+};
+
+export const getCameraList = async (baseId: number, farmlandIds: string) => {
+  const response = await api.post('/collect/collection/cameraList', {
+    baseId,
+    farmlandIds
+  });
+  return response.data;
+};
+
+export const getMachineTasks = async (farmId: number) => {
+  const response = await api.post('/api/dataCenter/machineList', {
+    farmId,
+    pageNo: 1,
+    pageSize: 100,
+    jobType: "0"
+  });
+  return response.data;
+};
+
+export const getGrowthData = async (farmlandId: number, startTime: string, endTime: string) => {
+  const response = await api.post('/center/base/growsHight', { 
+    dimension: "Growth_status",
+    farmlandId,
+    startTime,
+    endTime
+  });
   return response.data;
 };
