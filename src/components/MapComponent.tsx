@@ -1,7 +1,17 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle, useState } from 'react';
 import { MapPinOff } from 'lucide-react';
 
-export const MapComponent = forwardRef(({ isFullScreen }: { isFullScreen: boolean }, ref) => {
+export const MapComponent = forwardRef(({ 
+  isFullScreen, 
+  center, 
+  polygon, 
+  onPolygonClick 
+}: { 
+  isFullScreen: boolean;
+  center?: [number, number];
+  polygon?: [number, number][];
+  onPolygonClick?: () => void;
+}, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +55,11 @@ export const MapComponent = forwardRef(({ isFullScreen }: { isFullScreen: boolea
       }
       
       try {
+        const mapCenter = center || [116.397428, 39.90923];
         mapInstance.current = new AMap.Map(mapRef.current, {
           viewMode: '3D',
           zoom: 16,
-          center: [116.397428, 39.90923], // 可以根据实际基地坐标修改
+          center: mapCenter,
           layers: [
             new AMap.TileLayer.Satellite(),
             new AMap.TileLayer.RoadNet()
@@ -62,6 +73,28 @@ export const MapComponent = forwardRef(({ isFullScreen }: { isFullScreen: boolea
           mapInstance.current.addControl(toolbar);
           mapInstance.current.addControl(scale);
         });
+
+        // 绘制多边形
+        if (polygon && polygon.length > 0) {
+          const polygonObj = new AMap.Polygon({
+            path: polygon,
+            fillColor: '#10b981', // emerald-500
+            fillOpacity: 0.3,
+            strokeColor: '#059669', // emerald-600
+            strokeWeight: 2,
+            strokeStyle: 'dashed',
+            cursor: 'pointer',
+          });
+          
+          mapInstance.current.add(polygonObj);
+          
+          if (onPolygonClick) {
+            polygonObj.on('click', onPolygonClick);
+          }
+          
+          // 自动缩放地图到多边形可视范围
+          mapInstance.current.setFitView([polygonObj]);
+        }
       } catch (err: any) {
         console.error(err);
         setError('地图初始化失败: ' + err.message);
