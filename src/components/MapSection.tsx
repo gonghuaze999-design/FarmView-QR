@@ -1,35 +1,130 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Video, Thermometer, Droplets, Activity, Play, Bug } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
+import { getFarmlandList, getIotLocations, getEnvData, getInsectData, getCameraList } from '../services/api';
 
 export const MapSection: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [isDeviceSheetOpen, setIsDeviceSheetOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<DeviceMarker | null>(null);
+  const [deviceData, setDeviceData] = useState<any>(null);
+  const [deviceLoading, setDeviceLoading] = useState(false);
+  const [selectedPolygon, setSelectedPolygon] = useState<any>(null);
+  const [polygons, setPolygons] = useState<any[]>([]);
+  const [devices, setDevices] = useState<DeviceMarker[]>([]);
   const mapRef = useRef<any>(null);
   const { binding } = useSiteContext();
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const baseId = 1; // 默认 baseId
+        const [landRes, iotRes] = await Promise.all([
+          getFarmlandList(baseId),
+          getIotLocations(baseId)
+        ]);
+
+        if (landRes.code === 200 && landRes.data) {
+          // 解析 WKT 格式的 mapPolygonGeo
+          const parsedPolygons = landRes.data.map((land: any) => {
+            let coords = [];
+            if (land.mapPolygonGeo) {
+              try {
+                const match = land.mapPolygonGeo.match(/POLYGON\(\((.*?)\)\)/);
+                if (match && match[1]) {
+                  const points = match[1].split(',');
+                  coords = points.map((p: string) => {
+                    const [lng, lat] = p.trim().split(' ').map(Number);
+                    return [lng, lat];
+                  });
+                }
+              } catch (e) {
+                console.error('Failed to parse polygon', e);
+              }
+            }
+            return {
+              ...land,
+              coordinates: coords
+            };
+          }).filter((p: any) => p.coordinates.length > 0);
+          setPolygons(parsedPolygons);
+        }
+
+        if (iotRes.code === 200 && iotRes.data) {
+          const parsedDevices = iotRes.data.map((iot: any) => {
+            let position: [number, number] = [0, 0];
+            if (iot.location) {
+              try {
+                const loc = JSON.parse(iot.location);
+                if (loc.longtitude && loc.latitude) {
+                  position = [Number(loc.longtitude), Number(loc.latitude)];
+                }
+              } catch (e) {
+                console.error('Failed to parse location', e);
+              }
+            }
+            let type = 'weather';
+            const nameStr = String(iot.name || iot.deviceName || '').toLowerCase();
+            if (nameStr.includes('虫') || iot.deviceType === 'insect' || iot.type === 'insect' || iot.type === 2) {
+              type = 'insect';
+            } else if (nameStr.includes('摄像') || nameStr.includes('监控') || iot.deviceType === 'camera' || iot.type === 'camera' || iot.type === 3) {
+              type = 'camera';
+            }
+
+            return {
+              id: String(iot.id),
+              type,
+              name: iot.name || iot.deviceName || `设备 ${iot.id}`,
+              position,
+              status: iot.is_used === 1 || iot.status === 1 ? 'online' : 'offline'
+            };
+          }).filter((d: any) => d.position[0] !== 0);
+          setDevices(parsedDevices);
+        }
+      } catch (error) {
+        console.error('Failed to fetch map data', error);
+      }
+    };
+    fetchData();
+  }, [binding]);
+
   const center: [number, number] = (binding?.center && !isNaN(binding.center[0]) && !isNaN(binding.center[1])) 
     ? binding.center 
-    : [116.397428, 39.90923];
+    : [122.063, 46.133]; // 混都冷南侧西地块附近
 
-  const mockDevices: DeviceMarker[] = [
-    { id: 'w1', type: 'weather', name: '1号气象站', position: [center[0] - 0.001, center[1] + 0.001], status: 'online' },
-    { id: 'i1', type: 'insect', name: '1号虫情测报站', position: [center[0] + 0.001, center[1] - 0.0005], status: 'online' },
-    { id: 'c1', type: 'camera', name: '主监控摄像头', position: [center[0] + 0.0015, center[1] + 0.001], status: 'online' },
-  ];
-
-  const handlePolygonClick = () => {
+  const handlePolygonClick = (polygonData?: any) => {
+    setSelectedPolygon(polygonData);
     setIsBottomSheetOpen(true);
     setIsDeviceSheetOpen(false);
   };
 
-  const handleDeviceClick = (device: DeviceMarker) => {
+  const handleDeviceClick = async (device: DeviceMarker) => {
     setSelectedDevice(device);
     setIsDeviceSheetOpen(true);
     setIsBottomSheetOpen(false);
+    setDeviceLoading(true);
+    setDeviceData(null);
+
+    try {
+      const baseId = 1;
+      const farmlandId = 1; // 默认
+      if (device.type === 'weather') {
+        const res = await getEnvData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
+        setDeviceData(res.data);
+      } else if (device.type === 'insect') {
+        const res = await getInsectData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
+        setDeviceData(res.data);
+      } else if (device.type === 'camera') {
+        const res = await getCameraList(baseId, "1,2,3");
+        setDeviceData(res.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch device data', e);
+    } finally {
+      setDeviceLoading(false);
+    }
   };
 
   const toggleFullScreen = () => {
@@ -49,13 +144,9 @@ export const MapSection: React.FC = () => {
           isFullScreen={isFullScreen} 
           ref={mapRef} 
           center={center}
-          polygon={binding?.polygon || [
-            [116.396, 39.908],
-            [116.399, 39.908],
-            [116.399, 39.910],
-            [116.396, 39.910]
-          ]}
-          devices={mockDevices}
+          polygon={binding?.polygon || []}
+          polygons={polygons}
+          devices={devices}
           onPolygonClick={handlePolygonClick}
           onDeviceClick={handleDeviceClick}
         />
@@ -108,7 +199,7 @@ export const MapSection: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              <h3 className="font-bold text-zinc-800 text-lg">{binding?.siteName || 'A区 种植地'}</h3>
+              <h3 className="font-bold text-zinc-800 text-lg">{selectedPolygon?.farmlandName || binding?.siteName || 'A区 种植地'}</h3>
             </div>
             <button 
               onClick={() => setIsBottomSheetOpen(false)}
@@ -121,12 +212,12 @@ export const MapSection: React.FC = () => {
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-100">
               <span className="text-xs text-zinc-500 block mb-1">地块面积</span>
-              <span className="font-bold text-zinc-800">10.5 <span className="text-xs font-normal text-zinc-500">亩</span></span>
+              <span className="font-bold text-zinc-800">{selectedPolygon?.size || '10.5'} <span className="text-xs font-normal text-zinc-500">亩</span></span>
             </div>
             <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
-              <span className="text-xs text-emerald-600/70 block mb-1">当前作物</span>
+              <span className="text-xs text-emerald-600/70 block mb-1">当前状态</span>
               <span className="font-bold text-emerald-700 flex items-center gap-1">
-                <Leaf size={14} /> 玉米
+                <Leaf size={14} /> {selectedPolygon?.status === 1 ? '种植中' : '空闲中'}
               </span>
             </div>
           </div>
@@ -134,15 +225,11 @@ export const MapSection: React.FC = () => {
           <div className="space-y-2">
             <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
               <span className="text-zinc-500">土地用途</span>
-              <span className="font-medium text-zinc-700">基本农田</span>
+              <span className="font-medium text-zinc-700">{selectedPolygon?.mapType || '基本农田'}</span>
             </div>
             <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
-              <span className="text-zinc-500">负责人</span>
-              <span className="font-medium text-zinc-700">张三</span>
-            </div>
-            <div className="flex justify-between text-sm py-2">
-              <span className="text-zinc-500">最近农事</span>
-              <span className="font-medium text-zinc-700">施肥 (2天前)</span>
+              <span className="text-zinc-500">备注</span>
+              <span className="font-medium text-zinc-700">{selectedPolygon?.remark || '无'}</span>
             </div>
           </div>
         </div>
@@ -168,27 +255,26 @@ export const MapSection: React.FC = () => {
             </button>
           </div>
 
-          {selectedDevice?.type === 'camera' ? (
+          {deviceLoading ? (
+            <div className="text-center py-8 text-zinc-400 text-sm">加载设备数据中...</div>
+          ) : selectedDevice?.type === 'camera' ? (
             <div className="space-y-4">
               <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
                 <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
                   <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
                 </div>
-                <video 
-                  src="https://www.w3schools.com/html/mov_bbb.mp4"
-                  autoPlay 
-                  muted 
-                  playsInline 
-                  loop 
-                  className="absolute inset-0 w-full h-full object-cover opacity-60"
-                />
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform z-10">
-                  <Play className="text-white ml-1" size={24} />
-                </div>
-              </div>
-              <div className="flex justify-between text-sm text-zinc-500 px-1">
-                <span>分辨率: 1080P</span>
-                <span>网络延迟: 45ms</span>
+                {deviceData && deviceData.length > 0 && deviceData[0].videoUrl ? (
+                  <video 
+                    src={deviceData[0].videoUrl}
+                    autoPlay 
+                    muted 
+                    playsInline 
+                    loop 
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-zinc-500 text-sm">暂无视频流</div>
+                )}
               </div>
             </div>
           ) : selectedDevice?.type === 'insect' ? (
@@ -196,11 +282,16 @@ export const MapSection: React.FC = () => {
               <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 flex flex-col items-center justify-center text-center">
                 <Bug className="text-violet-500 mb-2" size={24} />
                 <span className="text-xs text-violet-600/70 mb-1">今日诱虫</span>
-                <span className="font-bold text-violet-700 text-xl">128<span className="text-sm font-normal ml-0.5">只</span></span>
+                <span className="font-bold text-violet-700 text-xl">
+                  {deviceData?.length > 0 ? deviceData.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0) : '0'}
+                  <span className="text-sm font-normal ml-0.5">只</span>
+                </span>
               </div>
               <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
                 <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
-                <span className="font-bold text-zinc-700 text-lg">草地贪夜蛾</span>
+                <span className="font-bold text-zinc-700 text-lg">
+                  {deviceData?.length > 0 && deviceData[0].name ? deviceData[0].name : '未知'}
+                </span>
               </div>
             </div>
           ) : (
@@ -208,18 +299,27 @@ export const MapSection: React.FC = () => {
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
                 <Thermometer className="text-blue-500 mb-2" size={24} />
                 <span className="text-xs text-blue-600/70 mb-1">当前温度</span>
-                <span className="font-bold text-blue-700 text-xl">24.5<span className="text-sm font-normal ml-0.5">°C</span></span>
+                <span className="font-bold text-blue-700 text-xl">
+                  {deviceData?.air_temperature?.length > 0 ? deviceData.air_temperature[0].value : '--'}
+                  <span className="text-sm font-normal ml-0.5">°C</span>
+                </span>
               </div>
               <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
                 <Droplets className="text-emerald-500 mb-2" size={24} />
                 <span className="text-xs text-emerald-600/70 mb-1">环境湿度</span>
-                <span className="font-bold text-emerald-700 text-xl">62<span className="text-sm font-normal ml-0.5">%</span></span>
+                <span className="font-bold text-emerald-700 text-xl">
+                  {deviceData?.air_humidity?.length > 0 ? deviceData.air_humidity[0].value : '--'}
+                  <span className="text-sm font-normal ml-0.5">%</span>
+                </span>
               </div>
               {selectedDevice?.type === 'weather' && (
                 <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center col-span-2">
                   <Activity className="text-amber-500 mb-2" size={24} />
                   <span className="text-xs text-amber-600/70 mb-1">光照强度</span>
-                  <span className="font-bold text-amber-700 text-xl">45000<span className="text-sm font-normal ml-0.5">Lux</span></span>
+                  <span className="font-bold text-amber-700 text-xl">
+                    {deviceData?.illumination?.length > 0 ? deviceData.illumination[0].value : '--'}
+                    <span className="text-sm font-normal ml-0.5">Lux</span>
+                  </span>
                 </div>
               )}
             </div>
