@@ -11,7 +11,9 @@ export const MapSection: React.FC = () => {
   const mapRef = useRef<any>(null);
   const { binding } = useSiteContext();
 
-  const center: [number, number] = binding?.center || [116.397428, 39.90923];
+  const center: [number, number] = (binding?.center && !isNaN(binding.center[0]) && !isNaN(binding.center[1])) 
+    ? binding.center 
+    : [116.397428, 39.90923];
 
   const mockDevices: DeviceMarker[] = [
     { id: 'w1', type: 'weather', name: '1号气象站', position: [center[0] - 0.001, center[1] + 0.001], status: 'online' },
@@ -172,7 +174,14 @@ export const MapSection: React.FC = () => {
                 <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
                   <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
                 </div>
-                <img src="https://picsum.photos/seed/farm/800/450" alt="Camera Feed Placeholder" className="absolute inset-0 w-full h-full object-cover opacity-60" referrerPolicy="no-referrer" />
+                <video 
+                  src="https://www.w3schools.com/html/mov_bbb.mp4"
+                  autoPlay 
+                  muted 
+                  playsInline 
+                  loop 
+                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                />
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform z-10">
                   <Play className="text-white ml-1" size={24} />
                 </div>
