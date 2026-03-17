@@ -1,16 +1,28 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle, useState } from 'react';
 import { MapPinOff } from 'lucide-react';
 
+export interface DeviceMarker {
+  id: string;
+  type: 'weather' | 'soil' | 'camera';
+  name: string;
+  position: [number, number];
+  status: 'online' | 'offline';
+}
+
 export const MapComponent = forwardRef(({ 
   isFullScreen, 
   center, 
   polygon, 
-  onPolygonClick 
+  devices,
+  onPolygonClick,
+  onDeviceClick
 }: { 
   isFullScreen: boolean;
   center?: [number, number];
   polygon?: [number, number][];
+  devices?: DeviceMarker[];
   onPolygonClick?: () => void;
+  onDeviceClick?: (device: DeviceMarker) => void;
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
@@ -94,6 +106,43 @@ export const MapComponent = forwardRef(({
           
           // 自动缩放地图到多边形可视范围
           mapInstance.current.setFitView([polygonObj]);
+        }
+
+        // 绘制设备标记
+        if (devices && devices.length > 0) {
+          devices.forEach(device => {
+            let iconColor = '#3b82f6'; // blue for weather
+            let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 2.9-8 4.5 4.5 0 0 0-8.9-1.5 4.5 4.5 0 0 0-8.5 1.5 4.5 4.5 0 0 0 2.9 8z"/></svg>';
+            
+            if (device.type === 'soil') {
+              iconColor = '#d97706'; // amber for soil
+              iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>';
+            } else if (device.type === 'camera') {
+              iconColor = '#ef4444'; // red for camera
+              iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
+            }
+
+            const markerContent = `
+              <div style="background-color: ${iconColor}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white;">
+                ${iconSvg}
+              </div>
+            `;
+
+            const marker = new AMap.Marker({
+              position: device.position,
+              content: markerContent,
+              offset: new AMap.Pixel(-16, -16),
+              extData: device
+            });
+
+            marker.on('click', (e: any) => {
+              if (onDeviceClick) {
+                onDeviceClick(e.target.getExtData());
+              }
+            });
+
+            mapInstance.current.add(marker);
+          });
         }
       } catch (err: any) {
         console.error(err);
