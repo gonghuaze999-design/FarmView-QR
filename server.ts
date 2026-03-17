@@ -126,6 +126,53 @@ async function startServer() {
   let cachedToken: string | null = null;
   let tokenExpiration: number = 0;
 
+  // --- CPCA Token Polling ---
+  let cpcaToken: string | null = null;
+  let cpcaTokenExpiry: number = 0;
+
+  async function refreshCpcaToken() {
+    try {
+      console.log('[CPCA Auth] 正在获取最新 Token...');
+      const res = await axios.post('http://cpca.hyspi.com:54082/auth/login', {
+        username: 'admin',
+        password: 'admin123',
+        code: 1,
+        uuid: '6c738ec15326456abcb431c37dfcb0e2',
+        rememberMe: true
+      });
+      if (res.data && res.data.data && res.data.data.access_token) {
+        cpcaToken = res.data.data.access_token;
+        cpcaTokenExpiry = Date.now() + 1000 * 60 * 60 * 2; // 假设 2 小时过期
+        console.log('[CPCA Auth] Token 获取成功');
+      } else {
+        console.error('[CPCA Auth] Token 获取失败, 响应异常:', res.data);
+      }
+    } catch (error: any) {
+      console.error('[CPCA Auth] Token 请求失败:', error.message);
+    }
+  }
+
+  // 初始获取
+  await refreshCpcaToken();
+  
+  // 定时刷新 (每小时)
+  setInterval(refreshCpcaToken, 1000 * 60 * 60);
+
+  // 统一代理到麦芒/大数据平台
+  app.use('/api/cpca', createProxyMiddleware({
+    target: 'http://cpca.hyspi.com:54082',
+    changeOrigin: true,
+    pathRewrite: { '^/api/cpca': '' },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        if (cpcaToken) {
+          proxyReq.setHeader('Authorization', `Bearer ${cpcaToken}`);
+        }
+      }
+    }
+  }));
+  // --------------------------
+
   async function getValidToken() {
     const now = Math.floor(Date.now() / 1000);
     if (cachedToken && tokenExpiration > now + 300) {
@@ -448,21 +495,6 @@ async function startServer() {
   app.get("/api/iot/latest", (req, res) => {
     res.status(200).json(latestIotData);
   });
-
-  // 统一代理到麦芒/大数据平台
-  app.use('/api', createProxyMiddleware({
-    target: 'http://cpca.hyspi.com:54082',
-    changeOrigin: true,
-    pathRewrite: { '^/api': '' },
-    on: {
-      proxyReq: (proxyReq, req, res) => {
-        const token = process.env.BIG_DATA_TOKEN;
-        if (token) {
-          proxyReq.setHeader('Authorization', `Bearer ${token}`);
-        }
-      }
-    }
-  }));
 
   // Vite middleware
   if (process.env.NODE_ENV !== "production") {
