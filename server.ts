@@ -81,21 +81,6 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   
-  // 统一代理到麦芒/大数据平台
-  app.use('/api', createProxyMiddleware({
-    target: 'http://cpca.hyspi.com:54082',
-    changeOrigin: true,
-    pathRewrite: { '^/api': '' },
-    on: {
-      proxyReq: (proxyReq, req, res) => {
-        const token = process.env.BIG_DATA_TOKEN;
-        if (token) {
-          proxyReq.setHeader('Authorization', `Bearer ${token}`);
-        }
-      }
-    }
-  }));
-
   // 真实推送接口
   app.post("/api/iot/receive", (req, res) => {
     console.log("[IOT Push] 收到物联网平台推送请求", {
@@ -463,6 +448,21 @@ async function startServer() {
   app.get("/api/iot/latest", (req, res) => {
     res.status(200).json(latestIotData);
   });
+
+  // 统一代理到麦芒/大数据平台
+  app.use('/api', createProxyMiddleware({
+    target: 'http://cpca.hyspi.com:54082',
+    changeOrigin: true,
+    pathRewrite: { '^/api': '' },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        const token = process.env.BIG_DATA_TOKEN;
+        if (token) {
+          proxyReq.setHeader('Authorization', `Bearer ${token}`);
+        }
+      }
+    }
+  }));
 
   // Vite middleware
   if (process.env.NODE_ENV !== "production") {
