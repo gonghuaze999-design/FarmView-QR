@@ -1,159 +1,187 @@
 import React, { useState, useEffect } from 'react';
-import { Sprout, RefreshCw, Calendar, Tag } from 'lucide-react';
+import { Activity, RefreshCw, Thermometer, Bug, CloudRain, Wind, Sun, Droplets, Zap } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { Skeleton } from './Skeleton';
+import { getFarmlandList, getEnvData, getInsectData } from '../services/api';
 
-import { getGrowthData } from '../services/api';
-
-interface GrowData {
-  id: string;
-  date: string;
-  imageUrl: string;
-  tags: string[];
-  summary: string;
-}
-
-export const AgriMonitoringSection: React.FC = () => {
+export const MonitoringSection: React.FC = () => {
   const { binding } = useSiteContext();
-  const [data, setData] = useState<GrowData[] | null>(null);
+  const [weatherData, setWeatherData] = useState<any>(null);
+  const [insectData, setInsectData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchAgriData = async () => {
-    setLoading(true);
+  const fetchIotData = async () => {
+    setIsRefreshing(true);
     try {
-      const res = await getGrowthData(binding?.farmlandId || 12, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
+      const baseId = 1; // 默认 baseId
+      const landRes = await getFarmlandList(baseId);
+      let farmlandId = binding?.farmlandId || 12; // 默认使用 binding 中的 farmlandId 或 12
       
-      if (res.code === "200" && res.content?.result) {
-        const resultObj = res.content.result;
-        const mode = resultObj.mode ? Number(resultObj.mode).toFixed(4) : 'N/A';
-        const min = resultObj.min ? Number(resultObj.min).toFixed(4) : 'N/A';
-        const max = resultObj.max ? Number(resultObj.max).toFixed(4) : 'N/A';
-        
-        const mockData: GrowData[] = [
-          {
-            id: '1',
-            date: resultObj.reportTime?.split(' ')[0] || '最新',
-            imageUrl: 'https://picsum.photos/seed/corn1/400/300',
-            tags: ['长势分析', '算法结果'],
-            summary: `长势众数: ${mode}, 最小值: ${min}, 最大值: ${max}。`
-          }
-        ];
-        setData(mockData);
-      } else {
-        setData([]);
+      if (landRes.code === 200 && landRes.data && landRes.data.length > 0) {
+        farmlandId = landRes.data[0].id;
       }
+
+      const now = new Date();
+      const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
+
+      const [envRes, insectRes] = await Promise.all([
+        getEnvData(farmlandId, startTime, endTime),
+        getInsectData(farmlandId, startTime, endTime)
+      ]);
+
+      if (envRes.code === 200 && envRes.data && envRes.data.length > 0) {
+        const latestEnv = envRes.data[0];
+        setWeatherData({
+          time: latestEnv.time || new Date().toISOString(),
+          sensors: [
+            { name: '空气温度', value: latestEnv.air_temperature, unit: '℃' },
+            { name: '空气湿度', value: latestEnv.air_humidity, unit: '%' },
+          ]
+        });
+      }
+
+      if (insectRes.code === 200 && insectRes.data && insectRes.data.length > 0) {
+        const latestInsect = insectRes.data[0];
+        setInsectData({
+          time: latestInsect.time || new Date().toISOString(),
+          sensors: [
+            { name: '今日诱虫量', value: latestInsect.insect_quantity, unit: '只' },
+            { name: '主要害虫', value: latestInsect.main_pest || '无', unit: '' },
+          ]
+        });
+      }
+
     } catch (error) {
-      console.error('获取农情监测数据失败:', error);
-      setData(null);
+      console.error('获取物联网数据失败:', error);
     } finally {
       setLoading(false);
+      setTimeout(() => setIsRefreshing(false), 500);
     }
   };
 
   useEffect(() => {
-    fetchAgriData();
-  }, [binding?.farmlandId]);
+    fetchIotData();
+    const interval = setInterval(fetchIotData, 60000); // 每分钟轮询一次
+    return () => clearInterval(interval);
+  }, [binding]);
+
+  const hasAnyData = weatherData || insectData;
+
+  const getIconForSensor = (name: string) => {
+    if (name.includes('温度')) return <Thermometer size={16} className="text-blue-500" />;
+    if (name.includes('湿度') || name.includes('水分')) return <Droplets size={16} className="text-emerald-500" />;
+    if (name.includes('光照')) return <Sun size={16} className="text-amber-500" />;
+    if (name.includes('风')) return <Wind size={16} className="text-teal-500" />;
+    if (name.includes('雨') || name.includes('降水')) return <CloudRain size={16} className="text-indigo-500" />;
+    if (name.includes('虫')) return <Bug size={16} className="text-violet-500" />;
+    return <Zap size={16} className="text-zinc-400" />;
+  };
 
   return (
     <section className="farm-card p-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-2">
-          <Sprout className="text-emerald-500" size={20} />
-          <h2 className="text-xl font-bold text-zinc-800">农情监测</h2>
+          <Activity className="text-emerald-500" size={20} />
+          <h2 className="text-xl font-bold text-zinc-800">物联网实时监控</h2>
         </div>
-        <button 
-          onClick={fetchAgriData}
-          className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
-        >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          刷新
-        </button>
+        <div className="flex gap-2">
+          {!hasAnyData && !loading && (
+            <button 
+              onClick={fetchIotData}
+              className="text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-full font-medium transition-all"
+            >
+              重新获取
+            </button>
+          )}
+          <button 
+            onClick={fetchIotData}
+            className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+          >
+            <RefreshCw size={12} className={isRefreshing ? "animate-spin" : ""} />
+            刷新
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="space-y-6 pt-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-zinc-200/60 p-4 pt-5">
-              <Skeleton className="h-4 w-24 mb-3" />
-              <div className="flex gap-4">
-                <Skeleton className="w-24 h-24 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              </div>
-            </div>
-          ))}
+      {loading && !hasAnyData ? (
+        <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+          <RefreshCw size={24} className="animate-spin mb-3 text-zinc-300" />
+          <p className="text-sm">正在获取真实设备数据...</p>
         </div>
-      ) : !data || data.length === 0 ? (
+      ) : !hasAnyData ? (
         <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-8 text-center">
           <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Sprout size={24} className="text-zinc-300" />
+            <Activity size={24} className="text-zinc-300" />
           </div>
-          <p className="text-zinc-600 font-medium mb-1">暂无农情监测数据</p>
-          <p className="text-zinc-400 text-xs">当前地块暂未生成近期的遥感分析报告</p>
+          <p className="text-zinc-600 font-medium mb-1">暂无设备数据</p>
+          <p className="text-zinc-400 text-xs mb-4">设备可能离线，或尚未上传数据</p>
+          <button 
+            onClick={fetchIotData}
+            className="text-sm bg-emerald-500 text-white hover:bg-emerald-600 px-5 py-2 rounded-full font-medium transition-all shadow-sm shadow-emerald-500/20"
+          >
+            重试获取数据
+          </button>
         </div>
       ) : (
-        <div className="space-y-8 pt-2">
-          {data.map((item) => (
-            <div key={item.id} className="relative">
-              {/* 曲别针 SVG */}
-              <div className="absolute -top-4 left-6 z-10 drop-shadow-md transform -rotate-12">
-                <svg width="24" height="48" viewBox="0 0 24 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 42C16.4183 42 20 38.4183 20 34V14C20 10.6863 17.3137 8 14 8C10.6863 8 8 10.6863 8 14V32C8 34.2091 9.79086 36 12 36C14.2091 36 16 34.2091 16 32V16" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M12 42C7.58172 42 4 38.4183 4 34V14" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-
-              {/* 卡片主体 */}
-              <div className="bg-white rounded-2xl border border-zinc-200/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden relative pt-2">
-                {/* 顶部装饰线 */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-teal-400"></div>
-                
-                <div className="p-4 pt-5">
-                  <div className="flex items-center gap-1.5 mb-3 text-zinc-500">
-                    <Calendar size={14} />
-                    <span className="text-xs font-medium font-mono">{item.date}</span>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    {/* 左侧缩略图 */}
-                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-zinc-100 shadow-sm relative group">
-                      <img 
-                        src={item.imageUrl} 
-                        alt="农情影像" 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                    </div>
-                    
-                    {/* 右侧分析结论 */}
-                    <div className="flex-1 flex flex-col justify-between py-0.5">
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {item.tags.map((tag, idx) => (
-                          <span 
-                            key={idx} 
-                            className={`text-[10px] px-2 py-1 rounded-md font-medium flex items-center gap-1
-                              ${idx === 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
-                                idx === 1 ? 'bg-blue-50 text-blue-700 border border-blue-100' : 
-                                'bg-zinc-50 text-zinc-600 border border-zinc-200'}`}
-                          >
-                            <Tag size={10} />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-xs text-zinc-600 leading-relaxed line-clamp-3">
-                        {item.summary}
-                      </p>
-                    </div>
-                  </div>
+        <div className="space-y-6">
+          {/* 气象站数据 */}
+          {weatherData && (
+            <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden shadow-sm">
+              <div className="bg-blue-50/50 px-4 py-3 border-b border-zinc-100 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
+                  <span className="font-bold text-zinc-800 text-sm">气象站 (ID: {binding?.weatherId})</span>
                 </div>
+                <span className="text-[10px] text-zinc-400 font-mono">
+                  更新于: {new Date(weatherData.time).toLocaleTimeString()}
+                </span>
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {weatherData.sensors.map((item: any, i: number) => (
+                  <div key={i} className="bg-zinc-50 p-3 rounded-xl border border-zinc-100/50">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {getIconForSensor(item.name)}
+                      <span className="text-xs font-medium text-zinc-500">{item.name}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-zinc-800">{item.value ?? '--'}</span>
+                      <span className="text-[10px] text-zinc-400 font-medium">{item.unit}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
+
+          {/* 虫情站数据 */}
+          {insectData && (
+            <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden shadow-sm">
+              <div className="bg-violet-50/50 px-4 py-3 border-b border-zinc-100 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
+                  <span className="font-bold text-zinc-800 text-sm">虫情测报站 (ID: {binding?.insectId})</span>
+                </div>
+                <span className="text-[10px] text-zinc-400 font-mono">
+                  更新于: {new Date(insectData.time).toLocaleTimeString()}
+                </span>
+              </div>
+              <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {insectData.sensors.map((item: any, i: number) => (
+                  <div key={i} className="bg-zinc-50 p-3 rounded-xl border border-zinc-100/50">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {getIconForSensor(item.name)}
+                      <span className="text-xs font-medium text-zinc-500">{item.name}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-bold text-zinc-800">{item.value ?? '--'}</span>
+                      <span className="text-[10px] text-zinc-400 font-medium">{item.unit}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
