@@ -35,7 +35,7 @@ export const MapSection: React.FC = () => {
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10 pointer-events-none">
         <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-sm border border-white/50 flex items-center gap-2 pointer-events-auto">
           <MapIcon size={16} className="text-emerald-600" />
-          <span className="text-sm font-bold text-zinc-800">{binding?.siteName || '基地地图'}</span>
+          <span className="text-sm font-bold text-zinc-800">{binding?.siteName || 'A区 种植地'}</span>
         </div>
         
         <button 
@@ -67,7 +67,7 @@ export const MapSection: React.FC = () => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              <h3 className="font-bold text-zinc-800 text-lg">{binding?.siteName || '目标地块'}</h3>
+              <h3 className="font-bold text-zinc-800 text-lg">{binding?.siteName || 'A区 种植地'}</h3>
             </div>
             <button 
               onClick={() => setIsBottomSheetOpen(false)}
