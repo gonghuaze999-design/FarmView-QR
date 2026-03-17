@@ -128,6 +128,12 @@ export const MapComponent = forwardRef(({
               </div>
             `;
 
+            console.log('Creating marker for device:', device);
+            if (isNaN(device.position[0]) || isNaN(device.position[1])) {
+              console.error('Invalid device position:', device.position);
+              return;
+            }
+
             const marker = new AMap.Marker({
               position: device.position,
               content: markerContent,
@@ -177,5 +183,5 @@ export const MapComponent = forwardRef(({
     );
   }
 
-  return <div ref={mapRef} className="w-full h-full bg-zinc-100 absolute inset-0 z-0" />;
+  return <div ref={mapRef} className="w-full h-full bg-zinc-100 absolute inset-0 z-0 touch-pan-y" />;
 });
