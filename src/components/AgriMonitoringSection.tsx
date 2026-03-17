@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sprout, RefreshCw, Calendar, Tag } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
+import { Skeleton } from './Skeleton';
 
 interface GrowData {
   id: string;
@@ -73,10 +74,21 @@ export const AgriMonitoringSection: React.FC = () => {
         </button>
       </div>
 
-      {loading && !data ? (
-        <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
-          <RefreshCw size={24} className="animate-spin mb-3 text-zinc-300" />
-          <p className="text-sm">正在分析卫星与无人机影像...</p>
+      {loading ? (
+        <div className="space-y-6 pt-2">
+          {[1, 2].map((i) => (
+            <div key={i} className="bg-white rounded-2xl border border-zinc-200/60 p-4 pt-5">
+              <Skeleton className="h-4 w-24 mb-3" />
+              <div className="flex gap-4">
+                <Skeleton className="w-24 h-24 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : !data || data.length === 0 ? (
         <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-8 text-center">
