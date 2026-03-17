@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 import 'dotenv/config';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOIRE_BASE_URL = 'https://api.hoire.cn';
@@ -80,6 +81,21 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   
+  // 统一代理到麦芒/大数据平台
+  app.use('/cpca-api', createProxyMiddleware({
+    target: 'http://cpca.hyspi.com:54082',
+    changeOrigin: true,
+    pathRewrite: { '^/cpca-api': '' },
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        const token = process.env.BIG_DATA_TOKEN;
+        if (token) {
+          proxyReq.setHeader('Authorization', `Bearer ${token}`);
+        }
+      }
+    }
+  }));
+
   // 真实推送接口
   app.post("/api/iot/receive", (req, res) => {
     console.log("[IOT Push] 收到物联网平台推送请求", {
@@ -405,21 +421,43 @@ async function startServer() {
 
   // 测试接口：模拟推送数据
   app.get("/api/iot/test-push", (req, res) => {
-    const mockData = {
-      id: 1812,
+    const weatherId = req.query.weatherId ? String(req.query.weatherId) : "1812";
+    const insectId = req.query.insectId ? String(req.query.insectId) : "2734";
+
+    const mockWeatherData = {
+      id: Number(weatherId),
       code: "data",
       data: [
-        { id: 3, code: "TRWD", name: "土壤温度", value: 25.89, unit: "℃" },
-        { id: 4, code: "TRSF", name: "土壤水分", value: 4.97, unit: "%" }
+        { id: 1, code: "TEMP", name: "空气温度", value: 26.5, unit: "℃" },
+        { id: 2, code: "HUMI", name: "空气湿度", value: 60.2, unit: "%" },
+        { id: 3, code: "ILLU", name: "光照强度", value: 45000, unit: "Lux" },
+        { id: 4, code: "WIND_SPD", name: "风速", value: 2.5, unit: "m/s" }
       ],
       time: new Date().toISOString()
     };
-    latestIotData['1812'] = [{
+
+    const mockInsectData = {
+      id: Number(insectId),
+      code: "data",
+      data: [
+        { id: 10, code: "INSECT_CNT", name: "今日诱虫量", value: 128, unit: "只" },
+        { id: 11, code: "PEST_TYPE", name: "主要害虫", value: "草地贪夜蛾", unit: "" }
+      ],
+      time: new Date().toISOString()
+    };
+
+    latestIotData[weatherId] = [{
       receiveTime: new Date().toISOString(),
-      payload: mockData
+      payload: mockWeatherData
     }];
-    console.log("模拟推送数据:", JSON.stringify(mockData, null, 2));
-    res.status(200).json({ code: 0, message: "模拟推送成功", data: mockData });
+
+    latestIotData[insectId] = [{
+      receiveTime: new Date().toISOString(),
+      payload: mockInsectData
+    }];
+
+    console.log(`模拟推送数据 (Weather: ${weatherId}, Insect: ${insectId})`);
+    res.status(200).json({ code: 0, message: "模拟推送成功", data: { weather: mockWeatherData, insect: mockInsectData } });
   });
 
   app.get("/api/iot/latest", (req, res) => {
