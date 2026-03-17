@@ -3,7 +3,7 @@ import { MapPinOff } from 'lucide-react';
 
 export interface DeviceMarker {
   id: string;
-  type: 'weather' | 'soil' | 'camera';
+  type: 'weather' | 'insect' | 'camera';
   name: string;
   position: [number, number];
   status: 'online' | 'offline';
@@ -114,9 +114,9 @@ export const MapComponent = forwardRef(({
             let iconColor = '#3b82f6'; // blue for weather
             let iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 2.9-8 4.5 4.5 0 0 0-8.9-1.5 4.5 4.5 0 0 0-8.5 1.5 4.5 4.5 0 0 0 2.9 8z"/></svg>';
             
-            if (device.type === 'soil') {
-              iconColor = '#d97706'; // amber for soil
-              iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>';
+            if (device.type === 'insect') {
+              iconColor = '#8b5cf6'; // violet for insect
+              iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M17.47 9c1.93-.2 3.53-1.9 3.53-4"/><path d="M8 14H4"/><path d="M16 14h4"/><path d="M9.5 18c-2.3 1.2-4.5 1-6.5-.5"/><path d="M14.5 18c2.3 1.2 4.5 1 6.5-.5"/></svg>';
             } else if (device.type === 'camera') {
               iconColor = '#ef4444'; // red for camera
               iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>';
