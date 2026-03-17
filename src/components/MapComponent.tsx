@@ -13,6 +13,7 @@ export const MapComponent = forwardRef(({
   isFullScreen, 
   center, 
   polygon, 
+  polygons,
   devices,
   onPolygonClick,
   onDeviceClick
@@ -20,13 +21,15 @@ export const MapComponent = forwardRef(({
   isFullScreen: boolean;
   center?: [number, number];
   polygon?: [number, number][];
+  polygons?: any[];
   devices?: DeviceMarker[];
-  onPolygonClick?: () => void;
+  onPolygonClick?: (polygonData?: any) => void;
   onDeviceClick?: (device: DeviceMarker) => void;
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
 
   useImperativeHandle(ref, () => ({
     resize: () => {
@@ -85,9 +88,55 @@ export const MapComponent = forwardRef(({
           mapInstance.current.addControl(toolbar);
           mapInstance.current.addControl(scale);
         });
+        
+        setIsMapReady(true);
+      } catch (err: any) {
+        console.error(err);
+        setError('地图初始化失败: ' + err.message);
+      }
+    };
 
-        // 绘制多边形
-        if (polygon && polygon.length > 0) {
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.destroy();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
+
+  // 监听数据变化并重绘
+  useEffect(() => {
+    if (!isMapReady || !mapInstance.current || !(window as any).AMap) return;
+    const AMap = (window as any).AMap;
+
+    // 清除现有的覆盖物
+    mapInstance.current.clearMap();
+
+    // 绘制多边形
+    const allPolygons: any[] = [];
+        
+        if (polygons && polygons.length > 0) {
+          polygons.forEach((pData) => {
+            if (pData.coordinates && pData.coordinates.length > 0) {
+              const polygonObj = new AMap.Polygon({
+                path: pData.coordinates,
+                fillColor: pData.backgroundColor || '#10b981',
+                fillOpacity: (pData.transparency || 30) / 100,
+                strokeColor: pData.borderColor || '#059669',
+                strokeWeight: pData.borderWidth || 2,
+                strokeStyle: 'solid',
+                cursor: 'pointer',
+              });
+              
+              polygonObj.on('click', () => {
+                if (onPolygonClick) onPolygonClick(pData);
+              });
+              
+              mapInstance.current.add(polygonObj);
+              allPolygons.push(polygonObj);
+            }
+          });
+        } else if (polygon && polygon.length > 0) {
           const polygonObj = new AMap.Polygon({
             path: polygon,
             fillColor: '#10b981', // emerald-500
@@ -104,8 +153,12 @@ export const MapComponent = forwardRef(({
             polygonObj.on('click', onPolygonClick);
           }
           
-          // 自动缩放地图到多边形可视范围
-          mapInstance.current.setFitView([polygonObj]);
+          allPolygons.push(polygonObj);
+        }
+
+        // 自动缩放地图到多边形可视范围
+        if (allPolygons.length > 0) {
+          mapInstance.current.setFitView(allPolygons);
         }
 
         // 绘制设备标记
@@ -150,19 +203,7 @@ export const MapComponent = forwardRef(({
             mapInstance.current.add(marker);
           });
         }
-      } catch (err: any) {
-        console.error(err);
-        setError('地图初始化失败: ' + err.message);
-      }
-    };
-
-    return () => {
-      if (mapInstance.current) {
-        mapInstance.current.destroy();
-      }
-      // 移除 script 标签可能会导致其他依赖 AMap 的组件报错，这里仅销毁实例
-    };
-  }, []);
+  }, [isMapReady, polygons, polygon, devices, onPolygonClick, onDeviceClick]);
 
   useEffect(() => {
     if (mapInstance.current) {
