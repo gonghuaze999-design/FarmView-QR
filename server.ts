@@ -14,6 +14,8 @@ type SiteDeviceBinding = {
   insectId: number;
   cameraId: number;
   farmlandId?: number;
+  center?: [number, number];
+  polygon?: [number, number][];
 };
 
 const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
@@ -23,6 +25,13 @@ const SITE_DEVICE_BINDINGS: Record<string, SiteDeviceBinding> = {
     insectId: 2734,
     cameraId: 313793,
     farmlandId: 12,
+    center: [116.397428, 39.90923],
+    polygon: [
+      [116.396, 39.908],
+      [116.399, 39.908],
+      [116.399, 39.910],
+      [116.396, 39.910]
+    ]
   },
 };
 
