@@ -9,10 +9,8 @@ import { Header } from './components/Header';
 import { MapSection } from './components/MapSection';
 import { TimelineSection } from './components/TimelineSection';
 import { AgriMonitoringSection } from './components/AgriMonitoringSection';
-import { MonitoringSection } from './components/MonitoringSection';
 import { JoinUsButton } from './components/JoinUsButton';
 import { AdminPage } from './pages/AdminPage';
-import { HoireDebug } from './components/HoireDebug';
 import { SiteProvider, SiteBinding } from './contexts/SiteContext';
 
 type SiteBindingResponse = {
@@ -109,11 +107,9 @@ const AppContent = () => {
         <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen relative">
           <Header />
           <main className="p-5 space-y-6">
-            <HoireDebug />
             <MapSection />
             <TimelineSection />
             <AgriMonitoringSection />
-            <MonitoringSection />
             <div className="pt-4 pb-8">
               <JoinUsButton />
             </div>
