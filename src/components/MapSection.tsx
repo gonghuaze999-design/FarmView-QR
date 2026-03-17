@@ -25,8 +25,13 @@ export const MapSection: React.FC = () => {
         <MapComponent 
           isFullScreen={isFullScreen} 
           ref={mapRef} 
-          center={binding?.center}
-          polygon={binding?.polygon}
+          center={binding?.center || [116.397428, 39.90923]}
+          polygon={binding?.polygon || [
+            [116.396, 39.908],
+            [116.399, 39.908],
+            [116.399, 39.910],
+            [116.396, 39.910]
+          ]}
           onPolygonClick={() => setIsBottomSheetOpen(true)}
         />
       </div>
@@ -57,9 +62,17 @@ export const MapSection: React.FC = () => {
         </div>
       )}
 
-      {/* Bottom Sheet 农田信息面板 */}
+      {/* Bottom Sheet 遮罩层 (全屏) */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 z-20 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+          isBottomSheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setIsBottomSheetOpen(false)}
+      />
+
+      {/* Bottom Sheet 农田信息面板 (固定在屏幕底部) */}
+      <div 
+        className={`fixed bottom-0 left-0 right-0 z-[101] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
           isBottomSheetOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
