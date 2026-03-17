@@ -109,15 +109,20 @@ export const MapSection: React.FC = () => {
 
     try {
       const baseId = 1;
-      const farmlandId = 1; // 默认
+      const farmlandId = binding?.farmlandId || 12; // 默认
+      
+      const now = new Date();
+      const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
+
       if (device.type === 'weather') {
-        const res = await getEnvData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
+        const res = await getEnvData(farmlandId, startTime, endTime);
         setDeviceData(res.data);
       } else if (device.type === 'insect') {
-        const res = await getInsectData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
+        const res = await getInsectData(farmlandId, startTime, endTime);
         setDeviceData(res.data);
       } else if (device.type === 'camera') {
-        const res = await getCameraList(baseId, "1,2,3");
+        const res = await getCameraList(baseId, String(farmlandId));
         setDeviceData(res.data);
       }
     } catch (e) {
