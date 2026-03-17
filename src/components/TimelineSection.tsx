@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 export const TimelineSection: React.FC = () => {
   return (
     <section className="farm-card p-6">
-      <h2 className="text-xl font-bold mb-6 text-zinc-800">Agricultural Activities (2026)</h2>
+      <h2 className="text-xl font-bold mb-6 text-zinc-800">农事行为 (2026)</h2>
       <div className="relative border-l-2 border-zinc-100 ml-2">
         <div className="mb-8 ml-6 relative">
           <div className="absolute -left-[33px] top-1 w-4 h-4 bg-emerald-500 rounded-full shadow-[0_0_0_4px_white]"></div>
