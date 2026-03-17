@@ -12,6 +12,7 @@ import { MonitoringSection } from './components/MonitoringSection';
 import { JoinUsButton } from './components/JoinUsButton';
 import { AdminPage } from './pages/AdminPage';
 import { HoireDebug } from './components/HoireDebug';
+import { SiteProvider, SiteBinding } from './contexts/SiteContext';
 
 type SiteBindingResponse = {
   requestedSite: string;
@@ -19,6 +20,7 @@ type SiteBindingResponse = {
   exists?: boolean;
   fallback: boolean;
   availableSites?: string[];
+  binding?: SiteBinding;
 };
 
 const UnknownSiteState: React.FC<{ siteKey: string; availableSites: string[] }> = ({ siteKey, availableSites }) => (
@@ -59,6 +61,7 @@ const AppContent = () => {
   const [checkingSite, setCheckingSite] = useState(true);
   const [siteFound, setSiteFound] = useState(true);
   const [availableSites, setAvailableSites] = useState<string[]>([]);
+  const [siteBinding, setSiteBinding] = useState<SiteBinding | null>(null);
 
   useEffect(() => {
     const checkSite = async () => {
@@ -67,6 +70,7 @@ const AppContent = () => {
         const data = (await res.json()) as SiteBindingResponse;
         setAvailableSites(data.availableSites || []);
         setSiteFound(Boolean(data.exists ?? !data.fallback));
+        setSiteBinding(data.binding || null);
       } catch (error) {
         console.error('Site check failed:', error);
         setSiteFound(true);
@@ -99,20 +103,22 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">
-      <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen relative">
-        <Header />
-        <main className="p-5 space-y-6">
-          <HoireDebug />
-          <MapSection />
-          <TimelineSection />
-          <MonitoringSection />
-          <div className="pt-4 pb-8">
-            <JoinUsButton />
-          </div>
-        </main>
+    <SiteProvider siteKey={siteKey} binding={siteBinding}>
+      <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">
+        <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen relative">
+          <Header />
+          <main className="p-5 space-y-6">
+            <HoireDebug />
+            <MapSection />
+            <TimelineSection />
+            <MonitoringSection />
+            <div className="pt-4 pb-8">
+              <JoinUsButton />
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </SiteProvider>
   );
 };
 
