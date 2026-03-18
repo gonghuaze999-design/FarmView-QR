@@ -26,49 +26,6 @@ try {
 
 const DEFAULT_SITE_KEY = 'base-current';
 
-// 内存中缓存每个账号的 Token
-// key: username, value: { token: string, expiry: number }
-const tokenCache: Record<string, { token: string, expiry: number }> = {};
-
-async function getValidTokenForSite(siteKey: string): Promise<string | null> {
-  const site = sitesConfig.sites[siteKey] || sitesConfig.sites[DEFAULT_SITE_KEY];
-  if (!site || !site.apiAuth) return null;
-
-  const { username, password } = site.apiAuth;
-  const now = Date.now();
-
-  // 如果缓存中有且未过期 (提前 5 分钟刷新)
-  if (tokenCache[username] && tokenCache[username].expiry > now + 5 * 60 * 1000) {
-    return tokenCache[username].token;
-  }
-
-  try {
-    console.log(`[Auth] 正在为账号 ${username} 获取最新 Token...`);
-    const res = await axios.post('http://cpca.hyspi.com:54082/auth/login', {
-      username,
-      password,
-      code: 1,
-      uuid: '6c738ec15326456abcb431c37dfcb0e2',
-      rememberMe: true
-    });
-
-    if (res.data && res.data.data && res.data.data.access_token) {
-      const token = res.data.data.access_token;
-      tokenCache[username] = {
-        token,
-        expiry: now + 1000 * 60 * 60 * 2 // 假设 2 小时过期
-      };
-      console.log(`[Auth] 账号 ${username} Token 获取成功`);
-      return token;
-    } else {
-      console.error(`[Auth] 账号 ${username} Token 获取失败:`, res.data);
-      return null;
-    }
-  } catch (error: any) {
-    console.error(`[Auth] 账号 ${username} Token 请求异常:`, error.message);
-    return null;
-  }
-}
 
 async function startServer() {
   const app = express();
@@ -106,10 +63,9 @@ async function startServer() {
     changeOrigin: true,
     pathRewrite: { '^/api/cpca': '' },
     on: {
-      proxyReq: async (proxyReq, req, res) => {
-        // 从请求头获取前端传来的 site 标识
-        const siteKey = req.headers['x-site-name'] as string || DEFAULT_SITE_KEY;
-        const token = await getValidTokenForSite(siteKey);
+      proxyReq: (proxyReq, req, res) => {
+        // 直接从环境变量读取 Token
+        const token = process.env.TOKEN;
         if (token) {
           proxyReq.setHeader('Authorization', `Bearer ${token}`);
         }
