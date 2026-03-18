@@ -88,27 +88,31 @@ async function startServer() {
   });
 
   // 统一代理到麦芒/大数据平台
-  app.use('/api/cpca', createProxyMiddleware({
+  const authMiddleware = async (req: any, res: any, next: any) => {
+    try {
+      const token = await getValidToken();
+      req.headers['x-auth-token'] = token; // Store in custom header
+      next();
+    } catch (e) {
+      console.error('[Proxy] 预获取 Token 失败:', e);
+      res.status(500).send('认证失败');
+    }
+  };
+
+  app.use('/api/cpca', authMiddleware, createProxyMiddleware({
     target: 'http://cpca.hyspi.com:54082',
     changeOrigin: true,
     pathRewrite: { '^/api/cpca': '' },
     on: {
-      proxyReq: async (proxyReq, req, res) => {
-        try {
-          const token = await getValidToken();
+      proxyReq: (proxyReq, req, res) => {
+        const token = req.headers['x-auth-token'];
+        if (token) {
           proxyReq.setHeader('Authorization', `Bearer ${token}`);
-        } catch (e) {
-          console.error('[Proxy] 无法注入 Token:', e);
         }
       },
       proxyRes: (proxyRes, req, res) => {
-        // 如果后端返回 11009，说明 Token 失效，清除缓存
-        if (proxyRes.statusCode === 200) {
-            // 注意：有些 API 即使认证失败也返回 200，需要检查响应体
-            // 这里简单处理，如果后续发现认证失败，可以在这里进一步解析响应体
-        }
         if (proxyRes.statusCode === 401) {
-            cachedToken = null;
+          cachedToken = null;
         }
       }
     }
