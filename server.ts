@@ -109,7 +109,7 @@ async function startServer() {
         console.log(`[Proxy] 正在转发请求到: ${proxyReq.path}`);
         const token = req.headers['x-auth-token'];
         if (token) {
-          proxyReq.setHeader('Authorization', `Bearer ${token}`);
+          proxyReq.setHeader('X-Access-Token', token as string);
         }
       },
       proxyRes: (proxyRes, req, res) => {
