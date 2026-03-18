@@ -35,6 +35,8 @@ export const MapSection: React.FC = () => {
         let parsedPolygons: any[] = [];
         if (landRes.code === 200 && landRes.data) {
           // 解析 WKT 格式的 mapPolygonGeo
+          // 强制打印获取到的原始数据
+          console.log('[MapSection] 原始地块数据:', landRes.data);
           parsedPolygons = landRes.data.map((land: any) => {
             let coords = [];
             if (land.mapPolygonGeo) {
