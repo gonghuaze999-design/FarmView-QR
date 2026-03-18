@@ -89,10 +89,9 @@ async function startServer() {
 
   // 统一代理到麦芒/大数据平台
   const authMiddleware = async (req: any, res: any, next: any) => {
-    console.log(`[Proxy] 收到请求: ${req.url}`);
     try {
       const token = await getValidToken();
-      req.headers['x-auth-token'] = token; // Store in custom header
+      req.headers['x-auth-token'] = token; 
       next();
     } catch (e) {
       console.error('[Proxy] 预获取 Token 失败:', e);
@@ -100,13 +99,20 @@ async function startServer() {
     }
   };
 
-  app.use('/api/cpca', authMiddleware, createProxyMiddleware({
+  // 代理所有以 /api/ 开头的请求
+  app.use('/api', authMiddleware, createProxyMiddleware({
     target: 'http://cpca.hyspi.com:54082',
     changeOrigin: true,
-    pathRewrite: { '^/api/cpca': '' },
+    // 假设前端请求是 /api/cpca/farm/land/list，重写为 /farm/land/list
+    // 假设前端请求是 /api/dataCenter/machineList，重写为 /dataCenter/machineList
+    pathRewrite: (path, req) => {
+      const newPath = path.replace(/^\/api\/cpca/, '').replace(/^\/api/, '');
+      console.log(`[Proxy] 重写路径: ${path} -> ${newPath}`);
+      return newPath;
+    },
     on: {
       proxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] 正在转发请求到: ${proxyReq.path}`);
+        console.log(`[Proxy] 正在转发请求到: ${proxyReq.method} ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
         const token = req.headers['x-auth-token'];
         if (token) {
           proxyReq.setHeader('X-Access-Token', token as string);
@@ -114,9 +120,6 @@ async function startServer() {
       },
       proxyRes: (proxyRes, req, res) => {
         console.log(`[Proxy] 收到响应: ${proxyRes.statusCode}`);
-        if (proxyRes.statusCode === 401) {
-          cachedToken = null;
-        }
       }
     }
   }));
