@@ -120,6 +120,15 @@ async function startServer() {
       },
       proxyRes: (proxyRes, req, res) => {
         console.log(`[Proxy] 收到响应: ${proxyRes.statusCode}`);
+        
+        // 读取并打印响应体
+        let body = '';
+        proxyRes.on('data', (chunk) => {
+          body += chunk;
+        });
+        proxyRes.on('end', () => {
+          console.log(`[Proxy] 响应数据: ${body}`);
+        });
       }
     }
   }));
