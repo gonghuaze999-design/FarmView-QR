@@ -87,6 +87,23 @@ async function startServer() {
     });
   });
 
+  // 专门用于测试的直接请求路由
+  app.get('/api/test-direct', async (req, res) => {
+    console.log('[Test] 正在直接请求外部 API...');
+    try {
+      const token = await getValidToken();
+      // 示例：测试地块列表接口
+      const response = await axios.get('http://cpca.hyspi.com:54082/farm/land/list?baseId=1', {
+        headers: { 'X-Access-Token': token }
+      });
+      console.log('[Test] 外部 API 原始响应数据:', JSON.stringify(response.data, null, 2));
+      res.json(response.data);
+    } catch (e: any) {
+      console.error('[Test] 直接请求失败:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // 统一代理到麦芒/大数据平台
   const authMiddleware = async (req: any, res: any, next: any) => {
     try {
