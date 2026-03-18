@@ -1,15 +1,16 @@
 import axios from 'axios';
 
-const SITE_NAME = import.meta.env.VITE_SITE_NAME || 'default-site';
-const DEVICE_ID = import.meta.env.VITE_DEVICE_ID || 'default-device';
-
 const api = axios.create({
   baseURL: '/api/cpca',
   timeout: 10000,
-  headers: {
-    'X-Site-Name': SITE_NAME,
-    'X-Device-Id': DEVICE_ID,
-  }
+});
+
+// 请求拦截器，动态注入当前站点的标识
+api.interceptors.request.use((config) => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const siteKey = searchParams.get('site') || 'base-current';
+  config.headers['X-Site-Name'] = siteKey;
+  return config;
 });
 
 export const getFarmlandList = async (baseId: number) => {
