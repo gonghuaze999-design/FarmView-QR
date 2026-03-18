@@ -2,12 +2,14 @@ import React, { createContext, useContext } from 'react';
 
 export type SiteBinding = {
   siteName: string;
-  weatherId: number;
-  insectId: number;
-  cameraId: number;
-  farmlandId?: number; // 大数据平台的地块ID
-  center?: [number, number];
-  polygon?: [number, number][];
+  owner: string;
+  baseId: number;
+  farmlandIds: number[];
+  devices: {
+    weatherIds: number[];
+    insectIds: number[];
+    cameraIds: number[];
+  };
 };
 
 type SiteContextType = {
