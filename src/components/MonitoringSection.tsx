@@ -11,14 +11,17 @@ export const MonitoringSection: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchIotData = async () => {
+    if (!binding) return;
     setIsRefreshing(true);
     try {
-      const baseId = 1; // 默认 baseId
-      const landRes = await getFarmlandList(baseId);
-      let farmlandId = binding?.farmlandId || 12; // 默认使用 binding 中的 farmlandId 或 12
+      const baseId = binding.baseId;
+      let farmlandId = binding.farmlandIds && binding.farmlandIds.length > 0 ? binding.farmlandIds[0] : 0;
       
-      if (landRes.code === 200 && landRes.data && landRes.data.length > 0) {
-        farmlandId = landRes.data[0].id;
+      if (farmlandId === 0) {
+        const landRes = await getFarmlandList(baseId);
+        if (landRes.code === 200 && landRes.data && landRes.data.length > 0) {
+          farmlandId = landRes.data[0].id;
+        }
       }
 
       const now = new Date();
@@ -131,7 +134,7 @@ export const MonitoringSection: React.FC = () => {
               <div className="bg-blue-50/50 px-4 py-3 border-b border-zinc-100 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
-                  <span className="font-bold text-zinc-800 text-sm">气象站 (ID: {binding?.weatherId})</span>
+                  <span className="font-bold text-zinc-800 text-sm">气象站 (ID: {binding?.devices?.weatherIds?.[0] || '未知'})</span>
                 </div>
                 <span className="text-[10px] text-zinc-400 font-mono">
                   更新于: {new Date(weatherData.time).toLocaleTimeString()}
@@ -160,7 +163,7 @@ export const MonitoringSection: React.FC = () => {
               <div className="bg-violet-50/50 px-4 py-3 border-b border-zinc-100 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></div>
-                  <span className="font-bold text-zinc-800 text-sm">虫情测报站 (ID: {binding?.insectId})</span>
+                  <span className="font-bold text-zinc-800 text-sm">虫情测报站 (ID: {binding?.devices?.insectIds?.[0] || '未知'})</span>
                 </div>
                 <span className="text-[10px] text-zinc-400 font-mono">
                   更新于: {new Date(insectData.time).toLocaleTimeString()}
