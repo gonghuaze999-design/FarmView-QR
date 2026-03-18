@@ -14,21 +14,28 @@ export const MapSection: React.FC = () => {
   const [selectedPolygon, setSelectedPolygon] = useState<any>(null);
   const [polygons, setPolygons] = useState<any[]>([]);
   const [devices, setDevices] = useState<DeviceMarker[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([122.063, 46.133]);
   const mapRef = useRef<any>(null);
   const { binding } = useSiteContext();
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!binding) return;
+      
       try {
-        const baseId = 1; // 默认 baseId
+        const baseId = binding.baseId;
+        const farmlandIds = binding.farmlandIds || [];
+        const { weatherIds = [], insectIds = [], cameraIds = [] } = binding.devices || {};
+
         const [landRes, iotRes] = await Promise.all([
           getFarmlandList(baseId),
           getIotLocations(baseId)
         ]);
 
+        let parsedPolygons: any[] = [];
         if (landRes.code === 200 && landRes.data) {
           // 解析 WKT 格式的 mapPolygonGeo
-          const parsedPolygons = landRes.data.map((land: any) => {
+          parsedPolygons = landRes.data.map((land: any) => {
             let coords = [];
             if (land.mapPolygonGeo) {
               try {
@@ -48,18 +55,39 @@ export const MapSection: React.FC = () => {
               ...land,
               coordinates: coords
             };
-          }).filter((p: any) => p.coordinates.length > 0);
+          }).filter((p: any) => p.coordinates.length > 0 && farmlandIds.includes(p.id));
+          
           setPolygons(parsedPolygons);
+
+          // 计算中心点
+          if (parsedPolygons.length > 0) {
+            let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+            parsedPolygons.forEach(p => {
+              p.coordinates.forEach((coord: number[]) => {
+                if (coord[0] < minLng) minLng = coord[0];
+                if (coord[0] > maxLng) maxLng = coord[0];
+                if (coord[1] < minLat) minLat = coord[1];
+                if (coord[1] > maxLat) maxLat = coord[1];
+              });
+            });
+            setMapCenter([(minLng + maxLng) / 2, (minLat + maxLat) / 2]);
+          }
         }
 
         if (iotRes.code === 200 && iotRes.data) {
           const parsedDevices = iotRes.data.map((iot: any) => {
             let position: [number, number] = [0, 0];
-            if (iot.location) {
+            const lng = iot.longitude || iot.longtitude;
+            const lat = iot.latitude;
+            if (lng && lat) {
+              position = [Number(lng), Number(lat)];
+            } else if (iot.location) {
               try {
-                const loc = JSON.parse(iot.location);
-                if (loc.longtitude && loc.latitude) {
-                  position = [Number(loc.longtitude), Number(loc.latitude)];
+                const loc = typeof iot.location === 'string' ? JSON.parse(iot.location) : iot.location;
+                const locLng = loc.longitude || loc.longtitude;
+                const locLat = loc.latitude;
+                if (locLng && locLat) {
+                  position = [Number(locLng), Number(locLat)];
                 }
               } catch (e) {
                 console.error('Failed to parse location', e);
@@ -80,7 +108,14 @@ export const MapSection: React.FC = () => {
               position,
               status: iot.is_used === 1 || iot.status === 1 ? 'online' : 'offline'
             };
-          }).filter((d: any) => d.position[0] !== 0);
+          }).filter((d: any) => {
+            if (d.position[0] === 0) return false;
+            const idNum = Number(d.id);
+            if (d.type === 'weather' && !weatherIds.includes(idNum)) return false;
+            if (d.type === 'insect' && !insectIds.includes(idNum)) return false;
+            if (d.type === 'camera' && !cameraIds.includes(idNum)) return false;
+            return true;
+          });
           setDevices(parsedDevices);
         }
       } catch (error) {
@@ -89,10 +124,6 @@ export const MapSection: React.FC = () => {
     };
     fetchData();
   }, [binding]);
-
-  const center: [number, number] = (binding?.center && !isNaN(binding.center[0]) && !isNaN(binding.center[1])) 
-    ? binding.center 
-    : [122.063, 46.133]; // 混都冷南侧西地块附近
 
   const handlePolygonClick = (polygonData?: any) => {
     setSelectedPolygon(polygonData);
@@ -108,8 +139,9 @@ export const MapSection: React.FC = () => {
     setDeviceData(null);
 
     try {
-      const baseId = 1;
-      const farmlandId = binding?.farmlandId || 12; // 默认
+      if (!binding) return;
+      const baseId = binding.baseId;
+      const farmlandId = binding.farmlandIds && binding.farmlandIds.length > 0 ? binding.farmlandIds[0] : 0;
       
       const now = new Date();
       const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
@@ -148,8 +180,8 @@ export const MapSection: React.FC = () => {
         <MapComponent 
           isFullScreen={isFullScreen} 
           ref={mapRef} 
-          center={center}
-          polygon={binding?.polygon || []}
+          center={mapCenter}
+          polygon={[]}
           polygons={polygons}
           devices={devices}
           onPolygonClick={handlePolygonClick}
