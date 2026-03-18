@@ -26,17 +26,17 @@ api.interceptors.response.use((response) => {
 });
 
 export const getFarmlandList = async (baseId: number) => {
-  const response = await api.get(`/api/cpca/farm/land/list?baseId=${baseId}`);
+  const response = await api.get(`/api/farm/land/list?baseId=${baseId}`);
   return response.data;
 };
 
 export const getIotLocations = async (baseId: number) => {
-  const response = await api.get(`/api/cpca/collect/iot/locationList?baseId=${baseId}`);
+  const response = await api.get(`/api/collect/iot/locationList?baseId=${baseId}`);
   return response.data;
 };
 
 export const getEnvData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/api/cpca/collect/iot/getEnvInformationNew', {
+  const response = await api.post('/api/collect/iot/getEnvInformationNew', {
     farmlandId,
     dimension: 'air_temperature,air_humidity',
     startTime,
@@ -46,7 +46,7 @@ export const getEnvData = async (farmlandId: number, startTime: string, endTime:
 };
 
 export const getInsectData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/api/cpca/collect/iot/insectQuantity', {
+  const response = await api.post('/api/collect/iot/insectQuantity', {
     farmlandId,
     startTime,
     endTime
@@ -55,7 +55,7 @@ export const getInsectData = async (farmlandId: number, startTime: string, endTi
 };
 
 export const getCameraList = async (baseId: number, farmlandIds: string) => {
-  const response = await api.post('/api/cpca/collect/collection/cameraList', {
+  const response = await api.post('/api/collect/collection/cameraList', {
     baseId,
     farmlandIds
   });
@@ -63,17 +63,18 @@ export const getCameraList = async (baseId: number, farmlandIds: string) => {
 };
 
 export const getMachineTasks = async (farmId: number) => {
-  const response = await api.post('/api/cpca/dataCenter/machineList', {
+  const response = await api.post('/api/dataCenter/machineList', {
     farmId,
     pageNo: 1,
     pageSize: 100,
-    jobType: "0"
+    jobType: "0",
+    dimension: "TE" // 补全必填参数
   });
   return response.data;
 };
 
 export const getGrowthData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/api/cpca/center/base/growsHight', { 
+  const response = await api.post('/api/center/base/growsHight', { 
     dimension: "Growth_status",
     farmlandId,
     startTime,
