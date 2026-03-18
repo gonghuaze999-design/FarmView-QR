@@ -89,6 +89,7 @@ async function startServer() {
 
   // 统一代理到麦芒/大数据平台
   const authMiddleware = async (req: any, res: any, next: any) => {
+    console.log(`[Proxy] 收到请求: ${req.url}`);
     try {
       const token = await getValidToken();
       req.headers['x-auth-token'] = token; // Store in custom header
@@ -105,12 +106,14 @@ async function startServer() {
     pathRewrite: { '^/api/cpca': '' },
     on: {
       proxyReq: (proxyReq, req, res) => {
+        console.log(`[Proxy] 正在转发请求到: ${proxyReq.path}`);
         const token = req.headers['x-auth-token'];
         if (token) {
           proxyReq.setHeader('Authorization', `Bearer ${token}`);
         }
       },
       proxyRes: (proxyRes, req, res) => {
+        console.log(`[Proxy] 收到响应: ${proxyRes.statusCode}`);
         if (proxyRes.statusCode === 401) {
           cachedToken = null;
         }
