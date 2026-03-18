@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api/cpca',
   timeout: 10000,
 });
 
@@ -14,17 +13,17 @@ api.interceptors.request.use((config) => {
 });
 
 export const getFarmlandList = async (baseId: number) => {
-  const response = await api.get(`/farm/land/list?baseId=${baseId}`);
+  const response = await api.get(`/api/cpca/farm/land/list?baseId=${baseId}`);
   return response.data;
 };
 
 export const getIotLocations = async (baseId: number) => {
-  const response = await api.get(`/collect/iot/locationList?baseId=${baseId}`);
+  const response = await api.get(`/api/cpca/collect/iot/locationList?baseId=${baseId}`);
   return response.data;
 };
 
 export const getEnvData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/collect/iot/getEnvInformationNew', {
+  const response = await api.post('/api/cpca/collect/iot/getEnvInformationNew', {
     farmlandId,
     dimension: 'air_temperature,air_humidity',
     startTime,
@@ -34,7 +33,7 @@ export const getEnvData = async (farmlandId: number, startTime: string, endTime:
 };
 
 export const getInsectData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/collect/iot/insectQuantity', {
+  const response = await api.post('/api/cpca/collect/iot/insectQuantity', {
     farmlandId,
     startTime,
     endTime
@@ -43,7 +42,7 @@ export const getInsectData = async (farmlandId: number, startTime: string, endTi
 };
 
 export const getCameraList = async (baseId: number, farmlandIds: string) => {
-  const response = await api.post('/collect/collection/cameraList', {
+  const response = await api.post('/api/cpca/collect/collection/cameraList', {
     baseId,
     farmlandIds
   });
@@ -51,7 +50,7 @@ export const getCameraList = async (baseId: number, farmlandIds: string) => {
 };
 
 export const getMachineTasks = async (farmId: number) => {
-  const response = await api.post('/api/dataCenter/machineList', {
+  const response = await api.post('/api/cpca/dataCenter/machineList', {
     farmId,
     pageNo: 1,
     pageSize: 100,
@@ -61,7 +60,7 @@ export const getMachineTasks = async (farmId: number) => {
 };
 
 export const getGrowthData = async (farmlandId: number, startTime: string, endTime: string) => {
-  const response = await api.post('/center/base/growsHight', { 
+  const response = await api.post('/api/cpca/center/base/growsHight', { 
     dimension: "Growth_status",
     farmlandId,
     startTime,
