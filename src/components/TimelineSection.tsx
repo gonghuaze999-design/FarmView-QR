@@ -19,9 +19,10 @@ export const TimelineSection: React.FC = () => {
 
   useEffect(() => {
     const fetchTasks = async () => {
+      if (!binding) return;
       setLoading(true);
       try {
-        const res = await getMachineTasks(1); // 默认 baseId 1
+        const res = await getMachineTasks(binding.baseId);
         if (res.code === "200" && res.content?.page) {
           const tasks = res.content.page.map((task: any) => ({
             id: task.ID || String(Math.random()),
