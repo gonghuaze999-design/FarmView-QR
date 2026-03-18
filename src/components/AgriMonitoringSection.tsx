@@ -3,6 +3,8 @@ import { Sprout, RefreshCw, Calendar, Tag } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
 import { Skeleton } from './Skeleton';
 
+import { getGrowthData } from '../services/api';
+
 interface GrowData {
   id: string;
   date: string;
@@ -17,35 +19,37 @@ export const AgriMonitoringSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchAgriData = async () => {
+    if (!binding) return;
     setLoading(true);
     try {
-      // 模拟调用 /center/base/growsHight 接口
-      // 在实际项目中，这里会替换为真实的 fetch 调用
-      // const response = await fetch(`/center/base/growsHight?farmlandId=${binding?.farmlandId}`);
-      // const result = await response.json();
+      const farmlandId = binding.farmlandIds && binding.farmlandIds.length > 0 ? binding.farmlandIds[0] : 0;
+      if (farmlandId === 0) {
+        setData([]);
+        setLoading(false);
+        return;
+      }
       
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const res = await getGrowthData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
       
-      // 模拟返回数据
-      const mockData: GrowData[] = [
-        {
-          id: '1',
-          date: '2026-03-15',
-          imageUrl: 'https://picsum.photos/seed/corn1/400/300',
-          tags: ['长势良好', '无明显病害', '需水量正常'],
-          summary: '当前作物处于拔节期，整体叶色浓绿，植株健壮，未见大面积病虫害发生迹象。建议保持当前水肥管理。'
-        },
-        {
-          id: '2',
-          date: '2026-03-01',
-          imageUrl: 'https://picsum.photos/seed/corn2/400/300',
-          tags: ['出苗整齐', '轻微缺水'],
-          summary: '玉米出苗率达到95%以上，长势均匀。由于近期降水偏少，部分地块表土干燥，建议适时进行微喷灌溉。'
-        }
-      ];
-      
-      setData(mockData);
+      if (res.code === "200" && res.content?.result) {
+        const resultObj = res.content.result;
+        const mode = resultObj.mode ? Number(resultObj.mode).toFixed(4) : 'N/A';
+        const min = resultObj.min ? Number(resultObj.min).toFixed(4) : 'N/A';
+        const max = resultObj.max ? Number(resultObj.max).toFixed(4) : 'N/A';
+        
+        const mockData: GrowData[] = [
+          {
+            id: '1',
+            date: resultObj.reportTime?.split(' ')[0] || '最新',
+            imageUrl: 'https://picsum.photos/seed/corn1/400/300',
+            tags: ['长势分析', '算法结果'],
+            summary: `长势众数: ${mode}, 最小值: ${min}, 最大值: ${max}。`
+          }
+        ];
+        setData(mockData);
+      } else {
+        setData([]);
+      }
     } catch (error) {
       console.error('获取农情监测数据失败:', error);
       setData(null);
@@ -56,7 +60,7 @@ export const AgriMonitoringSection: React.FC = () => {
 
   useEffect(() => {
     fetchAgriData();
-  }, [binding?.farmlandId]);
+  }, [binding]);
 
   return (
     <section className="farm-card p-6">
