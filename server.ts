@@ -26,6 +26,36 @@ try {
 
 const DEFAULT_SITE_KEY = 'base-current';
 
+// 动态 Token 缓存
+let cachedToken: string | null = null;
+
+async function getValidToken(): Promise<string> {
+  if (cachedToken) return cachedToken;
+
+  const site = sitesConfig.sites[DEFAULT_SITE_KEY];
+  if (!site || !site.apiAuth) {
+    throw new Error('未找到默认基地的认证配置');
+  }
+
+  try {
+    console.log('[Auth] 正在获取新 Token...');
+    const res = await axios.post('http://cpca.hyspi.com:54082/auth/login', {
+      username: site.apiAuth.username,
+      password: site.apiAuth.password,
+    });
+    
+    if (res.data && res.data.data && res.data.data.access_token) {
+      cachedToken = res.data.data.access_token;
+      console.log('[Auth] Token 获取成功');
+      return cachedToken!;
+    } else {
+      throw new Error('登录接口未返回有效 Token');
+    }
+  } catch (e: any) {
+    console.error('[Auth] 登录失败:', e.message);
+    throw e;
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -63,11 +93,22 @@ async function startServer() {
     changeOrigin: true,
     pathRewrite: { '^/api/cpca': '' },
     on: {
-      proxyReq: (proxyReq, req, res) => {
-        // 直接从环境变量读取 Token
-        const token = process.env.TOKEN;
-        if (token) {
+      proxyReq: async (proxyReq, req, res) => {
+        try {
+          const token = await getValidToken();
           proxyReq.setHeader('Authorization', `Bearer ${token}`);
+        } catch (e) {
+          console.error('[Proxy] 无法注入 Token:', e);
+        }
+      },
+      proxyRes: (proxyRes, req, res) => {
+        // 如果后端返回 11009，说明 Token 失效，清除缓存
+        if (proxyRes.statusCode === 200) {
+            // 注意：有些 API 即使认证失败也返回 200，需要检查响应体
+            // 这里简单处理，如果后续发现认证失败，可以在这里进一步解析响应体
+        }
+        if (proxyRes.statusCode === 401) {
+            cachedToken = null;
         }
       }
     }
