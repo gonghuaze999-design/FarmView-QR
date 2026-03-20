@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronDown, Calendar } from 'lucide-react';
-import { getMachineTasks } from '../services/api';
+import { getFarmWorkList } from '../services/api';
 import { useSiteContext } from '../contexts/SiteContext';
 
 interface Activity {
@@ -22,20 +22,25 @@ export const TimelineSection: React.FC = () => {
       if (!binding) return;
       setLoading(true);
       try {
-        const res = await getMachineTasks(binding.baseId);
-        if (res.code === "200" && res.content?.page) {
-          const tasks = res.content.page.map((task: any) => ({
-            id: task.ID || String(Math.random()),
-            date: task.jobTime?.split(' ')[0] || '未知时间',
-            title: task.jobType || '农事作业',
-            description: `设备: ${task.productType || '未知设备'}`,
-            summary: `作业面积: ${task.area || 0}亩`,
+        const now = new Date();
+        const startTime = `${now.getFullYear() - 2}-01-01 00:00:00`;
+        const endTime = `${now.getFullYear()}-12-31 23:59:59`;
+        const res = await getFarmWorkList(binding.baseId, startTime, endTime);
+        // 兼容两种返回结构：rows 数组 或 直接 data 数组
+        const rows = res.data?.rows || res.data || [];
+        if (Array.isArray(rows)) {
+          const tasks = rows.map((task: any) => ({
+            id: String(task.id || task.taskId || Math.random()),
+            date: (task.startTime || task.scheduledStartTime || task.createTime || '').split(' ')[0] || '未知时间',
+            title: task.workType || task.taskName || task.taskType || '农事作业',
+            description: task.landName ? `地块：${task.landName}` : (task.description || ''),
+            summary: task.workerName ? `负责人：${task.workerName}` : undefined,
             type: 'other'
           }));
           setActivities(tasks);
         }
       } catch (e) {
-        console.error('Failed to fetch machine tasks', e);
+        console.error('Failed to fetch farm work list', e);
       } finally {
         setLoading(false);
       }
