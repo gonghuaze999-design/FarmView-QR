@@ -77,7 +77,11 @@ export const MapSection: React.FC = () => {
         }
 
         if (iotRes.code === 200 && iotRes.data) {
-          const parsedDevices = iotRes.data.map((iot: any) => {
+          // 用地图中心点作为设备的默认显示位置（设备接口不返回坐标）
+          const [centerLng, centerLat] = mapCenter;
+
+          const parsedDevices = iotRes.data.map((iot: any, idx: number) => {
+            // 尝试从接口字段取坐标，取不到则用地图中心点附近分散显示
             let position: [number, number] = [0, 0];
             const lng = iot.longitude || iot.longtitude;
             const lat = iot.latitude;
@@ -91,32 +95,34 @@ export const MapSection: React.FC = () => {
                 if (locLng && locLat) {
                   position = [Number(locLng), Number(locLat)];
                 }
-              } catch (e) {
-                console.error('Failed to parse location', e);
-              }
+              } catch (e) { /* ignore */ }
             }
+            // 没有坐标时，在中心点附近按索引偏移分散显示
+            if (position[0] === 0) {
+              const offset = 0.002;
+              position = [centerLng + (idx % 3 - 1) * offset, centerLat + Math.floor(idx / 3) * offset];
+            }
+
+            const nameStr = String(iot.name || '').toLowerCase();
+            const idStr = String(iot.id);
             let type = 'weather';
-            const nameStr = String(iot.name || iot.deviceName || '').toLowerCase();
-            if (nameStr.includes('虫') || iot.deviceType === 'insect' || iot.type === 'insect' || iot.type === 2) {
+            if (nameStr.includes('虫') || insectIds.map(String).includes(idStr)) {
               type = 'insect';
-            } else if (nameStr.includes('摄像') || nameStr.includes('监控') || iot.deviceType === 'camera' || iot.type === 'camera' || iot.type === 3) {
+            } else if (nameStr.includes('球机') || nameStr.includes('摄像') || nameStr.includes('监控') || cameraIds.map(String).includes(idStr)) {
               type = 'camera';
             }
 
             return {
-              id: String(iot.id),
+              id: idStr,
               type,
-              name: iot.name || iot.deviceName || `设备 ${iot.id}`,
+              name: iot.name || `设备 ${iot.id}`,
               position,
-              status: iot.is_used === 1 || iot.status === 1 ? 'online' : 'offline'
+              status: iot.is_used === 1 ? 'online' : 'offline'
             };
           }).filter((d: any) => {
-            if (d.position[0] === 0) return false;
-            const idNum = Number(d.id);
-            if (d.type === 'weather' && !weatherIds.includes(idNum)) return false;
-            if (d.type === 'insect' && !insectIds.includes(idNum)) return false;
-            if (d.type === 'camera' && !cameraIds.includes(idNum)) return false;
-            return true;
+            const idStr = d.id;
+            const allIds = [...weatherIds.map(String), ...insectIds.map(String), ...cameraIds.map(String)];
+            return allIds.includes(idStr);
           });
           setDevices(parsedDevices);
         }
