@@ -147,6 +147,7 @@ export const MapSection: React.FC = () => {
             return allIds.includes(idStr);
           });
           setDevices(parsedDevices);
+          console.log('[MapSection] 设备列表:', parsedDevices.length, '个，中心点:', centerLng, centerLat);
         }
       } catch (error) {
         console.error('Failed to fetch map data', error);
