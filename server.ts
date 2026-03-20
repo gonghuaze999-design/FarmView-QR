@@ -78,6 +78,43 @@ async function startServer() {
     });
   });
 
+  // 诊断接口：测试登录 + 各关键接口是否通
+  app.get('/api/diagnose', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: `基地 ${siteKey} 不存在` });
+
+    const report: any = { siteKey, baseId: site.baseId, steps: [] };
+
+    // Step 1: 登录
+    let token = '';
+    try {
+      tokenCache.delete(siteKey); // 强制重新登录
+      token = await getTokenForSite(siteKey);
+      report.steps.push({ step: '登录', ok: true, token: token.substring(0, 20) + '...' });
+    } catch (e: any) {
+      report.steps.push({ step: '登录', ok: false, error: e.message });
+      return res.json(report);
+    }
+
+    // Step 2: 测试地块列表（验证 Authorization header 格式）
+    const testUrls = [
+      { name: '地块列表', url: `${API_BASE}/farm/land/list?baseId=${site.baseId}`, method: 'GET' },
+      { name: 'IoT设备位置', url: `${API_BASE}/collect/iot/locationList?baseId=${site.baseId}`, method: 'GET' },
+    ];
+
+    for (const t of testUrls) {
+      try {
+        const r = await axios({ method: t.method as any, url: t.url, headers: { 'Authorization': token }, timeout: 8000, validateStatus: () => true });
+        report.steps.push({ step: t.name, ok: r.status === 200, status: r.status, dataCode: r.data?.code, dataMsg: r.data?.msg, count: Array.isArray(r.data?.data) ? r.data.data.length : typeof r.data?.data });
+      } catch (e: any) {
+        report.steps.push({ step: t.name, ok: false, error: e.message });
+      }
+    }
+
+    res.json(report);
+  });
+
   // Token 失效时前端可调用此接口强制刷新
   app.post('/api/refresh-token', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
@@ -114,17 +151,16 @@ async function startServer() {
         url: targetUrl,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': token,  // Sa-Token 直接放 token，不加 Bearer 前缀
         },
         data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
-        params: req.method === 'GET' ? undefined : undefined, // query string 已在 targetPath 中
         timeout: 15000,
-        validateStatus: () => true, // 不抛出 HTTP 错误，原样透传
+        validateStatus: () => true,
       });
 
-      // 如果 token 过期，清除缓存并重试一次
+      // token 失效时自动重新登录并重试一次
       if (response.status === 401) {
-        console.warn(`[Proxy] Token 过期，为基地 ${siteKey} 刷新后重试`);
+        console.warn(`[Proxy] Token 失效，为基地 ${siteKey} 重新登录后重试`);
         tokenCache.delete(siteKey);
         token = await getTokenForSite(siteKey);
         const retry = await axios({
@@ -132,7 +168,7 @@ async function startServer() {
           url: targetUrl,
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': token,
           },
           data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
           timeout: 15000,
