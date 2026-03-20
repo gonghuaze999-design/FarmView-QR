@@ -57,7 +57,7 @@ export const MapSection: React.FC = () => {
               ...land,
               coordinates: coords
             };
-          }).filter((p: any) => p.coordinates.length > 0 && farmlandIds.includes(p.id));
+          }).filter((p: any) => p.coordinates.length > 0);
           
           setPolygons(parsedPolygons);
 
