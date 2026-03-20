@@ -177,8 +177,14 @@ export const MapSection: React.FC = () => {
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        const res = await getEnvDataNow(farmlandId);
-        setDeviceData(res.data);
+        // 先试实时接口，null 则用历史数据接口
+        const resNow = await getEnvDataNow(farmlandId);
+        if (resNow.data) {
+          setDeviceData(resNow.data);
+        } else {
+          const res = await getEnvData(farmlandId, startTime, endTime);
+          setDeviceData(res.data);
+        }
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, startTime, endTime);
         setDeviceData(res.data);
@@ -356,13 +362,13 @@ export const MapSection: React.FC = () => {
                 <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
                   <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
                   <span className="font-bold text-zinc-700 text-sm">
-                    {deviceData?.list?.[0]?.insectName || '暂无数据'}
+                    {deviceData?.insect?.[0]?.insectName || '暂无数据'}
                   </span>
                 </div>
               </div>
-              {deviceData?.list?.length > 0 && (
+              {deviceData?.insect?.length > 0 && (
                 <div className="bg-zinc-50 rounded-2xl border border-zinc-100 overflow-hidden">
-                  {deviceData.list.slice(0, 5).map((item: any, idx: number) => (
+                  {deviceData.insect.slice(0, 5).map((item: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center px-4 py-2.5 border-b border-zinc-100 last:border-0">
                       <span className="text-sm text-zinc-700">{item.insectName}</span>
                       <div className="flex items-center gap-2">
