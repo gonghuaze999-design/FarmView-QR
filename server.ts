@@ -122,6 +122,44 @@ async function startServer() {
     res.json(report);
   });
 
+  // 测试 IoT 弹窗数据接口
+  app.get('/api/test-iot', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: '基地不存在' });
+
+    let token = '';
+    try {
+      token = await getTokenForSite(siteKey);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+
+    const farmlandId = site.farmlandIds?.[0] || '';
+    const now = new Date();
+    const startTime = '2025-01-01 00:00:00';
+    const endTime = '2026-12-31 00:00:00';
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const report: any = { farmlandId, results: [] };
+
+    const tests = [
+      { name: '气象实时', url: `${API_BASE}/collect/iot/getEnvRecordNow`, body: { farmlandId } },
+      { name: '虫情统计', url: `${API_BASE}/collect/iot/getInsectStatistics`, body: { farmlandId, startTime, endTime } },
+      { name: '摄像头列表', url: `${API_BASE}/collect/collection/cameraList`, body: { baseId: site.baseId, farmlandIds: String(farmlandId) } },
+    ];
+
+    for (const t of tests) {
+      try {
+        const r = await axios.post(t.url, t.body, { headers, timeout: 8000, validateStatus: () => true });
+        report.results.push({ name: t.name, code: r.data?.code, msg: r.data?.msg, data: r.data?.data });
+      } catch (e: any) {
+        report.results.push({ name: t.name, error: e.message });
+      }
+    }
+
+    res.json(report);
+  });
+
   // Token 失效时前端可调用此接口强制刷新
   app.post('/api/refresh-token', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
