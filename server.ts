@@ -103,12 +103,19 @@ async function startServer() {
       { name: 'IoT设备位置', url: `${API_BASE}/collect/iot/locationList?baseId=${site.baseId}`, method: 'GET' },
     ];
 
-    for (const t of testUrls) {
+    // 同时测试三种 header 格式，找出哪种有效
+    const headerVariants = [
+      { name: 'satoken', headers: { 'satoken': token } },
+      { name: 'Authorization直接', headers: { 'Authorization': token } },
+      { name: 'Authorization Bearer', headers: { 'Authorization': `Bearer ${token}` } },
+    ];
+    const testUrl = `${API_BASE}/farm/land/list?baseId=${site.baseId}`;
+    for (const v of headerVariants) {
       try {
-        const r = await axios({ method: t.method as any, url: t.url, headers: { 'Authorization': token }, timeout: 8000, validateStatus: () => true });
-        report.steps.push({ step: t.name, ok: r.status === 200, status: r.status, dataCode: r.data?.code, dataMsg: r.data?.msg, count: Array.isArray(r.data?.data) ? r.data.data.length : typeof r.data?.data });
+        const r = await axios({ method: 'GET', url: testUrl, headers: v.headers, timeout: 8000, validateStatus: () => true });
+        report.steps.push({ step: `地块列表[${v.name}]`, ok: r.data?.code === 200, status: r.status, dataCode: r.data?.code, dataMsg: r.data?.msg });
       } catch (e: any) {
-        report.steps.push({ step: t.name, ok: false, error: e.message });
+        report.steps.push({ step: `地块列表[${v.name}]`, ok: false, error: e.message });
       }
     }
 
