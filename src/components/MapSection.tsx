@@ -1,8 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Video, Thermometer, Droplets, Activity, Play, Bug } from 'lucide-react';
+import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getIotLocations, getEnvData, getInsectData, getCameraList } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvDataNow, getInsectData, getCameraList } from '../services/api';
+
+// HLS 视频播放器（支持萤石云 HLS 流）
+const HlsPlayer: React.FC<{ src: string }> = ({ src }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (!src || !videoRef.current) return;
+    const video = videoRef.current;
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+    } else {
+      import('hls.js').then(({ default: Hls }) => {
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(src);
+          hls.attachMedia(video);
+          return () => hls.destroy();
+        }
+      });
+    }
+  }, [src]);
+  return <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />;
+};
 
 export const MapSection: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -149,14 +171,13 @@ export const MapSection: React.FC = () => {
     try {
       if (!binding) return;
       const baseId = binding.baseId;
-      const farmlandId = binding.farmlandIds && binding.farmlandIds.length > 0 ? binding.farmlandIds[0] : 0;
-      
+      const farmlandId = binding.farmlandIds?.[0] || '';
       const now = new Date();
-      const startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        const res = await getEnvData(farmlandId, startTime, endTime);
+        const res = await getEnvDataNow(farmlandId);
         setDeviceData(res.data);
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, startTime, endTime);
@@ -303,70 +324,90 @@ export const MapSection: React.FC = () => {
           {deviceLoading ? (
             <div className="text-center py-8 text-zinc-400 text-sm">加载设备数据中...</div>
           ) : selectedDevice?.type === 'camera' ? (
-            <div className="space-y-4">
-              <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center group cursor-pointer">
-                <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+            <div className="space-y-3">
+              {deviceData && deviceData.length > 0 ? deviceData.map((cam: any, idx: number) => (
+                <div key={idx} className="rounded-2xl overflow-hidden bg-black">
+                  <div className="relative aspect-video flex items-center justify-center">
+                    <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+                    </div>
+                    <HlsPlayer src={cam.hls || cam.videoUrl} />
+                  </div>
+                  <div className="px-3 py-2 bg-zinc-900">
+                    <p className="text-xs text-zinc-300 font-medium">{cam.cameraName || cam.name || `摄像头 ${idx + 1}`}</p>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">{cam.status === 1 ? '🟢 在线' : '🔴 离线'}</p>
+                  </div>
                 </div>
-                {deviceData && deviceData.length > 0 && deviceData[0].videoUrl ? (
-                  <video 
-                    src={deviceData[0].videoUrl}
-                    autoPlay 
-                    muted 
-                    playsInline 
-                    loop 
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-zinc-500 text-sm">暂无视频流</div>
-                )}
-              </div>
+              )) : (
+                <div className="text-zinc-500 text-sm text-center py-8">暂无视频流</div>
+              )}
             </div>
           ) : selectedDevice?.type === 'insect' ? (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 flex flex-col items-center justify-center text-center">
-                <Bug className="text-violet-500 mb-2" size={24} />
-                <span className="text-xs text-violet-600/70 mb-1">今日诱虫</span>
-                <span className="font-bold text-violet-700 text-xl">
-                  {deviceData?.length > 0 ? deviceData.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0) : '0'}
-                  <span className="text-sm font-normal ml-0.5">只</span>
-                </span>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 flex flex-col items-center justify-center text-center">
+                  <Bug className="text-violet-500 mb-2" size={24} />
+                  <span className="text-xs text-violet-600/70 mb-1">累计诱虫</span>
+                  <span className="font-bold text-violet-700 text-xl">
+                    {deviceData?.total ?? '--'}
+                    <span className="text-sm font-normal ml-0.5">只</span>
+                  </span>
+                </div>
+                <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
+                  <span className="font-bold text-zinc-700 text-sm">
+                    {deviceData?.list?.[0]?.insectName || '暂无数据'}
+                  </span>
+                </div>
               </div>
-              <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
-                <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
-                <span className="font-bold text-zinc-700 text-lg">
-                  {deviceData?.length > 0 && deviceData[0].name ? deviceData[0].name : '未知'}
-                </span>
-              </div>
+              {deviceData?.list?.length > 0 && (
+                <div className="bg-zinc-50 rounded-2xl border border-zinc-100 overflow-hidden">
+                  {deviceData.list.slice(0, 5).map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center px-4 py-2.5 border-b border-zinc-100 last:border-0">
+                      <span className="text-sm text-zinc-700">{item.insectName}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-violet-700">{item.insectValue}</span>
+                        <span className="text-xs text-zinc-400">{item.percent}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
                 <Thermometer className="text-blue-500 mb-2" size={24} />
-                <span className="text-xs text-blue-600/70 mb-1">当前温度</span>
+                <span className="text-xs text-blue-600/70 mb-1">空气温度</span>
                 <span className="font-bold text-blue-700 text-xl">
-                  {deviceData?.air_temperature?.length > 0 ? deviceData.air_temperature[0].value : '--'}
+                  {deviceData?.airTemperature ?? deviceData?.air_temperature ?? '--'}
                   <span className="text-sm font-normal ml-0.5">°C</span>
                 </span>
               </div>
               <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
                 <Droplets className="text-emerald-500 mb-2" size={24} />
-                <span className="text-xs text-emerald-600/70 mb-1">环境湿度</span>
+                <span className="text-xs text-emerald-600/70 mb-1">空气湿度</span>
                 <span className="font-bold text-emerald-700 text-xl">
-                  {deviceData?.air_humidity?.length > 0 ? deviceData.air_humidity[0].value : '--'}
+                  {deviceData?.airHumidity ?? deviceData?.air_humidity ?? '--'}
                   <span className="text-sm font-normal ml-0.5">%</span>
                 </span>
               </div>
-              {selectedDevice?.type === 'weather' && (
-                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center col-span-2">
-                  <Activity className="text-amber-500 mb-2" size={24} />
-                  <span className="text-xs text-amber-600/70 mb-1">光照强度</span>
-                  <span className="font-bold text-amber-700 text-xl">
-                    {deviceData?.illumination?.length > 0 ? deviceData.illumination[0].value : '--'}
-                    <span className="text-sm font-normal ml-0.5">Lux</span>
-                  </span>
-                </div>
-              )}
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center">
+                <Activity className="text-amber-500 mb-2" size={24} />
+                <span className="text-xs text-amber-600/70 mb-1">风速</span>
+                <span className="font-bold text-amber-700 text-xl">
+                  {deviceData?.windSpeed ?? deviceData?.wind_speed ?? '--'}
+                  <span className="text-sm font-normal ml-0.5">m/s</span>
+                </span>
+              </div>
+              <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex flex-col items-center justify-center text-center">
+                <Cloud className="text-sky-500 mb-2" size={24} />
+                <span className="text-xs text-sky-600/70 mb-1">降水量</span>
+                <span className="font-bold text-sky-700 text-xl">
+                  {deviceData?.precipitation ?? '--'}
+                  <span className="text-sm font-normal ml-0.5">mm</span>
+                </span>
+              </div>
             </div>
           )}
         </div>

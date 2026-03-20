@@ -22,6 +22,7 @@
     "express": "^4.22.1",
     "firebase": "^12.10.0",
     "framer-motion": "^12.37.0",
+    "hls.js": "^1.5.15",
     "http-proxy-middleware": "^3.0.5",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
