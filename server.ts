@@ -144,6 +144,7 @@ async function startServer() {
 
     const tests = [
       { name: '气象实时', url: `${API_BASE}/collect/iot/getEnvRecordNow`, body: { farmlandId } },
+      { name: '气象历史', url: `${API_BASE}/collect/iot/getEnvInformationNew`, body: { farmlandId, dimension: 'air_temperature,air_humidity', startTime, endTime } },
       { name: '虫情统计', url: `${API_BASE}/collect/iot/getInsectStatistics`, body: { farmlandId, startTime, endTime } },
       { name: '摄像头列表', url: `${API_BASE}/collect/collection/cameraList`, body: { baseId: site.baseId, farmlandIds: String(farmlandId) } },
     ];
