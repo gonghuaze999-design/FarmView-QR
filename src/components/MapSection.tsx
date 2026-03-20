@@ -177,13 +177,12 @@ export const MapSection: React.FC = () => {
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        // 先试实时接口，null 则用历史数据接口
         const resNow = await getEnvDataNow(farmlandId);
         if (resNow.data) {
-          setDeviceData(resNow.data);
+          setDeviceData({ type: 'now', ...resNow.data });
         } else {
           const res = await getEnvData(farmlandId, startTime, endTime);
-          setDeviceData(res.data);
+          setDeviceData({ type: 'history', ...res.data });
         }
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, startTime, endTime);
@@ -386,7 +385,9 @@ export const MapSection: React.FC = () => {
                 <Thermometer className="text-blue-500 mb-2" size={24} />
                 <span className="text-xs text-blue-600/70 mb-1">空气温度</span>
                 <span className="font-bold text-blue-700 text-xl">
-                  {deviceData?.airTemperature ?? deviceData?.air_temperature ?? '--'}
+                  {deviceData?.type === 'history'
+                    ? (deviceData.air_temperature?.find((r: any) => r.air_temperature !== 0)?.air_temperature ?? '--')
+                    : (deviceData?.airTemperature ?? deviceData?.air_temperature ?? '--')}
                   <span className="text-sm font-normal ml-0.5">°C</span>
                 </span>
               </div>
@@ -394,7 +395,9 @@ export const MapSection: React.FC = () => {
                 <Droplets className="text-emerald-500 mb-2" size={24} />
                 <span className="text-xs text-emerald-600/70 mb-1">空气湿度</span>
                 <span className="font-bold text-emerald-700 text-xl">
-                  {deviceData?.airHumidity ?? deviceData?.air_humidity ?? '--'}
+                  {deviceData?.type === 'history'
+                    ? (deviceData.air_humidity?.find((r: any) => r.air_humidity !== 0)?.air_humidity ?? '--')
+                    : (deviceData?.airHumidity ?? deviceData?.air_humidity ?? '--')}
                   <span className="text-sm font-normal ml-0.5">%</span>
                 </span>
               </div>
@@ -402,7 +405,9 @@ export const MapSection: React.FC = () => {
                 <Activity className="text-amber-500 mb-2" size={24} />
                 <span className="text-xs text-amber-600/70 mb-1">风速</span>
                 <span className="font-bold text-amber-700 text-xl">
-                  {deviceData?.windSpeed ?? deviceData?.wind_speed ?? '--'}
+                  {deviceData?.type === 'history'
+                    ? (deviceData.wind_speed?.find((r: any) => r.wind_speed !== 0)?.wind_speed ?? '--')
+                    : (deviceData?.windSpeed ?? deviceData?.wind_speed ?? '--')}
                   <span className="text-sm font-normal ml-0.5">m/s</span>
                 </span>
               </div>
@@ -410,7 +415,9 @@ export const MapSection: React.FC = () => {
                 <Cloud className="text-sky-500 mb-2" size={24} />
                 <span className="text-xs text-sky-600/70 mb-1">降水量</span>
                 <span className="font-bold text-sky-700 text-xl">
-                  {deviceData?.precipitation ?? '--'}
+                  {deviceData?.type === 'history'
+                    ? (deviceData.precipitation?.find((r: any) => r.precipitation !== 0)?.precipitation ?? '--')
+                    : (deviceData?.precipitation ?? '--')}
                   <span className="text-sm font-normal ml-0.5">mm</span>
                 </span>
               </div>
