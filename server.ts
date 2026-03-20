@@ -158,7 +158,7 @@ async function startServer() {
         url: targetUrl,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token,  // Sa-Token 直接放 token，不加 Bearer 前缀
+          'Authorization': `Bearer ${token}`,
         },
         data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
         timeout: 15000,
@@ -175,7 +175,7 @@ async function startServer() {
           url: targetUrl,
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token,
+            'Authorization': `Bearer ${token}`,
           },
           data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
           timeout: 15000,
