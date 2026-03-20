@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Assumed Data Model
+    // Users: /users/{userId}
+    // Plots: /plots/{plotId} (ownerId field)
+    // Cameras: /cameras/{cameraId} (plotId field)
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /plots/{plotId} {
+      allow read: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow write: if isAuthenticated() && (request.resource.data.ownerId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+    }
+
+    match /cameras/{cameraId} {
+      allow read: if isAuthenticated() && get(/databases/$(database)/documents/plots/$(resource.data.plotId)).data.ownerId == request.auth.uid;
+      allow write: if isAuthenticated() && get(/databases/$(database)/documents/plots/$(request.resource.data.plotId)).data.ownerId == request.auth.uid;
+    }
+
+    match /joinRequests/{requestId} {
+      // Allow anyone to submit a join request (even unauthenticated users)
+      allow create: if true;
+      // Only admins can read or update (for now, we'll restrict to false until admin role is implemented)
+      allow read, update, delete: if false;
+    }
+  }
+}

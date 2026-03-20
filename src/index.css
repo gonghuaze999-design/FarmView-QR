@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: var(--color-emerald-600);
+  --color-accent-hover: var(--color-emerald-700);
+}
+
+@layer components {
+  .farm-card {
+    @apply bg-white rounded-3xl shadow-sm border border-zinc-100 overflow-hidden;
+  }
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-800 antialiased;
+}
+
