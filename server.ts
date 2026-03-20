@@ -4,57 +4,50 @@ import path from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 import 'dotenv/config';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// 1. 读取 sites-config.json
+// 读取 sites-config.json
 let sitesConfig: any = { sites: {} };
 try {
   const configPath = path.join(__dirname, 'sites-config.json');
   if (fs.existsSync(configPath)) {
     const raw = fs.readFileSync(configPath, 'utf-8');
     sitesConfig = JSON.parse(raw);
-    console.log(`[Config] 成功加载 sites-config.json，包含 ${Object.keys(sitesConfig.sites).length} 个基地配置。`);
-  } else {
-    console.warn('[Config] 未找到 sites-config.json，将使用空配置。');
+    console.log(`[Config] 加载 sites-config.json，共 ${Object.keys(sitesConfig.sites).length} 个基地`);
   }
 } catch (e: any) {
   console.error('[Config] 解析 sites-config.json 失败:', e.message);
 }
 
+const API_BASE = 'http://cpca.hyspi.com:54082';
 const DEFAULT_SITE_KEY = 'base-current';
 
-// 动态 Token 缓存
-let cachedToken: string | null = null;
+// 按 siteKey 分别缓存 Token
+const tokenCache = new Map<string, string>();
 
-async function getValidToken(): Promise<string> {
-  if (cachedToken) return cachedToken;
+async function getTokenForSite(siteKey: string): Promise<string> {
+  if (tokenCache.has(siteKey)) return tokenCache.get(siteKey)!;
 
-  const site = sitesConfig.sites[DEFAULT_SITE_KEY];
-  if (!site || !site.apiAuth) {
-    throw new Error('未找到默认基地的认证配置');
-  }
+  const site = sitesConfig.sites[siteKey] || sitesConfig.sites[DEFAULT_SITE_KEY];
+  if (!site?.apiAuth) throw new Error(`未找到基地 ${siteKey} 的认证配置`);
 
-  try {
-    console.log('[Auth] 正在获取新 Token...');
-    const res = await axios.post('http://cpca.hyspi.com:54082/auth/login', {
-      username: site.apiAuth.username,
-      password: site.apiAuth.password,
-    });
-    
-    if (res.data && res.data.data && res.data.data.access_token) {
-      cachedToken = res.data.data.access_token;
-      console.log('[Auth] Token 获取成功');
-      return cachedToken!;
-    } else {
-      throw new Error('登录接口未返回有效 Token');
-    }
-  } catch (e: any) {
-    console.error('[Auth] 登录失败:', e.message);
-    throw e;
-  }
+  console.log(`[Auth] 正在为基地 ${siteKey} 获取 Token...`);
+  const res = await axios.post(`${API_BASE}/auth/login`, {
+    username: site.apiAuth.username,
+    password: site.apiAuth.password,
+    code: 1,
+    uuid: 'farmview',
+    rememberMe: true,
+  });
+
+  const token = res.data?.data?.access_token;
+  if (!token) throw new Error('登录接口未返回有效 Token');
+
+  tokenCache.set(siteKey, token);
+  console.log(`[Auth] 基地 ${siteKey} Token 获取成功`);
+  return token;
 }
 
 async function startServer() {
@@ -64,109 +57,111 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // 提供站点配置接口给前端
+  // --- 自定义路由（必须在代理之前）---
+
+  // 站点配置查询
   app.get('/api/site-binding', (req, res) => {
     const requestedSite = String(req.query.site || DEFAULT_SITE_KEY);
     const exists = Boolean(sitesConfig.sites[requestedSite]);
     const selected = exists ? sitesConfig.sites[requestedSite] : sitesConfig.sites[DEFAULT_SITE_KEY];
-    const fallback = !exists;
 
-    // 移除敏感的账号密码信息后再下发给前端
     const safeBinding = selected ? { ...selected } : null;
-    if (safeBinding && safeBinding.apiAuth) {
-      delete safeBinding.apiAuth;
-    }
+    if (safeBinding?.apiAuth) delete safeBinding.apiAuth;
 
     res.json({
       requestedSite,
-      resolvedSite: fallback ? DEFAULT_SITE_KEY : requestedSite,
+      resolvedSite: exists ? requestedSite : DEFAULT_SITE_KEY,
       exists,
-      fallback,
+      fallback: !exists,
       availableSites: Object.keys(sitesConfig.sites),
       binding: safeBinding,
     });
   });
 
-  // 专门用于测试的直接请求路由
-  app.get('/api/test-direct', async (req, res) => {
-    console.log('[Test] 正在直接请求外部 API...');
+  // Token 失效时前端可调用此接口强制刷新
+  app.post('/api/refresh-token', async (req, res) => {
+    const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
+    tokenCache.delete(siteKey);
     try {
-      const token = await getValidToken();
-      // 示例：测试地块列表接口
-      const response = await axios.get('http://cpca.hyspi.com:54082/farm/land/list?baseId=1', {
-        headers: { 'X-Access-Token': token }
-      });
-      console.log('[Test] 外部 API 原始响应数据:', JSON.stringify(response.data, null, 2));
-      res.json(response.data);
+      await getTokenForSite(siteKey);
+      res.json({ ok: true });
     } catch (e: any) {
-      console.error('[Test] 直接请求失败:', e.message);
       res.status(500).json({ error: e.message });
     }
   });
 
-  // 统一代理到麦芒/大数据平台
-  const authMiddleware = async (req: any, res: any, next: any) => {
+  // --- 代理中间件：转发所有 /api/* 到后端 ---
+  app.use('/api', async (req, res) => {
+    const siteKey = String(req.headers['x-site-name'] || DEFAULT_SITE_KEY);
+
+    let token: string;
     try {
-      const token = await getValidToken();
-      req.headers['x-auth-token'] = token; 
-      next();
-    } catch (e) {
-      console.error('[Proxy] 预获取 Token 失败:', e);
-      res.status(500).send('认证失败');
+      token = await getTokenForSite(siteKey);
+    } catch (e: any) {
+      console.error('[Proxy] 获取 Token 失败:', e.message);
+      return res.status(500).json({ error: '认证失败', detail: e.message });
     }
-  };
 
-  // 代理所有以 /api/ 开头的请求
-  app.use('/api', authMiddleware, createProxyMiddleware({
-    target: 'http://cpca.hyspi.com:54082',
-    changeOrigin: true,
-    // 假设前端请求是 /api/cpca/farm/land/list，重写为 /farm/land/list
-    // 假设前端请求是 /api/dataCenter/machineList，重写为 /dataCenter/machineList
-    pathRewrite: (path, req) => {
-      const newPath = path.replace(/^\/api\/cpca/, '').replace(/^\/api/, '');
-      console.log(`[Proxy] 重写路径: ${path} -> ${newPath}`);
-      return newPath;
-    },
-    on: {
-      proxyReq: (proxyReq, req, res) => {
-        console.log(`[Proxy] 正在转发请求到: ${proxyReq.method} ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
-        const token = req.headers['x-auth-token'];
-        if (token) {
-          proxyReq.setHeader('X-Access-Token', token as string);
-        }
-      },
-      proxyRes: (proxyRes, req, res) => {
-        console.log(`[Proxy] 收到响应: ${proxyRes.statusCode}`);
-        
-        // 读取并打印响应体
-        let body = '';
-        proxyRes.on('data', (chunk) => {
-          body += chunk;
+    // 去掉 /api 前缀，还原真实路径
+    const targetPath = req.url; // express 在 app.use('/api') 下，req.url 已去掉 /api
+    const targetUrl = `${API_BASE}${targetPath}`;
+
+    console.log(`[Proxy] ${req.method} ${targetUrl}`);
+
+    try {
+      const response = await axios({
+        method: req.method as any,
+        url: targetUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
+        params: req.method === 'GET' ? undefined : undefined, // query string 已在 targetPath 中
+        timeout: 15000,
+        validateStatus: () => true, // 不抛出 HTTP 错误，原样透传
+      });
+
+      // 如果 token 过期，清除缓存并重试一次
+      if (response.status === 401) {
+        console.warn(`[Proxy] Token 过期，为基地 ${siteKey} 刷新后重试`);
+        tokenCache.delete(siteKey);
+        token = await getTokenForSite(siteKey);
+        const retry = await axios({
+          method: req.method as any,
+          url: targetUrl,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
+          timeout: 15000,
+          validateStatus: () => true,
         });
-        proxyRes.on('end', () => {
-          console.log(`[Proxy] 响应数据: ${body}`);
-        });
+        return res.status(retry.status).json(retry.data);
       }
-    }
-  }));
 
-  // Vite middleware
-  if (process.env.NODE_ENV !== "production") {
+      res.status(response.status).json(response.data);
+    } catch (e: any) {
+      console.error('[Proxy] 请求失败:', e.message);
+      res.status(502).json({ error: '上游请求失败', detail: e.message });
+    }
+  });
+
+  // --- Vite / 静态文件 ---
+  if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(__dirname, 'dist');
-    console.log(`[Static] Serving static files from: ${distPath}`);
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
