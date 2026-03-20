@@ -83,7 +83,9 @@ export const MapSection: React.FC = () => {
           
           setPolygons(parsedPolygons);
 
-          // 计算中心点
+          // 计算中心点（局部变量，立即用于设备坐标偏移）
+          let computedCenterLng = 122.063;
+          let computedCenterLat = 46.133;
           if (parsedPolygons.length > 0) {
             let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
             parsedPolygons.forEach(p => {
@@ -94,60 +96,57 @@ export const MapSection: React.FC = () => {
                 if (coord[1] > maxLat) maxLat = coord[1];
               });
             });
-            setMapCenter([(minLng + maxLng) / 2, (minLat + maxLat) / 2]);
+            computedCenterLng = (minLng + maxLng) / 2;
+            computedCenterLat = (minLat + maxLat) / 2;
+            setMapCenter([computedCenterLng, computedCenterLat]);
           }
-        }
 
-        if (iotRes.code === 200 && iotRes.data) {
-          // 用地图中心点作为设备的默认显示位置（设备接口不返回坐标）
-          const [centerLng, centerLat] = mapCenter;
+          // 设备打点（在同一作用域内使用刚计算的中心点）
+          if (iotRes.code === 200 && iotRes.data) {
+            const parsedDevices = iotRes.data.map((iot: any, idx: number) => {
+              let position: [number, number] = [0, 0];
+              const lng = iot.longitude || iot.longtitude;
+              const lat = iot.latitude;
+              if (lng && lat) {
+                position = [Number(lng), Number(lat)];
+              } else if (iot.location) {
+                try {
+                  const loc = typeof iot.location === 'string' ? JSON.parse(iot.location) : iot.location;
+                  const locLng = loc.longitude || loc.longtitude;
+                  const locLat = loc.latitude;
+                  if (locLng && locLat) {
+                    position = [Number(locLng), Number(locLat)];
+                  }
+                } catch (e) { /* ignore */ }
+              }
+              if (position[0] === 0) {
+                const offset = 0.002;
+                position = [computedCenterLng + (idx % 3 - 1) * offset, computedCenterLat + Math.floor(idx / 3) * offset];
+              }
 
-          const parsedDevices = iotRes.data.map((iot: any, idx: number) => {
-            // 尝试从接口字段取坐标，取不到则用地图中心点附近分散显示
-            let position: [number, number] = [0, 0];
-            const lng = iot.longitude || iot.longtitude;
-            const lat = iot.latitude;
-            if (lng && lat) {
-              position = [Number(lng), Number(lat)];
-            } else if (iot.location) {
-              try {
-                const loc = typeof iot.location === 'string' ? JSON.parse(iot.location) : iot.location;
-                const locLng = loc.longitude || loc.longtitude;
-                const locLat = loc.latitude;
-                if (locLng && locLat) {
-                  position = [Number(locLng), Number(locLat)];
-                }
-              } catch (e) { /* ignore */ }
-            }
-            // 没有坐标时，在中心点附近按索引偏移分散显示
-            if (position[0] === 0) {
-              const offset = 0.002;
-              position = [centerLng + (idx % 3 - 1) * offset, centerLat + Math.floor(idx / 3) * offset];
-            }
+              const nameStr = String(iot.name || '').toLowerCase();
+              const idStr = String(iot.id);
+              let type = 'weather';
+              if (nameStr.includes('虫') || insectIds.map(String).includes(idStr)) {
+                type = 'insect';
+              } else if (nameStr.includes('球机') || nameStr.includes('摄像') || nameStr.includes('监控') || cameraIds.map(String).includes(idStr)) {
+                type = 'camera';
+              }
 
-            const nameStr = String(iot.name || '').toLowerCase();
-            const idStr = String(iot.id);
-            let type = 'weather';
-            if (nameStr.includes('虫') || insectIds.map(String).includes(idStr)) {
-              type = 'insect';
-            } else if (nameStr.includes('球机') || nameStr.includes('摄像') || nameStr.includes('监控') || cameraIds.map(String).includes(idStr)) {
-              type = 'camera';
-            }
-
-            return {
-              id: idStr,
-              type,
-              name: iot.name || `设备 ${iot.id}`,
-              position,
-              status: iot.is_used === 1 ? 'online' : 'offline'
-            };
-          }).filter((d: any) => {
-            const idStr = d.id;
-            const allIds = [...weatherIds.map(String), ...insectIds.map(String), ...cameraIds.map(String)];
-            return allIds.includes(idStr);
-          });
-          setDevices(parsedDevices);
-          console.log('[MapSection] 设备列表:', parsedDevices.length, '个，中心点:', centerLng, centerLat);
+              return {
+                id: idStr,
+                type,
+                name: iot.name || `设备 ${iot.id}`,
+                position,
+                status: iot.is_used === 1 ? 'online' : 'offline'
+              };
+            }).filter((d: any) => {
+              const allIds = [...weatherIds.map(String), ...insectIds.map(String), ...cameraIds.map(String)];
+              return allIds.includes(d.id);
+            });
+            setDevices(parsedDevices);
+            console.log('[MapSection] 设备列表:', parsedDevices.length, '个，中心点:', computedCenterLng, computedCenterLat);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch map data', error);
