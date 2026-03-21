@@ -5,11 +5,13 @@ import { useSiteContext } from '../contexts/SiteContext';
 import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList } from '../services/api';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
-const HlsPlayer: React.FC<{ src: string }> = ({ src }) => {
+const HlsPlayer: React.FC<{ src: string; cameraName?: string }> = ({ src, cameraName }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    if (!src || !videoRef.current) return;
-    const video = videoRef.current;
+  const fullVideoRef = useRef<HTMLVideoElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const setupHls = (video: HTMLVideoElement) => {
+    if (!src || !video) return;
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = src;
     } else {
@@ -18,33 +20,48 @@ const HlsPlayer: React.FC<{ src: string }> = ({ src }) => {
           const hls = new Hls();
           hls.loadSource(src);
           hls.attachMedia(video);
-          return () => hls.destroy();
         }
       });
     }
-  }, [src]);
-
-  const handleFullscreen = () => {
-    const v = videoRef.current as any;
-    if (!v) return;
-    if (v.requestFullscreen) {
-      v.requestFullscreen().catch(() => {});
-    } else if (v.webkitEnterFullscreen) {
-      v.webkitEnterFullscreen();
-    }
-    screen.orientation?.lock?.('landscape').catch(() => {});
   };
 
+  useEffect(() => { if (videoRef.current) setupHls(videoRef.current); }, [src]);
+  useEffect(() => { if (fullscreen && fullVideoRef.current) setupHls(fullVideoRef.current); }, [fullscreen]);
+
   return (
-    <div className="relative w-full h-full">
-      <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-      <button
-        onClick={handleFullscreen}
-        className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
-      >
-        <Maximize2 size={14} />
-      </button>
-    </div>
+    <>
+      <div className="relative w-full h-full">
+        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+        <button
+          onClick={() => setFullscreen(true)}
+          className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
+        >
+          <Maximize2 size={14} />
+        </button>
+      </div>
+
+      {fullscreen && (
+        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+          <video ref={fullVideoRef} autoPlay muted playsInline className="w-full h-full object-contain" />
+          <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+            <span className="text-white text-sm font-medium bg-black/40 px-3 py-1 rounded-full">
+              {cameraName || 'LIVE'}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-white text-xs bg-red-500/80 px-2 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> LIVE
+              </span>
+              <button
+                onClick={() => setFullscreen(false)}
+                className="bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
+              >
+                <Minimize2 size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -373,7 +390,7 @@ export const MapSection: React.FC = () => {
                         <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
                       </div>
                       {cam.status === 1 ? (
-                        <HlsPlayer src={cam.hls || cam.videoUrl} />
+                        <HlsPlayer src={cam.hls || cam.videoUrl} cameraName={cam.cameraName} />
                       ) : (
                         <div className="text-zinc-500 text-sm">设备离线</div>
                       )}
