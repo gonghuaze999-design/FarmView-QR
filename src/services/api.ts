@@ -45,7 +45,7 @@ export const getEnvDataNow = async (farmlandId: number | string) => {
 export const getEnvData = async (farmlandId: number | string, startTime: string, endTime: string) => {
   const res = await api.post('/api/collect/iot/getEnvInformationNew', {
     farmlandId,
-    dimension: 'air_temperature,air_humidity,light_intensity',
+    dimension: 'air_temperature,air_humidity,wind_speed,precipitation',
     startTime,
     endTime,
   });
