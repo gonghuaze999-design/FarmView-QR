@@ -23,7 +23,29 @@ const HlsPlayer: React.FC<{ src: string }> = ({ src }) => {
       });
     }
   }, [src]);
-  return <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />;
+
+  const handleFullscreen = () => {
+    const v = videoRef.current as any;
+    if (!v) return;
+    if (v.requestFullscreen) {
+      v.requestFullscreen().catch(() => {});
+    } else if (v.webkitEnterFullscreen) {
+      v.webkitEnterFullscreen();
+    }
+    screen.orientation?.lock?.('landscape').catch(() => {});
+  };
+
+  return (
+    <div className="relative w-full h-full">
+      <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+      <button
+        onClick={handleFullscreen}
+        className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
+      >
+        <Maximize2 size={14} />
+      </button>
+    </div>
+  );
 };
 
 export const MapSection: React.FC = () => {
@@ -203,16 +225,16 @@ export const MapSection: React.FC = () => {
 
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
-    // 稍微延迟以等待布局变化
     setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.resize();
-      }
-    }, 100);
+      if (mapRef.current) mapRef.current.resize();
+    }, 300);
   };
 
   return (
-    <section className={`farm-card relative overflow-hidden ${isFullScreen ? 'fixed inset-0 z-[100] rounded-none' : 'h-[400px]'}`}>
+    <section className={isFullScreen
+      ? 'fixed inset-0 z-[100] bg-white'
+      : 'farm-card relative overflow-hidden h-[400px]'
+    }>
       <div className="absolute inset-0 z-0">
         <MapComponent 
           isFullScreen={isFullScreen} 
@@ -355,16 +377,6 @@ export const MapSection: React.FC = () => {
                       ) : (
                         <div className="text-zinc-500 text-sm">设备离线</div>
                       )}
-                      {/* 全屏按钮 */}
-                      <button
-                        onClick={() => {
-                          const videoEl = document.querySelector('video') as HTMLVideoElement;
-                          if (videoEl?.requestFullscreen) videoEl.requestFullscreen();
-                        }}
-                        className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
-                      >
-                        <Maximize2 size={14} />
-                      </button>
                     </div>
                     <div className="px-3 py-2 bg-zinc-900">
                       <p className="text-xs text-zinc-300 font-medium">{cam.cameraName || `摄像头 ${idx + 1}`}</p>
