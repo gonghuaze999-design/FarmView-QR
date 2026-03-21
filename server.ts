@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 import 'dotenv/config';
 import fs from 'fs';
-import Jimp from 'jimp';
+import { Jimp } from 'jimp';
 import Database from 'better-sqlite3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -348,7 +348,7 @@ async function startServer() {
       const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
       const buffer = Buffer.from(imgRes.data);
 
-      const img = await Jimp.read(buffer);
+      const img = await Jimp.fromBuffer(buffer);
       img.greyscale();
       const { data, width, height } = img.bitmap; // RGBA Uint8Array
 
@@ -388,7 +388,7 @@ async function startServer() {
         out[i * 4 + 3] = 255;
       }
 
-      const colored = new Jimp({ data: out, width, height });
+      const colored = new Jimp({ width, height, data: out });
       const pngBuf = await colored.getBuffer('image/png');
       const base64 = `data:image/png;base64,${pngBuf.toString('base64')}`;
       const stats = { mode, mean: Math.round(mean), std: Math.round(std), minVal, maxVal };
