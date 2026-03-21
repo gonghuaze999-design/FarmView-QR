@@ -161,6 +161,73 @@ async function startServer() {
     res.json(report);
   });
 
+  // 探测农事行为接口路径
+  app.get('/api/test-farmwork', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: '基地不存在' });
+
+    let token = '';
+    try { token = await getTokenForSite(siteKey); } catch (e: any) { return res.status(500).json({ error: e.message }); }
+
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const baseId = site.baseId;
+    const startTime = '2023-01-01 00:00:00';
+    const endTime = '2026-12-31 00:00:00';
+    const report: any = { baseId, results: [] };
+
+    const paths = [
+      { name: 'taskCount', url: `${API_BASE}/farm/work/taskCount?baseId=${baseId}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`, method: 'GET' },
+      { name: 'list', url: `${API_BASE}/farm/work/list?baseId=${baseId}&pageNum=1&pageSize=10`, method: 'GET' },
+      { name: 'page', url: `${API_BASE}/farm/work/page?baseId=${baseId}&pageNum=1&pageSize=10`, method: 'GET' },
+      { name: 'queryList', url: `${API_BASE}/farm/work/queryList?baseId=${baseId}`, method: 'GET' },
+      { name: 'taskList', url: `${API_BASE}/farm/work/taskList?baseId=${baseId}&pageNum=1&pageSize=10`, method: 'GET' },
+      { name: 'workRecord', url: `${API_BASE}/farm/workRecord/list?baseId=${baseId}&pageNum=1&pageSize=10`, method: 'GET' },
+      { name: 'farmTask', url: `${API_BASE}/farm/task/list?baseId=${baseId}&pageNum=1&pageSize=10`, method: 'GET' },
+    ];
+
+    for (const p of paths) {
+      try {
+        const r = await axios({ method: p.method as any, url: p.url, headers, timeout: 8000, validateStatus: () => true });
+        report.results.push({ name: p.name, status: r.status, code: r.data?.code, msg: r.data?.msg, hasData: !!r.data?.data });
+      } catch (e: any) {
+        report.results.push({ name: p.name, error: e.message });
+      }
+    }
+    res.json(report);
+  });
+
+  // 探测农情监测接口路径
+  app.get('/api/test-ndvi', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: '基地不存在' });
+
+    let token = '';
+    try { token = await getTokenForSite(siteKey); } catch (e: any) { return res.status(500).json({ error: e.message }); }
+
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const baseId = site.baseId;
+    const report: any = { baseId, results: [] };
+
+    const paths = [
+      { name: 'completeTaskList', url: `${API_BASE}/center/base/queryCompleteTaskList?baseId=${baseId}`, method: 'GET' },
+      { name: 'growsHight', url: `${API_BASE}/center/base/growsHight`, method: 'POST', body: { dimension: 'Growth_status', farmlandId: site.farmlandIds?.[0], startTime: '2023-01-01 00:00:00', endTime: '2026-12-31 00:00:00' } },
+      { name: 'droneTask', url: `${API_BASE}/center/drone/taskList?baseId=${baseId}`, method: 'GET' },
+      { name: 'missionList', url: `${API_BASE}/center/mission/list?baseId=${baseId}`, method: 'GET' },
+    ];
+
+    for (const p of paths) {
+      try {
+        const r = await axios({ method: p.method as any, url: p.url, headers, data: (p as any).body, timeout: 10000, validateStatus: () => true });
+        report.results.push({ name: p.name, status: r.status, code: r.data?.code, msg: r.data?.msg, dataType: typeof r.data?.data, dataLen: Array.isArray(r.data?.data) ? r.data.data.length : null });
+      } catch (e: any) {
+        report.results.push({ name: p.name, error: e.message });
+      }
+    }
+    res.json(report);
+  });
+
   // Token 失效时前端可调用此接口强制刷新
   app.post('/api/refresh-token', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);

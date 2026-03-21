@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, Wind, Droplets, AlertTriangle, X, Thermometer, Gauge } from 'lucide-react';
+import { Cloud, Wind, Droplets, AlertTriangle, X, Thermometer } from 'lucide-react';
 import { fetchWeatherData, WeatherData } from '../services/weatherService';
 import { useSiteContext } from '../contexts/SiteContext';
+
+const WMO_CODE: Record<number, string> = {
+  0: '晴', 1: '晴间多云', 2: '多云', 3: '阴',
+  45: '雾', 48: '冻雾',
+  51: '小毛毛雨', 53: '毛毛雨', 55: '大毛毛雨',
+  61: '小雨', 63: '中雨', 65: '大雨',
+  71: '小雪', 73: '中雪', 75: '大雪', 77: '冰粒',
+  80: '阵雨', 81: '中阵雨', 82: '强阵雨',
+  85: '阵雪', 86: '强阵雪',
+  95: '雷暴', 96: '雷暴伴冰雹', 99: '强雷暴伴冰雹',
+};
+
+const getWeatherDesc = (code: number) => WMO_CODE[code] || `天气码${code}`;
 
 export const WeatherWidget: React.FC = () => {
   const { binding } = useSiteContext();
@@ -64,6 +77,7 @@ export const WeatherWidget: React.FC = () => {
       >
         <Cloud className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
         <span className="font-bold text-sm text-zinc-700">{weather.current.temperature}°C</span>
+        <span className="text-xs text-zinc-400">{getWeatherDesc(weather.current.weatherCode)}</span>
       </button>
 
       {isOpen && (
@@ -114,12 +128,12 @@ export const WeatherWidget: React.FC = () => {
               </div>
             </div>
             <div className="bg-zinc-50 border border-zinc-100 p-4 rounded-2xl flex items-center gap-3 hover:bg-zinc-100 transition-colors">
-              <div className="bg-purple-100 p-2 rounded-xl text-purple-500">
-                <Gauge className="w-5 h-5" />
+              <div className="bg-sky-100 p-2 rounded-xl text-sky-500">
+                <Cloud className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs text-zinc-500">天气码</p>
-                <p className="font-bold text-zinc-800">{weather.current.weatherCode}</p>
+                <p className="text-xs text-zinc-500">天气</p>
+                <p className="font-bold text-zinc-800">{getWeatherDesc(weather.current.weatherCode)}</p>
               </div>
             </div>
           </div>

@@ -427,8 +427,7 @@ export const MapSection: React.FC = () => {
                 return (<>
                   {latestTime && (
                     <div className="col-span-2 text-center text-xs text-zinc-400 -mb-1">
-                      最近数据：{latestTime}
-                    </div>
+                      历史数据（近6个月）· {latestTime}</div>
                   )}
                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
                     <Thermometer className="text-blue-500 mb-2" size={24} />
