@@ -23,7 +23,7 @@
     "firebase": "^12.10.0",
     "framer-motion": "^12.37.0",
     "hls.js": "^1.5.15",
-    "china-area-data": "^3.0.0",
+    "@vant/area-data": "^2.1.0",
     "jimp": "^1.6.0",
     "qrcode": "^1.5.4",
     "http-proxy-middleware": "^3.0.5",

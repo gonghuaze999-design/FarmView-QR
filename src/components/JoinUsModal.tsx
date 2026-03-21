@@ -1,9 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, ChevronDown } from 'lucide-react';
-// @ts-ignore
-import { regionData } from 'china-area-data';
-
-type Region = { value: string; label: string; children?: Region[] };
+import { areaList } from '@vant/area-data';
 
 const fieldBase = 'w-full px-4 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-base outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
 const inputCls = `${fieldBase} placeholder:text-zinc-400 text-zinc-800`;
@@ -29,9 +26,24 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  const provinces: Region[] = Array.isArray(regionData) ? regionData : [];
-  const cities = useMemo(() => provinces.find(p => p.label === province)?.children || [], [province]);
-  const counties = useMemo(() => cities.find(c => c.label === city)?.children || [], [city]);
+  const provinces = useMemo(() =>
+    Object.entries(areaList.province_list).map(([code, name]) => ({ code, name })), []);
+
+  const cities = useMemo(() => {
+    if (!province) return [];
+    const prefix = province.slice(0, 2);
+    return Object.entries(areaList.city_list)
+      .filter(([code]) => code.startsWith(prefix) && code.endsWith('00'))
+      .map(([code, name]) => ({ code, name }));
+  }, [province]);
+
+  const counties = useMemo(() => {
+    if (!city) return [];
+    const prefix = city.slice(0, 4);
+    return Object.entries(areaList.county_list)
+      .filter(([code]) => code.startsWith(prefix))
+      .map(([code, name]) => ({ code, name }));
+  }, [city]);
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setProvince(e.target.value); setCity(''); setCounty('');
@@ -45,11 +57,14 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
     if (!/^1[3-9]\d{9}$/.test(phone)) { setError('请输入有效的手机号'); return; }
     setSubmitting(true);
     setError('');
+    const provinceName = areaList.province_list[province] || '';
+    const cityName = areaList.city_list[city] || '';
+    const countyName = county ? (areaList.county_list[county] || '') : '';
     try {
       const res = await fetch('/api/join-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, province, city, county, address, area: Number(area) || 0, phone, source }),
+        body: JSON.stringify({ name, province: provinceName, city: cityName, county: countyName, address, area: Number(area) || 0, phone, source }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '提交失败');
@@ -102,19 +117,19 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
                   <SelectWrap>
                     <select value={province} onChange={handleProvinceChange} className={selectCls} required>
                       <option value="">选择省 / 直辖市 / 自治区</option>
-                      {provinces.map(p => <option key={p.value} value={p.label}>{p.label}</option>)}
+                      {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
                     </select>
                   </SelectWrap>
                   <SelectWrap disabled={!province}>
                     <select value={city} onChange={handleCityChange} disabled={!province} className={selectCls} required>
                       <option value="">{province ? '选择市' : '请先选择省份'}</option>
-                      {cities.map(c => <option key={c.value} value={c.label}>{c.label}</option>)}
+                      {cities.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                     </select>
                   </SelectWrap>
                   <SelectWrap disabled={!city}>
                     <select value={county} onChange={e => setCounty(e.target.value)} disabled={!city} className={selectCls}>
                       <option value="">{city ? '选择县 / 区（可选）' : '请先选择市'}</option>
-                      {counties.map(d => <option key={d.value} value={d.label}>{d.label}</option>)}
+                      {counties.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
                     </select>
                   </SelectWrap>
                 </div>
