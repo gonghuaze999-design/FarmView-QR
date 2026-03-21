@@ -263,18 +263,24 @@ async function startServer() {
     const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
     const report: any = {};
 
-    // 用第一条 algorithmTaskId 查图片
-    const taskId = '1977651420192620550';
-    try {
-      const r1 = await axios.post(`${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${taskId}`, {}, { headers, timeout: 10000 });
-      report.photoInfo = r1.data;
-    } catch (e: any) { report.photoInfo = { error: e.message }; }
-
-    // 也试试 GET 方式
-    try {
-      const r2 = await axios.get(`${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${taskId}`, { headers, timeout: 10000, validateStatus: () => true });
-      report.photoInfoGet = { status: r2.status, code: r2.data?.code, data: r2.data?.data };
-    } catch (e: any) { report.photoInfoGet = { error: e.message }; }
+    // 用第一条记录的 id 和 algorithmTaskId 分别查图片
+    const recordId = '2026229548268957697';
+    const algorithmTaskId = '1977651420192620550';
+    const tests = [
+      { name: 'POST-algorithmTaskId', url: `${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${algorithmTaskId}`, method: 'POST' },
+      { name: 'POST-recordId', url: `${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${recordId}`, method: 'POST' },
+      { name: 'GET-algorithmTaskId', url: `${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${algorithmTaskId}`, method: 'GET' },
+      { name: 'GET-recordId', url: `${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${recordId}`, method: 'GET' },
+      { name: 'photoList-baseId', url: `${API_BASE}/center/base/photoList?baseId=${site.baseId}`, method: 'GET' },
+      { name: 'ndviList', url: `${API_BASE}/center/base/ndviList?baseId=${site.baseId}`, method: 'GET' },
+      { name: 'taskResult', url: `${API_BASE}/center/base/queryAlgorithmTaskResult?taskId=${algorithmTaskId}`, method: 'GET' },
+    ];
+    for (const t of tests) {
+      try {
+        const r = await axios({ method: t.method as any, url: t.url, headers, timeout: 8000, validateStatus: () => true });
+        report[t.name] = { status: r.status, code: r.data?.code, dataLen: Array.isArray(r.data?.data) ? r.data.data.length : typeof r.data?.data, sample: Array.isArray(r.data?.data) && r.data.data.length > 0 ? r.data.data[0] : r.data?.data };
+      } catch (e: any) { report[t.name] = { error: e.message }; }
+    }
 
     res.json(report);
   });
