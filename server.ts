@@ -204,9 +204,9 @@ async function startServer() {
         validateStatus: () => true,
       });
 
-      // token 失效时自动重新登录并重试一次
-      if (response.status === 401) {
-        console.warn(`[Proxy] Token 失效，为基地 ${siteKey} 重新登录后重试`);
+      // token 失效时自动重新登录并重试一次（HTTP 401 或业务码 11009）
+      if (response.status === 401 || response.data?.code === 11009) {
+        console.warn(`[Proxy] Token 失效(${response.data?.code || response.status})，为基地 ${siteKey} 重新登录后重试`);
         tokenCache.delete(siteKey);
         token = await getTokenForSite(siteKey);
         const retry = await axios({
