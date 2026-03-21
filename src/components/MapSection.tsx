@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getIotLocations, getEnvDataNow, getInsectData, getCameraList } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList } from '../services/api';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
 const HlsPlayer: React.FC<{ src: string }> = ({ src }) => {
