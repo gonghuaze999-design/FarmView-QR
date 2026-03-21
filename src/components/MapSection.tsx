@@ -187,7 +187,6 @@ export const MapSection: React.FC = () => {
           const endDate = endTime.split(' ')[0];
           setDeviceData({ type: 'history', _dateRange: `${startDate} ~ ${endDate}`, ...res.data });
         }
-        }
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, startTime, endTime);
         setDeviceData(res.data);
