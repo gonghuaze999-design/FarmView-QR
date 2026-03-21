@@ -180,12 +180,13 @@ export const MapSection: React.FC = () => {
       if (device.type === 'weather') {
         const resNow = await getEnvDataNow(farmlandId);
         if (resNow.data) {
-          console.log('[Weather] 实时数据:', resNow.data);
           setDeviceData({ type: 'now', ...resNow.data });
         } else {
           const res = await getEnvData(farmlandId, startTime, endTime);
-          console.log('[Weather] 历史数据 keys:', Object.keys(res.data || {}), '各字段长度:', Object.entries(res.data || {}).map(([k,v]) => `${k}:${Array.isArray(v)?v.length:'非数组'}`));
-          setDeviceData({ type: 'history', ...res.data });
+          const startDate = startTime.split(' ')[0];
+          const endDate = endTime.split(' ')[0];
+          setDeviceData({ type: 'history', _dateRange: `${startDate} ~ ${endDate}`, ...res.data });
+        }
         }
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, startTime, endTime);
@@ -423,11 +424,12 @@ export const MapSection: React.FC = () => {
                 const humRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.air_humidity, 'air_humidity') : null;
                 const windRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.wind_speed, 'wind_speed') : null;
                 const rainRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.precipitation, 'precipitation') : null;
-                const latestTime = tempRecord?.reportTime || humRecord?.reportTime || '';
+                const latestTime = deviceData?._dateRange || '';
                 return (<>
                   {latestTime && (
                     <div className="col-span-2 text-center text-xs text-zinc-400 -mb-1">
-                      历史数据（近6个月）· {latestTime}</div>
+                      历史数据 · {latestTime}
+                    </div>
                   )}
                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
                     <Thermometer className="text-blue-500 mb-2" size={24} />
