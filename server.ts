@@ -6,6 +6,7 @@ import axios from "axios";
 import 'dotenv/config';
 import fs from 'fs';
 import Jimp from 'jimp';
+import Database from 'better-sqlite3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,6 +25,24 @@ try {
 
 const API_BASE = 'http://cpca.hyspi.com:54082';
 const DEFAULT_SITE_KEY = 'base-current';
+
+// ── SQLite：申报信息持久化 ──────────────────────────
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const joinDb = new Database(path.join(dataDir, 'join_requests.db'));
+joinDb.exec(`CREATE TABLE IF NOT EXISTS join_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  province TEXT,
+  city TEXT,
+  county TEXT,
+  address TEXT,
+  area REAL,
+  phone TEXT NOT NULL,
+  source TEXT DEFAULT 'join',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
+console.log('[DB] join_requests 表已就绪');
 
 // 按 siteKey 分别缓存 Token
 const tokenCache = new Map<string, string>();
@@ -59,6 +78,29 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true }));
 
   // --- 自定义路由（必须在代理之前）---
+
+  // 申报/加入 表单提交
+  app.post('/api/join-request', (req, res) => {
+    const { name, province, city, county, address, area, phone, source } = req.body;
+    if (!name || !phone) return res.status(400).json({ error: '姓名和电话为必填项' });
+    if (!/^1[3-9]\d{9}$/.test(phone)) return res.status(400).json({ error: '请输入有效的手机号' });
+    try {
+      const stmt = joinDb.prepare(
+        `INSERT INTO join_requests (name, province, city, county, address, area, phone, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      const result = stmt.run(name, province, city, county, address, Number(area) || 0, phone, source || 'join');
+      res.json({ ok: true, id: result.lastInsertRowid });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // 管理员：获取所有申报信息
+  app.get('/api/admin/join-requests', (req, res) => {
+    const rows = joinDb.prepare('SELECT * FROM join_requests ORDER BY created_at DESC').all();
+    res.json({ ok: true, total: rows.length, data: rows });
+  });
 
   // 站点配置查询
   app.get('/api/site-binding', (req, res) => {

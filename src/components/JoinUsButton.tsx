@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { JoinUsModal } from './JoinUsModal';
 import { UserPlus } from 'lucide-react';
 
-export const JoinUsButton: React.FC<{ label?: string }> = ({ label = '我要加入' }) => {
+export const JoinUsButton: React.FC<{ label?: string; source?: string }> = ({ label = '我要加入', source = 'join' }) => {
   const [showModal, setShowModal] = useState(false);
 
   return (
@@ -14,7 +14,7 @@ export const JoinUsButton: React.FC<{ label?: string }> = ({ label = '我要加�
         <UserPlus size={24} />
         {label}
       </button>
-      {showModal && <JoinUsModal onClose={() => setShowModal(false)} />}
+      {showModal && <JoinUsModal onClose={() => setShowModal(false)} source={source} />}
     </>
   );
 };

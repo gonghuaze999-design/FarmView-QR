@@ -23,30 +23,40 @@ type SiteBindingResponse = {
 };
 
 const UnknownSiteState: React.FC<{ siteKey: string; availableSites: string[] }> = ({ siteKey, availableSites }) => (
-  <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">
-    <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen relative">
-      <Header />
-      <main className="p-5 space-y-6">
-        <div className="rounded-3xl border border-red-100 bg-red-50/50 p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-red-700 mb-3">基地不存在</h2>
-          <p className="text-sm text-zinc-700 leading-relaxed">
-            当前访问的基地标识 <span className="font-semibold px-2 py-0.5 bg-red-100 rounded text-red-800">{siteKey}</span> 未配置。
+  <div className=”min-h-screen bg-zinc-50 flex justify-center”>
+    <div className=”w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen flex flex-col”>
+      <div className=”bg-gradient-to-br from-emerald-600 to-teal-600 px-6 pt-16 pb-12 text-center”>
+        <div className=”text-6xl mb-4”>🌾</div>
+        <h1 className=”text-2xl font-bold text-white”>找不到该基地</h1>
+        <p className=”text-emerald-100 text-sm mt-2”>链接中的基地标识无效或尚未配置</p>
+      </div>
+      <div className=”flex-1 px-6 py-8 space-y-6”>
+        <div className=”bg-red-50 border border-red-100 rounded-2xl p-4”>
+          <p className=”text-sm text-zinc-600 leading-relaxed”>
+            当前访问的基地标识：
+            <span className=”font-semibold mx-1 px-2 py-0.5 bg-red-100 rounded text-red-800”>{siteKey}</span>
+            未找到对应配置。
           </p>
-          <p className="text-sm text-zinc-600 mt-4 leading-relaxed">请联系管理员配置基地，或先点击下方“我要申报基地”提交信息。</p>
-          {availableSites.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-red-100/50">
-              <p className="text-xs text-zinc-500 mb-2">已配置基地：</p>
-              <div className="flex flex-wrap gap-2">
-                {availableSites.map(site => (
-                  <span key={site} className="px-2 py-1 bg-white rounded-md text-xs text-zinc-600 border border-zinc-200 shadow-sm">{site}</span>
-                ))}
-              </div>
-            </div>
-          )}
+          <p className=”text-sm text-zinc-500 mt-2”>请检查链接是否正确，或联系为您提供链接的人员。</p>
         </div>
-
-        <JoinUsButton label="我要申报基地" />
-      </main>
+        {availableSites.filter(s => s !== 'base-current').length > 0 && (
+          <div className=”bg-zinc-50 border border-zinc-100 rounded-2xl p-4”>
+            <p className=”text-xs text-zinc-400 mb-2”>当前已配置基地：</p>
+            <div className=”flex flex-wrap gap-2”>
+              {availableSites.filter(s => s !== 'base-current').map(site => (
+                <a key={site} href={`/?site=${site}`}
+                  className=”px-3 py-1 bg-white rounded-full text-xs text-emerald-700 border border-emerald-200 shadow-sm hover:bg-emerald-50 transition-colors”>
+                  {site}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className=”pt-2”>
+          <p className=”text-center text-sm text-zinc-500 mb-3”>如有意向加入数字农业基地计划，欢迎提交申报信息</p>
+          <JoinUsButton label=”我要申报基地” source=”apply” />
+        </div>
+      </div>
     </div>
   </div>
 );
