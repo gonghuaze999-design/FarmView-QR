@@ -173,7 +173,7 @@ export const MapSection: React.FC = () => {
       const baseId = binding.baseId;
       const farmlandId = binding.farmlandIds?.[0] || '';
       const now = new Date();
-      const startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const startTime = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
@@ -330,22 +330,48 @@ export const MapSection: React.FC = () => {
             <div className="text-center py-8 text-zinc-400 text-sm">加载设备数据中...</div>
           ) : selectedDevice?.type === 'camera' ? (
             <div className="space-y-3">
-              {deviceData && deviceData.length > 0 ? deviceData.map((cam: any, idx: number) => (
-                <div key={idx} className="rounded-2xl overflow-hidden bg-black">
-                  <div className="relative aspect-video flex items-center justify-center">
-                    <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
-                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+              {(() => {
+                // 只显示当前点击设备对应的摄像头（按设备名匹配）
+                const allCams = deviceData && deviceData.length > 0 ? deviceData : [];
+                const deviceName = selectedDevice?.name || '';
+                // 球机1 → 新疆球机1，球机2 → 新疆球机2，尝试名称匹配
+                const matched = allCams.filter((cam: any) =>
+                  cam.cameraName?.includes(deviceName) ||
+                  deviceName.includes(cam.cameraName) ||
+                  allCams.indexOf(cam) === (deviceName.includes('1') ? 0 : deviceName.includes('2') ? 1 : 0)
+                );
+                const cams = matched.length > 0 ? [matched[0]] : allCams.slice(0, 1);
+                return cams.length > 0 ? cams.map((cam: any, idx: number) => (
+                  <div key={idx} className="rounded-2xl overflow-hidden bg-black">
+                    <div className="relative aspect-video flex items-center justify-center">
+                      <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+                      </div>
+                      {cam.status === 1 ? (
+                        <HlsPlayer src={cam.hls || cam.videoUrl} />
+                      ) : (
+                        <div className="text-zinc-500 text-sm">设备离线</div>
+                      )}
+                      {/* 全屏按钮 */}
+                      <button
+                        onClick={() => {
+                          const videoEl = document.querySelector('video') as HTMLVideoElement;
+                          if (videoEl?.requestFullscreen) videoEl.requestFullscreen();
+                        }}
+                        className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
+                      >
+                        <Maximize2 size={14} />
+                      </button>
                     </div>
-                    <HlsPlayer src={cam.hls || cam.videoUrl} />
+                    <div className="px-3 py-2 bg-zinc-900">
+                      <p className="text-xs text-zinc-300 font-medium">{cam.cameraName || `摄像头 ${idx + 1}`}</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">{cam.status === 1 ? '🟢 在线' : '🔴 离线'}</p>
+                    </div>
                   </div>
-                  <div className="px-3 py-2 bg-zinc-900">
-                    <p className="text-xs text-zinc-300 font-medium">{cam.cameraName || cam.name || `摄像头 ${idx + 1}`}</p>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">{cam.status === 1 ? '🟢 在线' : '🔴 离线'}</p>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-zinc-500 text-sm text-center py-8">暂无视频流</div>
-              )}
+                )) : (
+                  <div className="text-zinc-500 text-sm text-center py-8">暂无视频流</div>
+                );
+              })()}
             </div>
           ) : selectedDevice?.type === 'insect' ? (
             <div className="space-y-3">

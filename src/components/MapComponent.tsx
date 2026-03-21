@@ -30,6 +30,7 @@ export const MapComponent = forwardRef(({
   const mapInstance = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const hasFitView = useRef(false); // 只自动缩放一次
 
   useImperativeHandle(ref, () => ({
     resize: () => {
@@ -156,9 +157,10 @@ export const MapComponent = forwardRef(({
           allPolygons.push(polygonObj);
         }
 
-        // 自动缩放地图到多边形可视范围
-        if (allPolygons.length > 0) {
+        // 自动缩放地图到多边形可视范围（只在初次加载时执行）
+        if (allPolygons.length > 0 && !hasFitView.current) {
           mapInstance.current.setFitView(allPolygons);
+          hasFitView.current = true;
         }
 
         // 绘制设备标记
