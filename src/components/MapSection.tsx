@@ -407,46 +407,60 @@ export const MapSection: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
-                <Thermometer className="text-blue-500 mb-2" size={24} />
-                <span className="text-xs text-blue-600/70 mb-1">空气温度</span>
-                <span className="font-bold text-blue-700 text-xl">
-                  {deviceData?.type === 'history'
-                    ? (deviceData.air_temperature?.find((r: any) => r.air_temperature !== 0)?.air_temperature ?? '--')
-                    : (deviceData?.airTemperature ?? deviceData?.air_temperature ?? '--')}
-                  <span className="text-sm font-normal ml-0.5">°C</span>
-                </span>
-              </div>
-              <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
-                <Droplets className="text-emerald-500 mb-2" size={24} />
-                <span className="text-xs text-emerald-600/70 mb-1">空气湿度</span>
-                <span className="font-bold text-emerald-700 text-xl">
-                  {deviceData?.type === 'history'
-                    ? (deviceData.air_humidity?.find((r: any) => r.air_humidity !== 0)?.air_humidity ?? '--')
-                    : (deviceData?.airHumidity ?? deviceData?.air_humidity ?? '--')}
-                  <span className="text-sm font-normal ml-0.5">%</span>
-                </span>
-              </div>
-              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center">
-                <Activity className="text-amber-500 mb-2" size={24} />
-                <span className="text-xs text-amber-600/70 mb-1">风速</span>
-                <span className="font-bold text-amber-700 text-xl">
-                  {deviceData?.type === 'history'
-                    ? (deviceData.wind_speed?.find((r: any) => r.wind_speed !== 0)?.wind_speed ?? '--')
-                    : (deviceData?.windSpeed ?? deviceData?.wind_speed ?? '--')}
-                  <span className="text-sm font-normal ml-0.5">m/s</span>
-                </span>
-              </div>
-              <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex flex-col items-center justify-center text-center">
-                <Cloud className="text-sky-500 mb-2" size={24} />
-                <span className="text-xs text-sky-600/70 mb-1">降水量</span>
-                <span className="font-bold text-sky-700 text-xl">
-                  {deviceData?.type === 'history'
-                    ? (deviceData.precipitation?.find((r: any) => r.precipitation !== 0)?.precipitation ?? '--')
-                    : (deviceData?.precipitation ?? '--')}
-                  <span className="text-sm font-normal ml-0.5">mm</span>
-                </span>
-              </div>
+              {(() => {
+                // 从数组末尾往前找最新非零值
+                const lastNonZero = (arr: any[], key: string) => {
+                  if (!arr?.length) return null;
+                  for (let i = arr.length - 1; i >= 0; i--) {
+                    if (arr[i][key] !== 0 && arr[i][key] != null) return arr[i];
+                  }
+                  return null;
+                };
+                const tempRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.air_temperature, 'air_temperature') : null;
+                const humRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.air_humidity, 'air_humidity') : null;
+                const windRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.wind_speed, 'wind_speed') : null;
+                const rainRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.precipitation, 'precipitation') : null;
+                const latestTime = tempRecord?.reportTime || humRecord?.reportTime || '';
+                return (<>
+                  {latestTime && (
+                    <div className="col-span-2 text-center text-xs text-zinc-400 -mb-1">
+                      最近数据：{latestTime}
+                    </div>
+                  )}
+                  <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
+                    <Thermometer className="text-blue-500 mb-2" size={24} />
+                    <span className="text-xs text-blue-600/70 mb-1">空气温度</span>
+                    <span className="font-bold text-blue-700 text-xl">
+                      {tempRecord?.air_temperature ?? deviceData?.airTemperature ?? '--'}
+                      <span className="text-sm font-normal ml-0.5">°C</span>
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
+                    <Droplets className="text-emerald-500 mb-2" size={24} />
+                    <span className="text-xs text-emerald-600/70 mb-1">空气湿度</span>
+                    <span className="font-bold text-emerald-700 text-xl">
+                      {humRecord?.air_humidity ?? deviceData?.airHumidity ?? '--'}
+                      <span className="text-sm font-normal ml-0.5">%</span>
+                    </span>
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center">
+                    <Activity className="text-amber-500 mb-2" size={24} />
+                    <span className="text-xs text-amber-600/70 mb-1">风速</span>
+                    <span className="font-bold text-amber-700 text-xl">
+                      {windRecord?.wind_speed ?? deviceData?.windSpeed ?? '--'}
+                      <span className="text-sm font-normal ml-0.5">m/s</span>
+                    </span>
+                  </div>
+                  <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex flex-col items-center justify-center text-center">
+                    <Cloud className="text-sky-500 mb-2" size={24} />
+                    <span className="text-xs text-sky-600/70 mb-1">降水量</span>
+                    <span className="font-bold text-sky-700 text-xl">
+                      {rainRecord?.precipitation ?? deviceData?.precipitation ?? '--'}
+                      <span className="text-sm font-normal ml-0.5">mm</span>
+                    </span>
+                  </div>
+                </>);
+              })()}
             </div>
           )}
         </div>
