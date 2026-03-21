@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 // @ts-ignore
-import chinaAreaData from 'china-area-data';
+import { regionData } from 'china-area-data';
 
 type Region = { value: string; label: string; children?: Region[] };
 
-const fieldBase = 'w-full px-4 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
+const fieldBase = 'w-full px-4 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-base outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15';
 const inputCls = `${fieldBase} placeholder:text-zinc-400 text-zinc-800`;
 const selectCls = `${fieldBase} appearance-none text-zinc-800 disabled:text-zinc-400 disabled:bg-zinc-100 disabled:cursor-not-allowed`;
 const labelCls = 'block text-[11px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5';
@@ -29,9 +29,7 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  const provinces: Region[] = Array.isArray(chinaAreaData?.regionData)
-    ? chinaAreaData.regionData
-    : (chinaAreaData?.default?.regionData || []);
+  const provinces: Region[] = Array.isArray(regionData) ? regionData : [];
   const cities = useMemo(() => provinces.find(p => p.label === province)?.children || [], [province]);
   const counties = useMemo(() => cities.find(c => c.label === city)?.children || [], [city]);
 
