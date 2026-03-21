@@ -1,122 +1,147 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, Calendar } from 'lucide-react';
-import { getFarmWorkList } from '../services/api';
+import { ChevronDown, Calendar, Sprout, Tractor, Droplets, Scissors, Package } from 'lucide-react';
+import { getFarmWorkTaskCount } from '../services/api';
 import { useSiteContext } from '../contexts/SiteContext';
 
-interface Activity {
-  id: string;
-  date: string;
-  title: string;
-  description: string;
-  summary?: string;
-  type: string;
-}
+const STATUS_MAP: Record<number, { label: string; color: string }> = {
+  0: { label: '未开始', color: 'bg-zinc-100 text-zinc-500' },
+  1: { label: '未分配', color: 'bg-amber-100 text-amber-600' },
+  2: { label: '进行中', color: 'bg-blue-100 text-blue-600' },
+  3: { label: '已完成', color: 'bg-emerald-100 text-emerald-600' },
+  4: { label: '已取消', color: 'bg-red-100 text-red-500' },
+};
+
+const WORK_ICONS: Record<string, React.ReactNode> = {
+  '播种': <Sprout size={16} />,
+  '施肥': <Package size={16} />,
+  '灌溉': <Droplets size={16} />,
+  '收割': <Scissors size={16} />,
+  '耕地': <Tractor size={16} />,
+};
 
 export const TimelineSection: React.FC = () => {
   const { binding } = useSiteContext();
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [taskStats, setTaskStats] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
+  const [showYearPicker, setShowYearPicker] = useState(false);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!binding) return;
-      setLoading(true);
-      try {
-        const now = new Date();
-        const startTime = `${now.getFullYear() - 2}-01-01 00:00:00`;
-        const endTime = `${now.getFullYear()}-12-31 23:59:59`;
-        const res = await getFarmWorkList(binding.baseId, startTime, endTime);
-        // 兼容两种返回结构：rows 数组 或 直接 data 数组
-        const rows = res.data?.rows || res.data || [];
-        if (Array.isArray(rows)) {
-          const tasks = rows.map((task: any) => ({
-            id: String(task.id || task.taskId || Math.random()),
-            date: (task.startTime || task.scheduledStartTime || task.createTime || '').split(' ')[0] || '未知时间',
-            title: task.workType || task.taskName || task.taskType || '农事作业',
-            description: task.landName ? `地块：${task.landName}` : (task.description || ''),
-            summary: task.workerName ? `负责人：${task.workerName}` : undefined,
-            type: 'other'
-          }));
-          setActivities(tasks);
-        }
-      } catch (e) {
-        console.error('Failed to fetch farm work list', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTasks();
-  }, [binding]);
-
-  // 动态计算数据包含的年份，并降序排列
   const years = useMemo(() => {
-    if (activities.length === 0) return [new Date().getFullYear()];
-    const y = Array.from(new Set(activities.map(a => new Date(a.date).getFullYear())));
-    return y.sort((a, b) => b - a);
-  }, [activities]);
-
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const cur = new Date().getFullYear();
+    return [cur, cur - 1, cur - 2];
+  }, []);
 
   useEffect(() => {
-    if (years.length > 0 && !years.includes(selectedYear)) {
-      setSelectedYear(years[0]);
-    }
-  }, [years]);
+    if (!binding) return;
+    setLoading(true);
+    const startTime = `${selectedYear}-01-01 00:00:00`;
+    const endTime = `${selectedYear}-12-31 23:59:59`;
+    getFarmWorkTaskCount(binding.baseId, startTime, endTime)
+      .then(res => {
+        if (res.code === 200 && Array.isArray(res.data)) {
+          setTaskStats(res.data);
+        } else {
+          setTaskStats([]);
+        }
+      })
+      .catch(() => setTaskStats([]))
+      .finally(() => setLoading(false));
+  }, [binding, selectedYear]);
 
-  // 根据选择的年份过滤数据，并按时间倒序排列
-  const filteredActivities = useMemo(() => {
-    return activities
-      .filter(a => new Date(a.date).getFullYear() === selectedYear)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [selectedYear, activities]);
-
-  const getTypeColor = (type: string) => {
-    return 'bg-emerald-500';
-  };
+  const total = taskStats.reduce((sum, s) => sum + (s.count || 0), 0);
+  const completed = taskStats.find(s => s.status === 3)?.count || 0;
+  const inProgress = taskStats.find(s => s.status === 2)?.count || 0;
+  const notStarted = taskStats.find(s => s.status === 0)?.count || 0;
 
   return (
-    <section className="farm-card p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-zinc-800">农事行为</h2>
-        
-        {/* 年份筛选器 (仅在有多年的数据时显示) */}
-        {years.length > 1 && (
-          <div className="relative">
-            <select 
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="appearance-none bg-zinc-100 border border-zinc-200 text-zinc-700 py-1.5 pl-3 pr-8 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-            >
-              {years.map(year => (
-                <option key={year} value={year}>{year}年</option>
+    <section className="px-4 pb-2">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-bold text-zinc-800 flex items-center gap-2">
+          <Tractor size={18} className="text-emerald-500" />
+          农事行为
+        </h2>
+        <div className="relative">
+          <button
+            onClick={() => setShowYearPicker(!showYearPicker)}
+            className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 bg-zinc-100 px-3 py-1.5 rounded-full hover:bg-zinc-200 transition-colors"
+          >
+            <Calendar size={14} />
+            {selectedYear}年
+            <ChevronDown size={14} className={`transition-transform ${showYearPicker ? 'rotate-180' : ''}`} />
+          </button>
+          {showYearPicker && (
+            <div className="absolute right-0 top-9 bg-white rounded-2xl shadow-lg border border-zinc-100 overflow-hidden z-10">
+              {years.map(y => (
+                <button
+                  key={y}
+                  onClick={() => { setSelectedYear(y); setShowYearPicker(false); }}
+                  className={`block w-full px-5 py-2.5 text-sm text-left hover:bg-zinc-50 transition-colors ${y === selectedYear ? 'font-bold text-emerald-600' : 'text-zinc-700'}`}
+                >
+                  {y}年
+                </button>
               ))}
-            </select>
-            <Calendar className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" size={14} />
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-zinc-400 text-sm">加载中...</div>
-      ) : filteredActivities.length === 0 ? (
-        <div className="text-center py-8 text-zinc-400 text-sm">暂无该年度农事记录</div>
+        <div className="h-24 bg-zinc-100 rounded-3xl animate-pulse" />
+      ) : total === 0 ? (
+        <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-3xl border border-zinc-100">
+          {selectedYear}年暂无农事记录
+        </div>
       ) : (
-        <div className="relative border-l-2 border-zinc-100 ml-2">
-          {filteredActivities.map((activity, index) => (
-            <div key={activity.id} className={`${index === filteredActivities.length - 1 ? '' : 'mb-8'} ml-6 relative`}>
-              <div className={`absolute -left-[33px] top-1 w-4 h-4 ${getTypeColor(activity.type)} rounded-full shadow-[0_0_0_4px_white]`}></div>
-              <h3 className="font-bold text-lg text-zinc-800">{activity.title}</h3>
-              <p className="text-sm text-zinc-500 font-medium mb-2">{activity.date}</p>
-              <p className="text-sm text-zinc-600 leading-relaxed">{activity.description}</p>
-              
-              {activity.summary && (
-                <div className="text-sm mt-2 bg-zinc-50 border border-zinc-100 p-3 rounded-xl flex items-center justify-between text-zinc-600 cursor-pointer hover:bg-zinc-100 transition-colors">
-                  <span className="font-medium">{activity.summary}</span>
-                  <ChevronDown size={18} className="text-zinc-400" />
-                </div>
-              )}
+        <div className="space-y-3">
+          {/* 统计概览 */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-emerald-50 rounded-2xl p-3 border border-emerald-100 text-center">
+              <div className="text-2xl font-bold text-emerald-700">{completed}</div>
+              <div className="text-xs text-emerald-600/70 mt-0.5">已完成</div>
             </div>
-          ))}
+            <div className="bg-blue-50 rounded-2xl p-3 border border-blue-100 text-center">
+              <div className="text-2xl font-bold text-blue-700">{inProgress}</div>
+              <div className="text-xs text-blue-600/70 mt-0.5">进行中</div>
+            </div>
+            <div className="bg-zinc-50 rounded-2xl p-3 border border-zinc-100 text-center">
+              <div className="text-2xl font-bold text-zinc-700">{notStarted}</div>
+              <div className="text-xs text-zinc-500 mt-0.5">未开始</div>
+            </div>
+          </div>
+
+          {/* 状态分布条 */}
+          <div className="bg-white rounded-2xl border border-zinc-100 p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs text-zinc-500">任务完成率</span>
+              <span className="text-xs font-bold text-emerald-600">
+                {total > 0 ? Math.round(completed / total * 100) : 0}%
+              </span>
+            </div>
+            <div className="h-2 bg-zinc-100 rounded-full overflow-hidden flex">
+              {taskStats.map(s => (
+                s.count > 0 && (
+                  <div
+                    key={s.status}
+                    style={{ width: `${(s.count / total) * 100}%` }}
+                    className={`h-full ${s.status === 3 ? 'bg-emerald-500' : s.status === 2 ? 'bg-blue-400' : s.status === 1 ? 'bg-amber-400' : 'bg-zinc-300'}`}
+                  />
+                )
+              ))}
+            </div>
+            <div className="flex gap-3 mt-2 flex-wrap">
+              {taskStats.filter(s => s.count > 0).map(s => (
+                <span key={s.status} className={`text-[10px] px-2 py-0.5 rounded-full ${STATUS_MAP[s.status]?.color || 'bg-zinc-100 text-zinc-500'}`}>
+                  {STATUS_MAP[s.status]?.label} {s.count}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* 列表占位 */}
+          <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4 text-center">
+            <p className="text-xs text-amber-600">农事活动详细列表接口对接中</p>
+            <p className="text-[10px] text-amber-500 mt-1">共 {total} 条记录，详情待接口确认后展示</p>
+          </div>
         </div>
       )}
     </section>

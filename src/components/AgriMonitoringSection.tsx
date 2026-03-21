@@ -1,167 +1,128 @@
 import React, { useState, useEffect } from 'react';
-import { Sprout, RefreshCw, Calendar, Tag } from 'lucide-react';
+import { Sprout, RefreshCw, ImageOff } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { Skeleton } from './Skeleton';
-
 import { getGrowthData } from '../services/api';
 
-interface GrowData {
+interface GrowRecord {
   id: string;
-  date: string;
-  imageUrl: string;
-  tags: string[];
-  summary: string;
+  algorithmTaskId: string;
+  reportTime: string;
+  mode: number | null;
 }
 
-export const AgriMonitoringSection: React.FC = () => {
+const getModeLabel = (mode: number | null): { label: string; color: string; desc: string } => {
+  if (mode === null) return { label: '--', color: 'text-zinc-400', desc: '暂无数据' };
+  if (mode >= 0.8) return { label: '优', color: 'text-emerald-600', desc: '长势良好' };
+  if (mode >= 0.6) return { label: '良', color: 'text-blue-600', desc: '长势正常' };
+  if (mode >= 0.4) return { label: '中', color: 'text-amber-600', desc: '长势一般' };
+  return { label: '差', color: 'text-red-500', desc: '长势较差' };
+};
+
+export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ selectedYear }) => {
   const { binding } = useSiteContext();
-  const [data, setData] = useState<GrowData[] | null>(null);
+  const [records, setRecords] = useState<GrowRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAgriData = async () => {
-    if (!binding) return;
+  const year = selectedYear || new Date().getFullYear();
+
+  const fetchData = async () => {
+    if (!binding?.farmlandIds?.length) return;
     setLoading(true);
     try {
-      const farmlandId = binding.farmlandIds && binding.farmlandIds.length > 0 ? binding.farmlandIds[0] : 0;
-      if (farmlandId === 0) {
-        setData([]);
-        setLoading(false);
-        return;
-      }
-      
-      const res = await getGrowthData(farmlandId, "2023-01-01 00:00:00", "2026-12-31 00:00:00");
-      
-      if (res.code === "200" && res.content?.result) {
-        const resultObj = res.content.result;
-        const mode = resultObj.mode ? Number(resultObj.mode).toFixed(4) : 'N/A';
-        const min = resultObj.min ? Number(resultObj.min).toFixed(4) : 'N/A';
-        const max = resultObj.max ? Number(resultObj.max).toFixed(4) : 'N/A';
-        
-        const mockData: GrowData[] = [
-          {
-            id: '1',
-            date: resultObj.reportTime?.split(' ')[0] || '最新',
-            imageUrl: 'https://picsum.photos/seed/corn1/400/300',
-            tags: ['长势分析', '算法结果'],
-            summary: `长势众数: ${mode}, 最小值: ${min}, 最大值: ${max}。`
-          }
-        ];
-        setData(mockData);
+      const farmlandId = binding.farmlandIds[0];
+      const startTime = `${year}-01-01 00:00:00`;
+      const endTime = `${year}-12-31 23:59:59`;
+      const res = await getGrowthData(farmlandId, startTime, endTime);
+      if (res.code === 200 && Array.isArray(res.data)) {
+        const parsed: GrowRecord[] = res.data
+          .filter((r: any) => r.reportTime)
+          .map((r: any) => ({
+            id: String(r.id),
+            algorithmTaskId: String(r.algorithmTaskId || ''),
+            reportTime: r.reportTime,
+            mode: r.mode != null ? Number(r.mode) : null,
+          }))
+          .sort((a: GrowRecord, b: GrowRecord) => b.reportTime.localeCompare(a.reportTime));
+        setRecords(parsed);
       } else {
-        setData([]);
+        setRecords([]);
       }
-    } catch (error) {
-      console.error('获取农情监测数据失败:', error);
-      setData(null);
+    } catch (e) {
+      console.error('Failed to fetch growth data', e);
+      setRecords([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchAgriData();
-  }, [binding]);
+  useEffect(() => { fetchData(); }, [binding, year]);
 
   return (
-    <section className="farm-card p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <Sprout className="text-emerald-500" size={20} />
-          <h2 className="text-xl font-bold text-zinc-800">农情监测</h2>
-        </div>
-        <button 
-          onClick={fetchAgriData}
-          className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+    <section className="px-4 pb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-bold text-zinc-800 flex items-center gap-2">
+          <Sprout size={18} className="text-emerald-500" />
+          农情监测
+        </h2>
+        <button
+          onClick={fetchData}
+          className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-full transition-colors"
         >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          刷新
+          <RefreshCw size={14} />
         </button>
       </div>
 
       {loading ? (
-        <div className="space-y-6 pt-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="bg-white rounded-2xl border border-zinc-200/60 p-4 pt-5">
-              <Skeleton className="h-4 w-24 mb-3" />
-              <div className="flex gap-4">
-                <Skeleton className="w-24 h-24 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-              </div>
-            </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 bg-zinc-100 rounded-3xl animate-pulse" />
           ))}
         </div>
-      ) : !data || data.length === 0 ? (
-        <div className="bg-zinc-50 border border-zinc-100 rounded-2xl p-8 text-center">
-          <div className="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Sprout size={24} className="text-zinc-300" />
-          </div>
-          <p className="text-zinc-600 font-medium mb-1">暂无农情监测数据</p>
-          <p className="text-zinc-400 text-xs">当前地块暂未生成近期的遥感分析报告</p>
+      ) : records.length === 0 ? (
+        <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-3xl border border-zinc-100">
+          {year}年暂无农情监测数据
         </div>
       ) : (
-        <div className="space-y-8 pt-2">
-          {data.map((item) => (
-            <div key={item.id} className="relative">
-              {/* 曲别针 SVG */}
-              <div className="absolute -top-4 left-6 z-10 drop-shadow-md transform -rotate-12">
-                <svg width="24" height="48" viewBox="0 0 24 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 42C16.4183 42 20 38.4183 20 34V14C20 10.6863 17.3137 8 14 8C10.6863 8 8 10.6863 8 14V32C8 34.2091 9.79086 36 12 36C14.2091 36 16 34.2091 16 32V16" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M12 42C7.58172 42 4 38.4183 4 34V14" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+        <div className="space-y-3">
+          {records.map((record) => {
+            const modeInfo = getModeLabel(record.mode);
+            return (
+              <div key={record.id} className="bg-white rounded-3xl border border-zinc-100 shadow-sm overflow-hidden flex">
+                {/* 左侧：图片占位 */}
+                <div className="w-24 h-24 bg-zinc-100 flex-shrink-0 flex items-center justify-center">
+                  <ImageOff size={20} className="text-zinc-300" />
+                </div>
 
-              {/* 卡片主体 */}
-              <div className="bg-white rounded-2xl border border-zinc-200/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden relative pt-2">
-                {/* 顶部装饰线 */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-teal-400"></div>
-                
-                <div className="p-4 pt-5">
-                  <div className="flex items-center gap-1.5 mb-3 text-zinc-500">
-                    <Calendar size={14} />
-                    <span className="text-xs font-medium font-mono">{item.date}</span>
+                {/* 右侧：分析结果 */}
+                <div className="flex-1 p-3 flex flex-col justify-between">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs text-zinc-400">{record.reportTime}</p>
+                      <p className="text-sm font-semibold text-zinc-700 mt-0.5">无人机长势分析</p>
+                    </div>
+                    <div className={`text-2xl font-bold ${modeInfo.color}`}>
+                      {modeInfo.label}
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-4">
-                    {/* 左侧缩略图 */}
-                    <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-zinc-100 shadow-sm relative group">
-                      <img 
-                        src={item.imageUrl} 
-                        alt="农情影像" 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                    </div>
-                    
-                    {/* 右侧分析结论 */}
-                    <div className="flex-1 flex flex-col justify-between py-0.5">
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {item.tags.map((tag, idx) => (
-                          <span 
-                            key={idx} 
-                            className={`text-[10px] px-2 py-1 rounded-md font-medium flex items-center gap-1
-                              ${idx === 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 
-                                idx === 1 ? 'bg-blue-50 text-blue-700 border border-blue-100' : 
-                                'bg-zinc-50 text-zinc-600 border border-zinc-200'}`}
-                          >
-                            <Tag size={10} />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-xs text-zinc-600 leading-relaxed line-clamp-3">
-                        {item.summary}
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      modeInfo.label === '优' ? 'bg-emerald-50 text-emerald-600' :
+                      modeInfo.label === '良' ? 'bg-blue-50 text-blue-600' :
+                      modeInfo.label === '中' ? 'bg-amber-50 text-amber-600' :
+                      'bg-red-50 text-red-500'
+                    }`}>
+                      {modeInfo.desc}
+                    </span>
+                    {record.mode !== null && (
+                      <span className="text-xs text-zinc-400">
+                        NDVI: {record.mode.toFixed(2)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
