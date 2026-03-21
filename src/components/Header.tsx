@@ -85,18 +85,27 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
           </div>
 
           <p className="text-xs text-emerald-600/70 mt-3 text-center">扫码访问基地实时监控</p>
-          <p className="text-[10px] text-zinc-400 mt-1 text-center">长按图片可保存到相册</p>
+          <p className="text-[10px] text-zinc-400 mt-1 text-center">微信内可长按图片保存到相册</p>
         </div>
 
-        {/* 下载按钮（桌面端备用） */}
-        <a
-          href={qrDataUrl}
-          download={`${siteName}-二维码.png`}
-          className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 rounded-2xl flex items-center justify-center gap-2 transition-colors"
+        {/* 保存按钮 - 兼容 iOS Safari / Android Chrome / 微信 */}
+        <button
+          onClick={() => {
+            if (!qrDataUrl) return;
+            // 创建临时 a 标签触发下载
+            const a = document.createElement('a');
+            a.href = qrDataUrl;
+            a.download = `${siteName}-二维码.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }}
+          disabled={!qrDataUrl}
+          className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 disabled:bg-zinc-200 disabled:text-zinc-400 text-white font-medium py-3 rounded-2xl flex items-center justify-center gap-2 transition-colors"
         >
           <Download size={16} />
-          下载二维码
-        </a>
+          保存到本地
+        </button>
       </div>
     </div>
   );
