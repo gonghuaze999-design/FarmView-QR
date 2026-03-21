@@ -44,6 +44,9 @@ export const TimelineSection: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(getDefaultYear);
   const [loading, setLoading] = useState(true);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const PREVIEW_COUNT = 10;
 
   const years = useMemo(() => {
     const cur = new Date().getFullYear();
@@ -175,7 +178,7 @@ export const TimelineSection: React.FC = () => {
 
           {/* 任务列表 */}
           <div className="space-y-2">
-            {tasks.map(task => (
+            {(expanded ? tasks : tasks.slice(0, PREVIEW_COUNT)).map(task => (
               <div key={task.id} className="bg-white rounded-2xl border border-zinc-100 p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <span className="text-sm font-semibold text-zinc-800 leading-snug flex-1">{task.taskName}</span>
@@ -214,6 +217,14 @@ export const TimelineSection: React.FC = () => {
               </div>
             ))}
           </div>
+          {tasks.length > PREVIEW_COUNT && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full py-2.5 text-sm text-emerald-600 font-medium bg-emerald-50 rounded-2xl border border-emerald-100 hover:bg-emerald-100 transition-colors"
+            >
+              {expanded ? '收起' : `展开全部 ${tasks.length} 条记录`}
+            </button>
+          )}
         </div>
       )}
     </section>

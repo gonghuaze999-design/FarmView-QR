@@ -22,6 +22,9 @@ export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ sel
   const { binding } = useSiteContext();
   const [records, setRecords] = useState<GrowRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  const PREVIEW_COUNT = 10;
 
   const year = selectedYear || new Date().getFullYear();
 
@@ -84,7 +87,7 @@ export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ sel
         </div>
       ) : (
         <div className="space-y-3">
-          {records.map((record) => {
+          {(expanded ? records : records.slice(0, PREVIEW_COUNT)).map((record) => {
             const modeInfo = getModeLabel(record.mode);
             return (
               <div key={record.id} className="bg-white rounded-3xl border border-zinc-100 shadow-sm overflow-hidden flex">
@@ -124,6 +127,14 @@ export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ sel
             );
           })}
         </div>
+        {records.length > PREVIEW_COUNT && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full mt-3 py-2.5 text-sm text-emerald-600 font-medium bg-emerald-50 rounded-2xl border border-emerald-100 hover:bg-emerald-100 transition-colors"
+          >
+            {expanded ? '收起' : `展开全部 ${records.length} 条记录`}
+          </button>
+        )}
       )}
     </section>
   );
