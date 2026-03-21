@@ -173,7 +173,8 @@ export const MapSection: React.FC = () => {
       const baseId = binding.baseId;
       const farmlandId = binding.farmlandIds?.[0] || '';
       const now = new Date();
-      const startTime = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      // 气象历史数据量大，只查最近6个月避免超时
+      const startTime = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
