@@ -81,14 +81,14 @@ export const getFarmWorkTaskCount = async (baseId: number, startTime: string, en
   return res.data;
 };
 
-// ── 农情监测（无人机 NDVI）────────────────────────────
-export const getCompleteTaskList = async (baseId: number) => {
-  const res = await api.get(`/api/center/base/queryCompleteTaskList?baseId=${baseId}`);
+// ── 农情监测（无人机 + AI）────────────────────────────
+export const getDroneTaskList = async (baseId: number, pageNum = 1, pageSize = 50) => {
+  const res = await api.get(`/api/farm/monitor/webTaskList?baseId=${baseId}&pageNum=${pageNum}&pageSize=${pageSize}`);
   return res.data;
 };
 
-export const getAlgorithmResult = async (taskId: number | string) => {
-  const res = await api.post(`/api/center/base/queryPhotoAlgorithmTaskInfo?taskId=${taskId}`);
+export const getAlgorithmImages = async (algorithmTaskId: string) => {
+  const res = await api.get(`/api/center/base/queryPhotoAlgorithmTaskInfo?taskId=${algorithmTaskId}`);
   return res.data;
 };
 
@@ -100,4 +100,25 @@ export const getGrowthData = async (farmlandId: number | string, startTime: stri
     endTime,
   });
   return res.data;
+};
+
+// ── 图像赋色 + AI 分析（我方后端）────────────────────
+export const colorizeImage = async (imageUrl: string) => {
+  const res = await axios.post('/api/image-colorize', { imageUrl });
+  return res.data as { ok: boolean; base64: string; stats: { mode: number; mean: number; std: number; minVal: number; maxVal: number } };
+};
+
+export interface AnalyzeContext {
+  landName: string;
+  cropsName?: string;
+  lat?: number;
+  lng?: number;
+  date: string;
+  imageType: string;
+  ndviStats?: { mode: number; mean: number; std: number };
+}
+
+export const analyzeImage = async (base64: string, cacheKey: string, context: AnalyzeContext) => {
+  const res = await axios.post('/api/ai/analyze', { base64, cacheKey, context }, { timeout: 40000 });
+  return res.data as { ok: boolean; text: string; grade: '优' | '良' | '中' | '差' | '—' };
 };

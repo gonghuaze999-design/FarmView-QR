@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 import 'dotenv/config';
 import fs from 'fs';
+import Jimp from 'jimp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -283,6 +284,140 @@ async function startServer() {
     }
 
     res.json(report);
+  });
+
+  // ── 图像赋色（rainbow 伪彩色）──────────────────────────────────────
+  // 标准流程：灰度图 → 直方图 → 众数±3σ拉伸 → rainbow 映射 → PNG base64
+  function rainbowRGB(t: number): [number, number, number] {
+    // blue(0) → cyan(0.25) → green(0.5) → yellow(0.75) → red(1)
+    let r = 0, g = 0, b = 0;
+    if (t < 0.25)      { r = 0;   g = Math.round(t * 4 * 255);           b = 255; }
+    else if (t < 0.5)  { r = 0;   g = 255; b = Math.round((1 - (t - 0.25) * 4) * 255); }
+    else if (t < 0.75) { r = Math.round((t - 0.5) * 4 * 255); g = 255;   b = 0; }
+    else               { r = 255; g = Math.round((1 - (t - 0.75) * 4) * 255); b = 0; }
+    return [r, g, b];
+  }
+
+  app.post('/api/image-colorize', async (req, res) => {
+    const { imageUrl } = req.body;
+    if (!imageUrl) return res.status(400).json({ error: 'imageUrl required' });
+    try {
+      // 拉取图像（支持需要 token 的内网 URL 时可在此加 headers）
+      const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
+      const buffer = Buffer.from(imgRes.data);
+
+      const img = await Jimp.read(buffer);
+      img.greyscale();
+      const { data, width, height } = img.bitmap; // RGBA Uint8Array
+
+      // 提取灰度值（取 R 通道）
+      const pixels: number[] = [];
+      for (let i = 0; i < data.length; i += 4) pixels.push(data[i]);
+
+      // 直方图
+      const hist = new Array(256).fill(0);
+      for (const p of pixels) hist[p]++;
+
+      // 众数
+      let mode = 0, maxCount = 0;
+      for (let i = 0; i < 256; i++) { if (hist[i] > maxCount) { maxCount = hist[i]; mode = i; } }
+
+      // 均值 + 标准差
+      let sum = 0;
+      for (const p of pixels) sum += p;
+      const mean = sum / pixels.length;
+      let variance = 0;
+      for (const p of pixels) variance += Math.pow(p - mean, 2);
+      const std = Math.sqrt(variance / pixels.length);
+
+      // ±3σ 拉伸范围
+      const minVal = Math.max(0, Math.round(mode - 3 * std));
+      const maxVal = Math.min(255, Math.round(mode + 3 * std));
+      const range = maxVal - minVal || 1;
+
+      // 逐像素赋色（输出 RGBA）
+      const out = Buffer.alloc(width * height * 4);
+      for (let i = 0; i < pixels.length; i++) {
+        const t = Math.min(1, Math.max(0, (pixels[i] - minVal) / range));
+        const [r, g, b] = rainbowRGB(t);
+        out[i * 4]     = r;
+        out[i * 4 + 1] = g;
+        out[i * 4 + 2] = b;
+        out[i * 4 + 3] = 255;
+      }
+
+      const colored = new Jimp({ data: out, width, height });
+      const pngBuf = await colored.getBuffer('image/png');
+      const base64 = `data:image/png;base64,${pngBuf.toString('base64')}`;
+      const stats = { mode, mean: Math.round(mean), std: Math.round(std), minVal, maxVal };
+
+      res.json({ ok: true, base64, stats, width, height });
+    } catch (e: any) {
+      console.error('[Colorize]', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── AI 农情分析（Gemini 2.5 Flash）──────────────────────────────────
+  const aiAnalysisCache = new Map<string, any>();
+
+  app.post('/api/ai/analyze', async (req, res) => {
+    const { base64, cacheKey, context } = req.body;
+    // context: { landName, cropsName, lat, lng, date, imageType, ndviStats }
+
+    if (cacheKey && aiAnalysisCache.has(cacheKey)) {
+      return res.json(aiAnalysisCache.get(cacheKey));
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY 未配置' });
+
+    const systemPrompt = '你是一个数字农业专家，精通农业遥感技术，对卫星和无人机农情监测非常熟悉，能够快速解读农情监测图像。';
+    const ctx = context || {};
+    const ndviDesc = ctx.ndviStats
+      ? `图像统计：均值${ctx.ndviStats.mean}，众数${ctx.ndviStats.mode}，标准差${ctx.ndviStats.std}。`
+      : '';
+    const userPrompt =
+      `这是一张来自【${ctx.landName || '农田'}】的${ctx.imageType || '农情监测'}图像，` +
+      `作物为【${ctx.cropsName || '未知'}】，` +
+      (ctx.lat && ctx.lng ? `位于东经${ctx.lng}°、北纬${ctx.lat}°，` : '') +
+      `采集时间为【${ctx.date || '未知'}】。${ndviDesc}` +
+      `请分析：农田长势、病虫害风险、可能原因及农事建议。` +
+      `正文不超过25个汉字。结尾另起一行，格式严格为：评级:优 或 评级:良 或 评级:中 或 评级:差`;
+
+    try {
+      const parts: any[] = [];
+      if (base64) {
+        const imgData = base64.replace(/^data:image\/\w+;base64,/, '');
+        parts.push({ inlineData: { mimeType: 'image/png', data: imgData } });
+      }
+      parts.push({ text: userPrompt });
+
+      const geminiRes = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts }],
+          generationConfig: { maxOutputTokens: 200, temperature: 0.3 },
+        },
+        {
+          headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' },
+          timeout: 35000,
+        }
+      );
+
+      const rawText: string = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const gradeMatch = rawText.match(/评级[:：]\s*(优|良|中|差)/);
+      const grade = (gradeMatch?.[1] as '优' | '良' | '中' | '差') || '—';
+      const text = rawText.replace(/评级[:：]\s*(优|良|中|差)/, '').trim();
+
+      const result = { ok: true, text, grade };
+      if (cacheKey) aiAnalysisCache.set(cacheKey, result);
+      res.json(result);
+    } catch (e: any) {
+      console.error('[AI Analyze]', e.message);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // Token 失效时前端可调用此接口强制刷新
