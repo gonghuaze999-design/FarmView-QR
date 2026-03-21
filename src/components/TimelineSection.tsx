@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, Calendar, Sprout, Tractor, Droplets, Scissors, Package } from 'lucide-react';
-import { getFarmWorkTaskCount } from '../services/api';
+import { ChevronDown, Calendar, Tractor, User, MapPin, Wheat } from 'lucide-react';
+import { getFarmWorkTaskCount, queryWorkTask } from '../services/api';
 import { useSiteContext } from '../contexts/SiteContext';
 
 const STATUS_MAP: Record<number, { label: string; color: string }> = {
@@ -11,18 +11,37 @@ const STATUS_MAP: Record<number, { label: string; color: string }> = {
   4: { label: '已取消', color: 'bg-red-100 text-red-500' },
 };
 
-const WORK_ICONS: Record<string, React.ReactNode> = {
-  '播种': <Sprout size={16} />,
-  '施肥': <Package size={16} />,
-  '灌溉': <Droplets size={16} />,
-  '收割': <Scissors size={16} />,
-  '耕地': <Tractor size={16} />,
-};
+function getDefaultYear(): number {
+  const now = new Date();
+  // 1月~6月（month 0~5）默认上一年，7月起默认当年
+  return now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear();
+}
+
+function formatDate(dt: string | null | undefined): string {
+  if (!dt) return '—';
+  return dt.slice(0, 10);
+}
+
+interface WorkTask {
+  id: number;
+  taskName: string;
+  landName: string;
+  cropsName: string;
+  priority: string;
+  status: number;
+  scheduledStartTime: string;
+  scheduledEndTime: string;
+  startTime: string;
+  endTime: string;
+  principalName: string;
+  description: string;
+}
 
 export const TimelineSection: React.FC = () => {
   const { binding } = useSiteContext();
   const [taskStats, setTaskStats] = useState<any[]>([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [tasks, setTasks] = useState<WorkTask[]>([]);
+  const [selectedYear, setSelectedYear] = useState(getDefaultYear);
   const [loading, setLoading] = useState(true);
   const [showYearPicker, setShowYearPicker] = useState(false);
 
@@ -36,15 +55,28 @@ export const TimelineSection: React.FC = () => {
     setLoading(true);
     const startTime = `${selectedYear}-01-01 00:00:00`;
     const endTime = `${selectedYear}-12-31 23:59:59`;
-    getFarmWorkTaskCount(binding.baseId, startTime, endTime)
-      .then(res => {
-        if (res.code === 200 && Array.isArray(res.data)) {
-          setTaskStats(res.data);
+    Promise.all([
+      getFarmWorkTaskCount(binding.baseId, startTime, endTime),
+      queryWorkTask(binding.baseId, startTime, endTime),
+    ])
+      .then(([countRes, taskRes]) => {
+        if (countRes.code === 200 && Array.isArray(countRes.data)) {
+          setTaskStats(countRes.data);
         } else {
           setTaskStats([]);
         }
+        if (taskRes.code === 200 && taskRes.data?.rows) {
+          const sorted = [...taskRes.data.rows].sort((a: WorkTask, b: WorkTask) => {
+            const ta = a.scheduledStartTime || '';
+            const tb = b.scheduledStartTime || '';
+            return ta < tb ? -1 : ta > tb ? 1 : 0;
+          });
+          setTasks(sorted);
+        } else {
+          setTasks([]);
+        }
       })
-      .catch(() => setTaskStats([]))
+      .catch(() => { setTaskStats([]); setTasks([]); })
       .finally(() => setLoading(false));
   }, [binding, selectedYear]);
 
@@ -86,7 +118,11 @@ export const TimelineSection: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="h-24 bg-zinc-100 rounded-3xl animate-pulse" />
+        <div className="space-y-2">
+          <div className="h-24 bg-zinc-100 rounded-3xl animate-pulse" />
+          <div className="h-20 bg-zinc-100 rounded-3xl animate-pulse" />
+          <div className="h-20 bg-zinc-100 rounded-3xl animate-pulse" />
+        </div>
       ) : total === 0 ? (
         <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-3xl border border-zinc-100">
           {selectedYear}年暂无农事记录
@@ -109,7 +145,7 @@ export const TimelineSection: React.FC = () => {
             </div>
           </div>
 
-          {/* 状态分布条 */}
+          {/* 完成率进度条 */}
           <div className="bg-white rounded-2xl border border-zinc-100 p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-zinc-500">任务完成率</span>
@@ -118,7 +154,7 @@ export const TimelineSection: React.FC = () => {
               </span>
             </div>
             <div className="h-2 bg-zinc-100 rounded-full overflow-hidden flex">
-              {taskStats.map(s => (
+              {taskStats.map(s =>
                 s.count > 0 && (
                   <div
                     key={s.status}
@@ -126,7 +162,7 @@ export const TimelineSection: React.FC = () => {
                     className={`h-full ${s.status === 3 ? 'bg-emerald-500' : s.status === 2 ? 'bg-blue-400' : s.status === 1 ? 'bg-amber-400' : 'bg-zinc-300'}`}
                   />
                 )
-              ))}
+              )}
             </div>
             <div className="flex gap-3 mt-2 flex-wrap">
               {taskStats.filter(s => s.count > 0).map(s => (
@@ -137,10 +173,46 @@ export const TimelineSection: React.FC = () => {
             </div>
           </div>
 
-          {/* 列表占位 */}
-          <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4 text-center">
-            <p className="text-xs text-amber-600">农事活动详细列表接口对接中</p>
-            <p className="text-[10px] text-amber-500 mt-1">共 {total} 条记录，详情待接口确认后展示</p>
+          {/* 任务列表 */}
+          <div className="space-y-2">
+            {tasks.map(task => (
+              <div key={task.id} className="bg-white rounded-2xl border border-zinc-100 p-4">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className="text-sm font-semibold text-zinc-800 leading-snug flex-1">{task.taskName}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {task.priority === '紧急' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-500 font-medium">紧急</span>
+                    )}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_MAP[task.status]?.color || 'bg-zinc-100 text-zinc-500'}`}>
+                      {STATUS_MAP[task.status]?.label}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {task.landName && (
+                    <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      <MapPin size={11} className="text-zinc-400" />
+                      {task.landName}
+                    </span>
+                  )}
+                  {task.cropsName && (
+                    <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      <Wheat size={11} className="text-zinc-400" />
+                      {task.cropsName}
+                    </span>
+                  )}
+                  {task.principalName && (
+                    <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      <User size={11} className="text-zinc-400" />
+                      {task.principalName}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 text-[11px] text-zinc-400">
+                  {formatDate(task.scheduledStartTime)} ~ {formatDate(task.scheduledEndTime)}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

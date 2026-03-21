@@ -63,11 +63,14 @@ export const getCameraList = async (baseId: number, farmlandIds: string) => {
 };
 
 // ── 农事行为 ──────────────────────────────────────────
-export const getFarmWorkList = async (baseId: number, startTime: string, endTime: string) => {
-  // /farm/work/list 不存在，改用分页接口
-  const res = await api.get(
-    `/api/farm/work/page?baseId=${baseId}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}&pageNum=1&pageSize=100`
-  );
+export const queryWorkTask = async (
+  baseId: number,
+  startTime: string,
+  endTime: string,
+  pageNum = 1,
+  pageSize = 100
+) => {
+  const res = await api.post('/api/farm/work/queryWorkTask', { baseId, startTime, endTime, pageNum, pageSize });
   return res.data;
 };
 

@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Claude 记忆文件（不推送到 GitHub，随文件夹物理迁移）
+.claude/memory/
