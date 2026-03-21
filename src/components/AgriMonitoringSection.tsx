@@ -86,6 +86,7 @@ export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ sel
           {year}年暂无农情监测数据
         </div>
       ) : (
+        <>
         <div className="space-y-3">
           {(expanded ? records : records.slice(0, PREVIEW_COUNT)).map((record) => {
             const modeInfo = getModeLabel(record.mode);
@@ -135,6 +136,7 @@ export const AgriMonitoringSection: React.FC<{ selectedYear?: number }> = ({ sel
             {expanded ? '收起' : `展开全部 ${records.length} 条记录`}
           </button>
         )}
+        </>
       )}
     </section>
   );
