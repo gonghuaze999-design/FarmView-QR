@@ -179,9 +179,11 @@ export const MapSection: React.FC = () => {
       if (device.type === 'weather') {
         const resNow = await getEnvDataNow(farmlandId);
         if (resNow.data) {
+          console.log('[Weather] 实时数据:', resNow.data);
           setDeviceData({ type: 'now', ...resNow.data });
         } else {
           const res = await getEnvData(farmlandId, startTime, endTime);
+          console.log('[Weather] 历史数据 keys:', Object.keys(res.data || {}), '各字段长度:', Object.entries(res.data || {}).map(([k,v]) => `${k}:${Array.isArray(v)?v.length:'非数组'}`));
           setDeviceData({ type: 'history', ...res.data });
         }
       } else if (device.type === 'insect') {
