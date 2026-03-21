@@ -206,7 +206,7 @@ export const HoireDebug: React.FC = () => {
       {activeTab === 'raw-data' && (
         <div className="space-y-4">
           <div className="text-xs text-zinc-500 mb-4 bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-100">
-            <strong>提示：</strong> 这里显示的是 Hoire 平台主动推送到服务器的原始数据。请先点击右上角“订阅设备”，等待几分钟后点击“刷新”查看最新数据。每个设备最多保留最近 5 条记录。
+            <strong>提示：</strong> 这里显示的是 Hoire 平台主动推送到服务器的原始数据。请先点击右上角"订阅设备"，等待几分钟后点击"刷新"查看最新数据。每个设备最多保留最近 5 条记录。
           </div>
           {Object.keys(rawData).length === 0 ? (
             <div className="text-center py-8 text-zinc-400 text-sm">暂无任何设备推送数据</div>
