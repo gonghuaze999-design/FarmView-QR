@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 // @ts-ignore
-import { regionData } from 'china-area-data';
+import chinaAreaData from 'china-area-data';
 
 type Region = { value: string; label: string; children?: Region[] };
 
@@ -20,7 +20,7 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  const provinces: Region[] = regionData;
+  const provinces: Region[] = Array.isArray(chinaAreaData?.regionData) ? chinaAreaData.regionData : (chinaAreaData?.default?.regionData || []);
   const cities = useMemo(() => provinces.find(p => p.label === province)?.children || [], [province]);
   const counties = useMemo(() => cities.find(c => c.label === city)?.children || [], [city]);
 
