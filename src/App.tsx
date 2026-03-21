@@ -81,6 +81,13 @@ const AppContent = () => {
     checkSite();
   }, [siteKey]);
 
+  // 动态更新页面标题为基地名称
+  useEffect(() => {
+    if (siteBinding?.siteName) {
+      document.title = siteBinding.siteName;
+    }
+  }, [siteBinding]);
+
   if (checkingSite) {
     return (
       <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">

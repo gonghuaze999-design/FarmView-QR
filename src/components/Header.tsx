@@ -17,6 +17,8 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [qrReady, setQrReady] = useState(false);
 
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
   useEffect(() => {
     import('qrcode').then(QRCode => {
       if (!canvasRef.current) return;
@@ -26,7 +28,10 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
         color: { dark: '#1a1a1a', light: '#ffffff' },
         errorCorrectionLevel: 'H',
       }, (err) => {
-        if (!err) setQrReady(true);
+        if (!err) {
+          setQrReady(true);
+          setQrDataUrl(canvasRef.current!.toDataURL('image/png'));
+        }
       });
     });
   }, [url]);
@@ -58,9 +63,17 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
             <span className="text-lg">🌾</span>
           </div>
 
-          {/* 二维码 */}
+          {/* 二维码 - 显示为图片方便长按保存 */}
           <div className="relative bg-white rounded-2xl p-3 shadow-sm border border-emerald-100">
-            <canvas ref={canvasRef} className="block" />
+            <canvas ref={canvasRef} className={qrReady ? 'hidden' : 'block'} />
+            {qrReady && qrDataUrl && (
+              <img
+                src={qrDataUrl}
+                alt="二维码"
+                className="block w-60 h-60"
+                style={{ imageRendering: 'pixelated' }}
+              />
+            )}
             {/* 中心 logo 装饰 */}
             {qrReady && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -72,17 +85,18 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
           </div>
 
           <p className="text-xs text-emerald-600/70 mt-3 text-center">扫码访问基地实时监控</p>
-          <p className="text-[10px] text-zinc-400 mt-1 text-center break-all px-2">{url}</p>
+          <p className="text-[10px] text-zinc-400 mt-1 text-center">长按图片可保存到相册</p>
         </div>
 
-        {/* 下载按钮 */}
-        <button
-          onClick={handleDownload}
+        {/* 下载按钮（桌面端备用） */}
+        <a
+          href={qrDataUrl}
+          download={`${siteName}-二维码.png`}
           className="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-3 rounded-2xl flex items-center justify-center gap-2 transition-colors"
         >
           <Download size={16} />
-          保存二维码
-        </button>
+          下载二维码
+        </a>
       </div>
     </div>
   );
