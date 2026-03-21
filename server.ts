@@ -228,6 +228,31 @@ async function startServer() {
     res.json(report);
   });
 
+  // 查看 taskCount 和 growsHight 完整数据
+  app.get('/api/test-data', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: '基地不存在' });
+    let token = '';
+    try { token = await getTokenForSite(siteKey); } catch (e: any) { return res.status(500).json({ error: e.message }); }
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const baseId = site.baseId;
+    const farmlandId = site.farmlandIds?.[0] || '';
+    const report: any = {};
+
+    try {
+      const r1 = await axios.get(`${API_BASE}/farm/work/taskCount?baseId=${baseId}&startTime=2023-01-01%2000%3A00%3A00&endTime=2026-12-31%2023%3A59%3A59`, { headers, timeout: 10000 });
+      report.taskCount = r1.data;
+    } catch (e: any) { report.taskCount = { error: e.message }; }
+
+    try {
+      const r2 = await axios.post(`${API_BASE}/center/base/growsHight`, { dimension: 'Growth_status', farmlandId, startTime: '2023-01-01 00:00:00', endTime: '2026-12-31 00:00:00' }, { headers, timeout: 10000 });
+      report.growsHight = r2.data;
+    } catch (e: any) { report.growsHight = { error: e.message }; }
+
+    res.json(report);
+  });
+
   // Token 失效时前端可调用此接口强制刷新
   app.post('/api/refresh-token', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
