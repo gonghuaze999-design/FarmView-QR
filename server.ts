@@ -253,6 +253,32 @@ async function startServer() {
     res.json(report);
   });
 
+  // 查看农情监测图片数据
+  app.get('/api/test-ndvi2', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: '基地不存在' });
+    let token = '';
+    try { token = await getTokenForSite(siteKey); } catch (e: any) { return res.status(500).json({ error: e.message }); }
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const report: any = {};
+
+    // 用第一条 algorithmTaskId 查图片
+    const taskId = '1977651420192620550';
+    try {
+      const r1 = await axios.post(`${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${taskId}`, {}, { headers, timeout: 10000 });
+      report.photoInfo = r1.data;
+    } catch (e: any) { report.photoInfo = { error: e.message }; }
+
+    // 也试试 GET 方式
+    try {
+      const r2 = await axios.get(`${API_BASE}/center/base/queryPhotoAlgorithmTaskInfo?taskId=${taskId}`, { headers, timeout: 10000, validateStatus: () => true });
+      report.photoInfoGet = { status: r2.status, code: r2.data?.code, data: r2.data?.data };
+    } catch (e: any) { report.photoInfoGet = { error: e.message }; }
+
+    res.json(report);
+  });
+
   // Token 失效时前端可调用此接口强制刷新
   app.post('/api/refresh-token', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
