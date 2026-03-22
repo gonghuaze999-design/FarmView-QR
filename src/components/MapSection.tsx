@@ -3,6 +3,7 @@ import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Dropl
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
 import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList } from '../services/api';
+import { wgs84ToGcj02 } from '../utils/coordTransform';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
 const HlsPlayer: React.FC<{ src: string; cameraName?: string }> = ({ src, cameraName }) => {
@@ -107,7 +108,7 @@ export const MapSection: React.FC = () => {
                   const points = match[1].split(',');
                   coords = points.map((p: string) => {
                     const [lng, lat] = p.trim().split(' ').map(Number);
-                    return [lng, lat];
+                    return wgs84ToGcj02(lng, lat);
                   });
                 }
               } catch (e) {
@@ -147,14 +148,14 @@ export const MapSection: React.FC = () => {
               const lng = iot.longitude || iot.longtitude;
               const lat = iot.latitude;
               if (lng && lat) {
-                position = [Number(lng), Number(lat)];
+                position = wgs84ToGcj02(Number(lng), Number(lat));
               } else if (iot.location) {
                 try {
                   const loc = typeof iot.location === 'string' ? JSON.parse(iot.location) : iot.location;
                   const locLng = loc.longitude || loc.longtitude;
                   const locLat = loc.latitude;
                   if (locLng && locLat) {
-                    position = [Number(locLng), Number(locLat)];
+                    position = wgs84ToGcj02(Number(locLng), Number(locLat));
                   }
                 } catch (e) { /* ignore */ }
               }
