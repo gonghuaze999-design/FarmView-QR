@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 import 'dotenv/config';
 import fs from 'fs';
-import { Jimp } from 'jimp';
+import sharp from 'sharp';
 import Database from 'better-sqlite3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -348,13 +348,12 @@ async function startServer() {
       const imgRes = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
       const buffer = Buffer.from(imgRes.data);
 
-      const img = await Jimp.fromBuffer(buffer);
-      img.greyscale();
-      const { data, width, height } = img.bitmap; // RGBA Uint8Array
+      const img = sharp(buffer);
+      const { width, height } = await img.metadata();
+      const rawBuf = await img.greyscale().raw().toBuffer();
 
-      // 提取灰度值（取 R 通道）
-      const pixels: number[] = [];
-      for (let i = 0; i < data.length; i += 4) pixels.push(data[i]);
+      // 提取灰度值
+      const pixels: number[] = Array.from(rawBuf);
 
       // 直方图
       const hist = new Array(256).fill(0);
@@ -388,8 +387,7 @@ async function startServer() {
         out[i * 4 + 3] = 255;
       }
 
-      const colored = new Jimp({ width, height, data: out });
-      const pngBuf = await colored.getBuffer('image/png');
+      const pngBuf = await sharp(out, { raw: { width: width!, height: height!, channels: 4 } }).png().toBuffer();
       const base64 = `data:image/png;base64,${pngBuf.toString('base64')}`;
       const stats = { mode, mean: Math.round(mean), std: Math.round(std), minVal, maxVal };
 
