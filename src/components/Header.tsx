@@ -183,6 +183,18 @@ export const Header: React.FC = () => {
   const [showBellMenu, setShowBellMenu] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const bellRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showBellMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setShowBellMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBellMenu]);
 
   // 默认名称用基地名
   const displayName = userName || binding?.siteName || '农场主';
@@ -248,7 +260,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-3 flex-shrink-0">
           <WeatherWidget />
 
-          <div className="relative">
+          <div className="relative" ref={bellRef}>
             <button
               onClick={() => setShowBellMenu(!showBellMenu)}
               className="relative p-2 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded-full transition-colors"
@@ -258,9 +270,7 @@ export const Header: React.FC = () => {
             </button>
 
             {showBellMenu && (
-              <>
-                <div className="fixed inset-0 z-[59]" onClick={() => setShowBellMenu(false)} />
-                <div className="absolute right-0 top-11 w-44 bg-white rounded-2xl shadow-xl border border-zinc-100 overflow-hidden z-[60]">
+              <div className="absolute right-0 top-11 w-44 bg-white rounded-2xl shadow-xl border border-zinc-100 overflow-hidden z-[60]">
                   <button
                     onClick={() => { setShowBellMenu(false); setShowQR(true); }}
                     className="w-full flex items-center justify-between px-4 py-3 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
@@ -272,7 +282,6 @@ export const Header: React.FC = () => {
                     <ChevronRight size={14} className="text-zinc-400" />
                   </button>
                 </div>
-              </>
             )}
           </div>
         </div>

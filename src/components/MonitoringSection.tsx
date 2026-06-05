@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thermometer, Droplets, Wind, CloudRain, Sun, Zap, BarChart3, Bug, Sprout, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
 import { getFarmlandList, getEnvInfoNew, getSoilReport, getInsectData, getInsectImages } from '../services/api';
@@ -211,6 +211,8 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
   const [timeHint, setTimeHint] = useState('');
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imgCount, setImgCount] = useState(8);
+  const scrollRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!farmlandId) { setLoading(false); return; }
@@ -234,7 +236,7 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
       if (imgRes.status === 'fulfilled' && imgRes.value?.code === 200) {
         const d = imgRes.value.data;
         const list = Array.isArray(d) ? d : (d?.images || []);
-        setImages(list.slice(0, 4));
+        setImages(list);
         // 取最后一张图片的上报时间
         if (list.length > 0) {
           const lastImg = list[list.length - 1];
@@ -246,6 +248,7 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
           }
         }
       }
+      setImgCount(8);
       setLoading(false);
     });
   }, [farmlandId, refreshKey]);
@@ -294,14 +297,25 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
 
             {images.length > 0 && (
               <div>
-                <span className="text-[10px] text-zinc-400 block mb-2">虫情照片</span>
-                <div className="grid grid-cols-4 gap-2">
-                  {images.map((img: any, i: number) => {
+                <span className="text-[10px] text-zinc-400 block mb-2">虫情照片（{images.length}张）</span>
+                <div
+                  ref={scrollRowRef}
+                  className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+                  style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+                  onScroll={() => {
+                    const el = scrollRowRef.current;
+                    if (el && el.scrollLeft + el.clientWidth >= el.scrollWidth - 40) {
+                      setImgCount(c => Math.min(c + 8, images.length));
+                    }
+                  }}
+                >
+                  {images.slice(0, imgCount).map((img: any, i: number) => {
                     const url = img.imageResult || img.image || img.imageUrl || img.url || img.imgUrl || img.picture;
                     if (!url) return null;
                     return (
                       <button key={i} onClick={() => setLightboxImg(url)}
-                        className="aspect-square rounded-xl overflow-hidden bg-zinc-100 border border-zinc-100">
+                        className="flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden bg-zinc-100 border border-zinc-100"
+                        style={{ scrollSnapAlign: 'start' }}>
                         <img src={url} alt="虫情" className="w-full h-full object-cover" loading="lazy" />
                       </button>
                     );

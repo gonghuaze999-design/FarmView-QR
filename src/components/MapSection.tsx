@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvInfoNew, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
 import { wgs84ToGcj02 } from '../utils/coordTransform';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
@@ -225,22 +225,17 @@ export const MapSection: React.FC = () => {
       const baseId = binding.baseId;
       const farmlandId = binding.farmlandIds?.[0] || '';
       const now = new Date();
-      // 气象历史数据量大，只查最近6个月避免超时
-      const startTime = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const halfYearStart = new Date(now.getTime() - 180 * 86400 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+      const yearStart = new Date(now.getTime() - 365 * 86400 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        const resNow = await getEnvDataNow(farmlandId);
-        if (resNow.data) {
-          setDeviceData({ type: 'now', ...resNow.data });
-        } else {
-          const res = await getEnvData(farmlandId, startTime, endTime);
-          const startDate = startTime.split(' ')[0];
-          const endDate = endTime.split(' ')[0];
-          setDeviceData({ type: 'history', _dateRange: `${startDate} ~ ${endDate}`, ...res.data });
-        }
+        const resNew = await getEnvInfoNew(farmlandId,
+          'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure,soil_temperature,soil_humidity,soil_ec',
+          halfYearStart, endTime);
+        setDeviceData({ type: 'weather', ...(resNew.data || {}) });
       } else if (device.type === 'insect') {
-        const res = await getInsectData(farmlandId, startTime, endTime);
+        const res = await getInsectData(farmlandId, yearStart, endTime);
         setDeviceData(res.data);
       } else if (device.type === 'camera') {
         const allFarmlandIds = (binding.farmlandIds || []).join(',');
@@ -456,91 +451,63 @@ export const MapSection: React.FC = () => {
             </div>
           ) : selectedDevice?.type === 'insect' ? (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-violet-50 p-4 rounded-2xl border border-violet-100 flex flex-col items-center justify-center text-center">
-                  <Bug className="text-violet-500 mb-2" size={24} />
-                  <span className="text-xs text-violet-600/70 mb-1">累计诱虫</span>
-                  <span className="font-bold text-violet-700 text-xl">
-                    {deviceData?.total ?? '--'}
-                    <span className="text-sm font-normal ml-0.5">只</span>
-                  </span>
-                </div>
-                <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-100 flex flex-col items-center justify-center text-center">
-                  <span className="text-xs text-zinc-500 mb-1">主要害虫</span>
-                  <span className="font-bold text-zinc-700 text-sm">
-                    {deviceData?.insect?.[0]?.insectName || '暂无数据'}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-500">累计诱虫</span>
+                <span className="text-2xl font-bold text-violet-700">{deviceData?.total != null ? deviceData.total.toLocaleString() : '—'}<span className="text-sm font-normal text-violet-400 ml-1">只</span></span>
               </div>
               {deviceData?.insect?.length > 0 && (
-                <div className="bg-zinc-50 rounded-2xl border border-zinc-100 overflow-hidden">
-                  {deviceData.insect.slice(0, 5).map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center px-4 py-2.5 border-b border-zinc-100 last:border-0">
-                      <span className="text-sm text-zinc-700">{item.insectName}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-violet-700">{item.insectValue}</span>
-                        <span className="text-xs text-zinc-400">{item.percent}</span>
+                <div className="space-y-2">
+                  <span className="text-[10px] text-zinc-400">虫害排行 Top 5</span>
+                  {deviceData.insect.slice(0, 5).map((item: any, idx: number) => {
+                    const pct = typeof item.percent === 'number' ? item.percent : (item.insectValue / (deviceData.total || 1)) * 100;
+                    return (
+                      <div key={idx} className="flex items-center gap-2" style={{ height: 18 }}>
+                        <span className="text-[10px] text-zinc-400 w-3 text-right">{idx + 1}</span>
+                        <span className="text-xs text-zinc-700 w-18 truncate">{item.insectName || '未知'}</span>
+                        <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-violet-400 rounded-full" style={{ width: `${Math.min(pct, 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-zinc-500 w-12 text-right">{item.insectValue}只</span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {(() => {
-                // 从数组末尾往前找最新非零值
-                const lastNonZero = (arr: any[], key: string) => {
+                const WDIMS = [
+                  { dim: 'air_temperature', label: '空气温度', unit: '°C', bg: '#f0f9ff' },
+                  { dim: 'air_humidity', label: '空气湿度', unit: '%', bg: '#ecfdf5' },
+                  { dim: 'wind_speed', label: '风速', unit: 'm/s', bg: '#f0fdfa' },
+                  { dim: 'precipitation', label: '降水量', unit: 'mm', bg: '#eef2ff' },
+                  { dim: 'light_intensity', label: '光照强度', unit: 'lux', bg: '#fffbeb' },
+                  { dim: 'atmospheric_pressure', label: '大气压', unit: 'hPa', bg: '#f8fafc' },
+                  { dim: 'soil_temperature', label: '土壤温度', unit: '°C', bg: '#fffbeb' },
+                  { dim: 'soil_humidity', label: '土壤水分', unit: '%', bg: '#f0f9ff' },
+                  { dim: 'soil_ec', label: '土壤EC值', unit: 'μS/cm', bg: '#f5f3ff' },
+                ];
+                const lastVal = (arr: any[], key: string) => {
                   if (!arr?.length) return null;
-                  for (let i = arr.length - 1; i >= 0; i--) {
-                    if (arr[i][key] !== 0 && arr[i][key] != null) return arr[i];
+                  for (let i = arr.length - 1; i >= Math.max(0, arr.length - 500); i--) {
+                    const v = arr[i][key];
+                    if (v != null && v !== 0) return v;
                   }
                   return null;
                 };
-                const tempRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.air_temperature, 'air_temperature') : null;
-                const humRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.air_humidity, 'air_humidity') : null;
-                const windRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.wind_speed, 'wind_speed') : null;
-                const rainRecord = deviceData?.type === 'history' ? lastNonZero(deviceData.precipitation, 'precipitation') : null;
-                const latestTime = deviceData?._dateRange || '';
-                return (<>
-                  {latestTime && (
-                    <div className="col-span-2 text-center text-xs text-zinc-400 -mb-1">
-                      历史数据 · {latestTime}
+                return WDIMS.map(d => {
+                  const arr = deviceData?.[d.dim];
+                  const val = Array.isArray(arr) ? lastVal(arr, d.dim) : null;
+                  return (
+                    <div key={d.dim} className="rounded-xl p-2.5 border border-zinc-100/60 flex flex-col justify-between" style={{ background: d.bg, height: 56 }}>
+                      <span className="text-[10px] text-zinc-500 leading-none">{d.label}</span>
+                      <span className="text-sm font-bold text-zinc-800 leading-none">
+                        {val != null ? (typeof val === 'number' ? val.toFixed(1) : val) : '—'}<span className="text-[10px] font-normal text-zinc-400 ml-0.5">{d.unit}</span>
+                      </span>
                     </div>
-                  )}
-                  <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col items-center justify-center text-center">
-                    <Thermometer className="text-blue-500 mb-2" size={24} />
-                    <span className="text-xs text-blue-600/70 mb-1">空气温度</span>
-                    <span className="font-bold text-blue-700 text-xl">
-                      {tempRecord?.air_temperature ?? deviceData?.airTemperature ?? '--'}
-                      <span className="text-sm font-normal ml-0.5">°C</span>
-                    </span>
-                  </div>
-                  <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center text-center">
-                    <Droplets className="text-emerald-500 mb-2" size={24} />
-                    <span className="text-xs text-emerald-600/70 mb-1">空气湿度</span>
-                    <span className="font-bold text-emerald-700 text-xl">
-                      {humRecord?.air_humidity ?? deviceData?.airHumidity ?? '--'}
-                      <span className="text-sm font-normal ml-0.5">%</span>
-                    </span>
-                  </div>
-                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex flex-col items-center justify-center text-center">
-                    <Activity className="text-amber-500 mb-2" size={24} />
-                    <span className="text-xs text-amber-600/70 mb-1">风速</span>
-                    <span className="font-bold text-amber-700 text-xl">
-                      {windRecord?.wind_speed ?? deviceData?.windSpeed ?? '--'}
-                      <span className="text-sm font-normal ml-0.5">m/s</span>
-                    </span>
-                  </div>
-                  <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex flex-col items-center justify-center text-center">
-                    <Cloud className="text-sky-500 mb-2" size={24} />
-                    <span className="text-xs text-sky-600/70 mb-1">降水量</span>
-                    <span className="font-bold text-sky-700 text-xl">
-                      {rainRecord?.precipitation ?? deviceData?.precipitation ?? '--'}
-                      <span className="text-sm font-normal ml-0.5">mm</span>
-                    </span>
-                  </div>
-                </>);
+                  );
+                });
               })()}
             </div>
           )}

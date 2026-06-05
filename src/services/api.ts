@@ -147,6 +147,7 @@ export interface FarmMonitorSatelliteResponse {
   ok: boolean;
   data: SatelliteRecord[];
   initializing?: boolean;
+  loading?: boolean;
   message?: string;
 }
 

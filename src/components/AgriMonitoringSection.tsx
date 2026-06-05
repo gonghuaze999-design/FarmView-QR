@@ -179,9 +179,11 @@ export const AgriMonitoringSection: React.FC = () => {
 
     try {
       const res = await getFarmMonitorSatellite(siteKey, showRefresh);
-      if (res.initializing) {
+      if (res.initializing || res.loading) {
         setInitializing(true);
         setMessage(res.message || '卫星监测服务初始化中...');
+        // 3秒后自动重试
+        setTimeout(() => fetchData(false), 3000);
         setRecords([]);
       } else if (res.ok) {
         setInitializing(false);

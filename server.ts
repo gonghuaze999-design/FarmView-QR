@@ -402,6 +402,76 @@ async function startServer() {
     res.json({ ok: true, total: rows.length, data: rows });
   });
 
+  // 验证数字农田账号并返回基地列表
+  app.post('/api/admin/verify-auth', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: '缺少账号密码' });
+    try {
+      const loginRes = await axios.post(`${API_BASE}/auth/login`, {
+        username, password, code: 1, uuid: 'farmview', rememberMe: true,
+      }, { timeout: 10000 });
+      if (loginRes.data?.code !== 200) return res.json({ ok: false, error: loginRes.data?.msg || '登录失败' });
+
+      const token = loginRes.data.data.access_token;
+      const headers = { Authorization: `Bearer ${token}` };
+      const baseRes = await axios.get(`${API_BASE}/farm/base/queryBaseList`, { headers, timeout: 10000 });
+      if (baseRes.data?.code !== 200) return res.json({ ok: false, error: '获取基地列表失败' });
+
+      res.json({ ok: true, token, bases: baseRes.data.data || [] });
+    } catch (e: any) {
+      res.json({ ok: false, error: e.message });
+    }
+  });
+
+  // 获取某基地下的地块列表（用临时token）
+  app.post('/api/admin/get-lands', async (req, res) => {
+    const { token, baseId } = req.body;
+    if (!token || !baseId) return res.status(400).json({ error: '缺少参数' });
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const landRes = await axios.get(`${API_BASE}/farm/land/list?baseId=${baseId}`, { headers, timeout: 10000 });
+      if (landRes.data?.code !== 200) return res.json({ ok: false, error: '获取地块失败' });
+      res.json({ ok: true, lands: landRes.data.data || [] });
+    } catch (e: any) {
+      res.json({ ok: false, error: e.message });
+    }
+  });
+
+  // 新增基地配置
+  app.post('/api/admin/add-site', async (req, res) => {
+    const { siteKey, siteName, owner, apiAuth, baseId, farmlandIds } = req.body;
+    if (!siteKey || !siteName || !apiAuth?.username || !apiAuth?.password || !baseId) {
+      return res.status(400).json({ error: '缺少必要参数' });
+    }
+    if (sitesConfig.sites[siteKey]) return res.status(400).json({ error: `基地标识 ${siteKey} 已存在` });
+
+    sitesConfig.sites[siteKey] = {
+      siteName, owner: owner || 'admin', apiAuth, baseId,
+      farmlandIds: farmlandIds || [],
+      devices: { weatherIds: [], insectIds: [], cameraIds: [] },
+    };
+
+    const configPath = path.join(__dirname, 'sites-config.json');
+    fs.writeFileSync(configPath, JSON.stringify(sitesConfig, null, 2), 'utf-8');
+    console.log(`[Admin] 新增基地 ${siteKey} → ${siteName}`);
+
+    res.json({ ok: true, siteKey, url: `/site=${siteKey}` });
+  });
+
+  // 获取所有基地列表（含FarmMonitor状态）
+  app.get('/api/admin/sites', (req, res) => {
+    const list = Object.entries(sitesConfig.sites).map(([key, site]: [string, any]) => ({
+      siteKey: key,
+      siteName: site.siteName,
+      owner: site.owner,
+      baseId: site.baseId,
+      landCount: (site.farmlandIds || []).length,
+      hasFarmMonitor: !!(site.farmMonitor?.farmId),
+      fmFieldCount: site.farmMonitor?.fieldMap ? Object.keys(site.farmMonitor.fieldMap).length : 0,
+    }));
+    res.json({ ok: true, data: list });
+  });
+
   // 站点配置查询
   app.get('/api/site-binding', (req, res) => {
     const requestedSite = String(req.query.site || DEFAULT_SITE_KEY);
@@ -1051,13 +1121,9 @@ async function startServer() {
         return res.json({ ok: true, data: satelliteCache.get(siteKey) });
       }
 
-      // 有 setup 但无缓存：首次拉取
-      try {
-        await fetchSatelliteForSite(siteKey);
-        res.json({ ok: true, data: satelliteCache.get(siteKey) || [] });
-      } catch (e: any) {
-        res.json({ ok: true, data: [], error: e.message });
-      }
+      // 有 setup 但无缓存：后台拉取，先返回空
+      fetchSatelliteForSite(siteKey).catch(e => console.error('[FarmMonitor] 首次拉取失败:', e.message));
+      return res.json({ ok: true, data: [], loading: true });
     } else if (isSettingUp) {
       res.json({ ok: true, data: [], initializing: true, message: '卫星监测服务初始化中，预计需要几分钟...' });
     } else {
