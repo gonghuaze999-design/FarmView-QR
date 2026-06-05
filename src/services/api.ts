@@ -122,3 +122,82 @@ export const analyzeImage = async (base64: string, cacheKey: string, context: An
   const res = await axios.post('/api/ai/analyze', { base64, cacheKey, context }, { timeout: 40000 });
   return res.data as { ok: boolean; text: string; grade: '优' | '良' | '中' | '差' | '—' };
 };
+
+// ── FarmMonitor 卫星数据 ───────────────────────────
+
+export interface SatelliteRecord {
+  id: string;
+  field_id: string;
+  date: string;
+  ndvi_field_view_url?: string;    // 自适应 zoom，地块占画面 80%+（新）
+  ndvi_overview_url?: string;      // 固定 zoom=13 大范围概览（旧）
+  rgb_tile_url?: string;
+  ndvi_stats: {
+    mean: number; max: number; min: number; std: number;
+    p25: number; p50: number; p75: number;
+    pixel_count: number;
+    low_veg_pct: number; mid_veg_pct: number; high_veg_pct: number;
+  };
+  ndvi_interpretation: string;
+  created_at: string;
+  _localFieldId?: string;
+}
+
+export interface FarmMonitorSatelliteResponse {
+  ok: boolean;
+  data: SatelliteRecord[];
+  initializing?: boolean;
+  message?: string;
+}
+
+export const getFarmMonitorSatellite = async (siteKey: string, force = false) => {
+  const res = await api.get(`/api/farm-monitor/satellite?site=${encodeURIComponent(siteKey)}${force ? '&force=true' : ''}`);
+  return res.data as FarmMonitorSatelliteResponse;
+};
+
+// ── 总览指标 ─────────────────────────────────────────
+export const getBaseData = async (baseId: number) => {
+  const res = await api.get(`/api/farm/base/queryBaseData?baseId=${baseId}`);
+  return res.data as { code: number; data: { landAccount: number; cropAccount: number } | null };
+};
+
+export const getAreaTotal = async (baseId: number) => {
+  const res = await api.get(`/api/farm/batch/areaTotal?baseId=${baseId}`);
+  return res.data as { code: number; data: number | null };
+};
+
+export const getMainCrop = async (baseId: number) => {
+  const res = await api.get(`/api/farm/batch/mainCrop?baseId=${baseId}`);
+  return res.data as { code: number; msg: string; data: null };
+};
+
+export const getCropGrowth = async (baseId: number) => {
+  const res = await api.post('/api/center/base/QueryCropGrowth', { baseId });
+  return res.data as { code: number; data: Record<string, { growthName: string }[]> | null };
+};
+
+export const getDeviceCountByType = async (baseId: number) => {
+  const res = await api.get(`/api/collect/iot/getCountByType?baseId=${baseId}`);
+  return res.data as { code: number; data: { count: number; type: string }[] | null };
+};
+
+export const getCameraCount = async (baseId: number) => {
+  const res = await api.get(`/api/collect/camera/count?baseId=${baseId}`);
+  return res.data as { code: number; data: number | null };
+};
+
+// ── 数据Tab: 气象/土壤/虫情 ─────────────────────────
+export const getEnvInfoNew = async (farmlandId: string, dimension: string, startTime: string, endTime: string) => {
+  const res = await api.post('/api/collect/iot/getEnvInformationNew', { farmlandId, dimension, startTime, endTime });
+  return res.data;
+};
+
+export const getSoilReport = async (baseId: number) => {
+  const res = await api.post('/api/center/base/querySoilReport', { baseId, startTime: '2020-01-01', endTime: '2026-12-31' });
+  return res.data;
+};
+
+export const getInsectImages = async (farmlandId: string, startTime: string, endTime: string) => {
+  const res = await api.post('/api/collect/iot/getInsectImages', { farmlandId, startTime, endTime });
+  return res.data;
+};

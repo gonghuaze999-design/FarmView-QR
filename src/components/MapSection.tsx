@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvDataNow, getEnvData, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
 import { wgs84ToGcj02 } from '../utils/coordTransform';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
@@ -195,10 +195,22 @@ export const MapSection: React.FC = () => {
     fetchData();
   }, [binding]);
 
-  const handlePolygonClick = (polygonData?: any) => {
+  const [polygonBatch, setPolygonBatch] = useState<any>(null);
+  const [polygonBatchLoading, setPolygonBatchLoading] = useState(false);
+
+  const handlePolygonClick = async (polygonData?: any) => {
     setSelectedPolygon(polygonData);
     setIsBottomSheetOpen(true);
     setIsDeviceSheetOpen(false);
+    setPolygonBatch(null);
+    if (polygonData?.id) {
+      setPolygonBatchLoading(true);
+      try {
+        const res = await getLandBatchInfo(polygonData.id);
+        if (res.code === 200 && res.data) setPolygonBatch(res.data);
+      } catch {}
+      setPolygonBatchLoading(false);
+    }
   };
 
   const handleDeviceClick = async (device: DeviceMarker) => {
@@ -231,7 +243,8 @@ export const MapSection: React.FC = () => {
         const res = await getInsectData(farmlandId, startTime, endTime);
         setDeviceData(res.data);
       } else if (device.type === 'camera') {
-        const res = await getCameraList(baseId, String(farmlandId));
+        const allFarmlandIds = (binding.farmlandIds || []).join(',');
+        const res = await getCameraList(baseId, allFarmlandIds);
         setDeviceData(res.data);
       }
     } catch (e) {
@@ -251,8 +264,10 @@ export const MapSection: React.FC = () => {
   return (
     <section className={isFullScreen
       ? 'fixed inset-0 z-[100] bg-white'
-      : 'farm-card relative overflow-hidden h-[400px]'
-    }>
+      : 'relative overflow-hidden rounded-2xl shadow-sm'
+    }
+    style={isFullScreen ? {} : { height: '56vh', minHeight: '380px', maxHeight: '560px' }}
+    >
       <div className="absolute inset-0 z-0">
         <MapComponent 
           isFullScreen={isFullScreen} 
@@ -268,9 +283,11 @@ export const MapSection: React.FC = () => {
       
       {/* 顶部控制栏 */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10 pointer-events-none">
-        <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-sm border border-white/50 flex items-center gap-2 pointer-events-auto">
-          <MapIcon size={16} className="text-emerald-600" />
-          <span className="text-sm font-bold text-zinc-800">{binding?.siteName || 'A区 种植地'}</span>
+        <div className="backdrop-blur-md px-4 py-2 rounded-2xl shadow-sm flex items-center gap-2 pointer-events-auto" style={{ background: 'rgba(236,253,245,0.95)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <span className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#d1fae5' }}>
+            <MapIcon size={14} className="text-emerald-600" />
+          </span>
+          <span className="text-sm font-bold text-emerald-800">{binding?.siteName || 'A区 种植地'}</span>
         </div>
         
         <button 
@@ -339,12 +356,43 @@ export const MapSection: React.FC = () => {
           <div className="space-y-2">
             <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
               <span className="text-zinc-500">土地用途</span>
-              <span className="font-medium text-zinc-700">{selectedPolygon?.mapType || '基本农田'}</span>
+              <span className="font-medium text-zinc-700">{selectedPolygon?.mapType || '—'}</span>
             </div>
-            <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
-              <span className="text-zinc-500">备注</span>
-              <span className="font-medium text-zinc-700">{selectedPolygon?.remark || '无'}</span>
-            </div>
+            {polygonBatchLoading ? (
+              <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                <span className="text-zinc-400">批次信息</span>
+                <span className="text-zinc-400 text-xs">加载中…</span>
+              </div>
+            ) : polygonBatch ? (
+              <>
+                <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                  <span className="text-zinc-500">种植作物</span>
+                  <span className="font-medium text-emerald-700">{polygonBatch.cropName || '—'}</span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                  <span className="text-zinc-500">种植面积</span>
+                  <span className="font-medium text-zinc-700">{polygonBatch.plantingArea != null ? `${polygonBatch.plantingArea} 亩` : '—'}</span>
+                </div>
+                <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                  <span className="text-zinc-500">种植周期</span>
+                  <span className="font-medium text-zinc-700">
+                    {polygonBatch.scheduledStartTime ? polygonBatch.scheduledStartTime.slice(0, 10) : '?'} ~ {polygonBatch.scheduledEndTime ? polygonBatch.scheduledEndTime.slice(0, 10) : '?'}
+                  </span>
+                </div>
+                {polygonBatch.seedingMethod && (
+                  <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                    <span className="text-zinc-500">播种方式</span>
+                    <span className="font-medium text-zinc-700">{polygonBatch.seedingMethod}</span>
+                  </div>
+                )}
+              </>
+            ) : null}
+            {selectedPolygon?.remark && (
+              <div className="flex justify-between text-sm py-2 border-b border-zinc-50">
+                <span className="text-zinc-500">备注</span>
+                <span className="font-medium text-zinc-700">{selectedPolygon.remark}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

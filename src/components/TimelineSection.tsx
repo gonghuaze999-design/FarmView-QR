@@ -90,9 +90,12 @@ export const TimelineSection: React.FC = () => {
 
   return (
     <section className="px-4 pb-2">
-      <div className="flex items-center justify-between mb-3">
+      <div className="farm-card-amber px-4 py-3 -mx-1 mb-3" style={{ borderRadius: '1rem', background: '#fffbeb' }}>
+      <div className="flex items-center justify-between mb-0">
         <h2 className="text-base font-bold text-zinc-800 flex items-center gap-2">
-          <Tractor size={18} className="text-emerald-500" />
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#fef3c7' }}>
+            <Tractor size={16} className="text-amber-600" />
+          </span>
           农事行为
         </h2>
         <div className="relative">
@@ -118,6 +121,7 @@ export const TimelineSection: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {loading ? (

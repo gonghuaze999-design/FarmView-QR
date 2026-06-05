@@ -9,9 +9,15 @@ import { Header } from './components/Header';
 import { MapSection } from './components/MapSection';
 import { TimelineSection } from './components/TimelineSection';
 import { AgriMonitoringSection } from './components/AgriMonitoringSection';
+import { MonitoringSection } from './components/MonitoringSection';
+import { CameraTab } from './components/CameraTab';
+import { AiFloatingBall } from './components/AiFloatingBall';
+import { AiChatPanel } from './components/AiChatPanel';
 import { JoinUsButton } from './components/JoinUsButton';
+import { TabBar, type TabKey } from './components/TabBar';
 import { AdminPage } from './pages/AdminPage';
 import { SiteProvider, SiteBinding } from './contexts/SiteContext';
+import { getBaseData, getMainCrop, getCropGrowth, getDeviceCountByType, getCameraCount, getFarmlandList } from './services/api';
 
 type SiteBindingResponse = {
   requestedSite: string;
@@ -23,8 +29,8 @@ type SiteBindingResponse = {
 };
 
 const UnknownSiteState: React.FC<{ siteKey: string; availableSites: string[] }> = ({ siteKey, availableSites }) => (
-  <div className="min-h-screen bg-zinc-50 flex justify-center">
-    <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen flex flex-col">
+  <div className="min-h-screen flex justify-center" style={{ background: '#faf9f6' }}>
+    <div className="w-full max-w-md shadow-xl min-h-screen flex flex-col" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
       <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-6 pt-16 pb-12 text-center">
         <div className="text-6xl mb-4">🌾</div>
         <h1 className="text-2xl font-bold text-white">找不到该基地</h1>
@@ -98,13 +104,58 @@ const AppContent = () => {
     }
   }, [siteBinding]);
 
+  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  const [showAiChat, setShowAiChat] = useState(false);
+
+  // 总览指标数据
+  const [overviewStats, setOverviewStats] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!siteBinding?.baseId) return;
+    const baseId = siteBinding.baseId;
+    const dash = '—';
+    Promise.allSettled([
+      getBaseData(baseId).then(r => r.code === 200 && r.data ? String(r.data.landAccount) : dash).catch(() => dash),
+      getFarmlandList(baseId).then(r => {
+        if (r.code === 200 && Array.isArray(r.data)) {
+          const total = r.data.reduce((s: number, l: any) => s + (Number(l.size) || 0), 0);
+          return `${total.toFixed(0)}`;
+        }
+        return dash;
+      }).catch(() => dash),
+      getMainCrop(baseId).then(r => r.code === 200 && r.msg ? r.msg : dash).catch(() => dash),
+      getCropGrowth(baseId).then(r => {
+        if (r.code === 200 && r.data) {
+          const firstCrop = Object.values(r.data)[0];
+          return firstCrop?.[0]?.growthName || dash;
+        }
+        return dash;
+      }).catch(() => dash),
+      getDeviceCountByType(baseId).then(r => {
+        if (r.code === 200 && Array.isArray(r.data)) {
+          return String(r.data.reduce((s, t) => s + (t.count || 0), 0));
+        }
+        return dash;
+      }).catch(() => dash),
+      getCameraCount(baseId).then(r => r.code === 200 && r.data != null ? String(r.data) : dash).catch(() => dash),
+    ]).then(([land, area, crop, growth, device, camera]) => {
+      setOverviewStats({
+        landCount: land.status === 'fulfilled' ? String(land.value) : dash,
+        area: area.status === 'fulfilled' ? String(area.value) : dash,
+        crop: crop.status === 'fulfilled' ? String(crop.value) : dash,
+        growthStage: growth.status === 'fulfilled' ? String(growth.value) : dash,
+        deviceCount: device.status === 'fulfilled' ? String(device.value) : dash,
+        cameraCount: camera.status === 'fulfilled' ? String(camera.value) : dash,
+      });
+    });
+  }, [siteBinding?.baseId]);
+
   if (checkingSite) {
     return (
-      <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">
-        <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen">
+      <div className="min-h-screen pb-8 flex justify-center" style={{ background: '#faf9f6' }}>
+        <div className="w-full max-w-md bg-white shadow-xl min-h-screen" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
           <Header />
           <main className="p-5">
-            <div className="rounded-3xl border border-zinc-100 bg-zinc-50 p-6 text-zinc-500 flex items-center justify-center gap-3 shadow-sm">
+            <div className="rounded-3xl border p-6 flex items-center justify-center gap-3 shadow-sm" style={{ borderColor: '#f0f0eb', background: '#f9fafb', color: '#64748b' }}>
               <div className="w-4 h-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></div>
               正在校验站点...
             </div>
@@ -120,17 +171,73 @@ const AppContent = () => {
 
   return (
     <SiteProvider siteKey={siteKey} binding={siteBinding}>
-      <div className="min-h-screen bg-zinc-50 pb-8 flex justify-center">
-        <div className="w-full max-w-md bg-white shadow-2xl shadow-zinc-200/50 min-h-screen relative">
+      <div className="min-h-screen pb-8 flex justify-center" style={{ background: 'linear-gradient(180deg, #fef9ef 0%, #f8f6f0 100%)' }}>
+        <div className="w-full max-w-md shadow-xl min-h-screen relative" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
           <Header />
-          <main className="p-5 space-y-6">
-            <MapSection />
-            <TimelineSection />
-            <AgriMonitoringSection />
-            <div className="pt-4 pb-8">
-              <JoinUsButton />
-            </div>
+          <main className="pb-20 pt-[77px]" style={{ background: '#fffdf7' }}>
+            {activeTab === 'overview' && (
+              <div className="px-4 pb-6 space-y-3">
+                <MapSection />
+                {/* 基地信息卡 — 三列，统一风格(彩色底色+左边框点缀) */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { label: '当前作物', key: 'crop', icon: '🌱', color: '#059669', bg: '#ecfdf5' },
+                    { label: '种植面积', key: 'area', unit: '亩', icon: '📐', color: '#0284c7', bg: '#f0f9ff' },
+                    { label: '生育期', key: 'growthStage', icon: '🌿', color: '#b45309', bg: '#fef3c7' },
+                  ].map((item, i) => (
+                    <div key={i} className="rounded-xl p-3 overflow-hidden" style={{ background: item.bg }}>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-sm">{item.icon}</span>
+                        <span className="text-[10px] font-medium opacity-65" style={{ color: item.color }}>{item.label}</span>
+                      </div>
+                      <div className="text-lg font-bold" style={{ color: item.color }}>
+                        {overviewStats[item.key] ?? '—'}
+                        {item.unit && <span className="text-xs font-normal ml-0.5 opacity-50">{item.unit}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* 统计卡 — 同风格，彩色底色 */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { label: '地块', key: 'landCount', icon: '🗺️', color: '#10b981', bg: '#ecfdf5' },
+                    { label: '设备', key: 'deviceCount', icon: '📡', color: '#0ea5e9', bg: '#f0f9ff' },
+                    { label: '摄像头', key: 'cameraCount', icon: '📷', color: '#f43f5e', bg: '#fff1f2' },
+                  ].map((item, i) => (
+                    <div key={i} className="rounded-xl p-3" style={{ background: item.bg }}>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className="text-sm">{item.icon}</span>
+                        <span className="text-[10px] font-medium opacity-65" style={{ color: item.color }}>{item.label}</span>
+                      </div>
+                      <div className="text-lg font-bold" style={{ color: item.color }}>{overviewStats[item.key] ?? '—'}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-1.5">
+                  <JoinUsButton compact />
+                </div>
+              </div>
+            )}
+            {activeTab === 'camera' && (
+              <div className="px-4 pb-6">
+                <CameraTab />
+              </div>
+            )}
+            {activeTab === 'agri' && (
+              <div className="px-4 pb-6 space-y-4">
+                <TimelineSection />
+                <AgriMonitoringSection />
+              </div>
+            )}
+            {activeTab === 'data' && (
+              <div className="px-4 pb-6 space-y-4">
+                <MonitoringSection />
+              </div>
+            )}
           </main>
+          <TabBar active={activeTab} onChange={setActiveTab} />
+          <AiFloatingBall onClick={() => setShowAiChat(true)} />
+          {showAiChat && <AiChatPanel onClose={() => setShowAiChat(false)} />}
         </div>
       </div>
     </SiteProvider>

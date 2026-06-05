@@ -2,16 +2,19 @@ import React, { useState } from 'react';
 import { JoinUsModal } from './JoinUsModal';
 import { UserPlus } from 'lucide-react';
 
-export const JoinUsButton: React.FC<{ label?: string; source?: string }> = ({ label = '我要加入', source = 'join' }) => {
+export const JoinUsButton: React.FC<{ label?: string; source?: string; compact?: boolean }> = ({ label = '我要加入', source = 'join', compact }) => {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+        className={compact
+          ? 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-2.5 rounded-xl font-medium text-sm shadow-md shadow-emerald-600/15 flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]'
+          : 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white p-4 rounded-2xl font-bold text-lg shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]'
+        }
       >
-        <UserPlus size={24} />
+        <UserPlus size={compact ? 16 : 24} />
         {label}
       </button>
       {showModal && <JoinUsModal onClose={() => setShowModal(false)} source={source} />}

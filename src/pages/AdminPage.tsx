@@ -75,8 +75,8 @@ export const AdminPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex justify-center">
-      <div className="w-full max-w-2xl bg-white shadow-xl min-h-screen">
+    <div className="min-h-screen flex justify-center" style={{ background: '#faf9f6' }}>
+      <div className="w-full max-w-2xl shadow-xl min-h-screen" style={{ background: '#fffdf7' }}>
         {/* Header */}
         <div className="bg-emerald-600 px-5 py-6">
           <h1 className="text-xl font-bold text-white">超级管理员后台</h1>

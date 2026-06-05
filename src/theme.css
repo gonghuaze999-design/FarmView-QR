@@ -1,0 +1,107 @@
+/* FarmView-QR v2.0 色彩体系
+ * 暖白基底 + 五色语义
+ * 翠绿=地块/健康 | 天蓝=气象/设备 | 暖金=成熟/日照
+ * 紫色=AI/科技 | 珊瑚=异常/虫害
+ */
+:root {
+  --color-bg: #faf9f6;
+  --color-card: #ffffff;
+  --color-border: #f0f0eb;
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+
+  /* 语义色 */
+  --color-green: #10b981;
+  --color-green-bg: #ecfdf5;
+  --color-green-border: #a7f3d0;
+  --color-blue: #0ea5e9;
+  --color-blue-bg: #f0f9ff;
+  --color-blue-border: #bae6fd;
+  --color-amber: #f59e0b;
+  --color-amber-bg: #fffbeb;
+  --color-amber-border: #fde68a;
+  --color-purple: #8b5cf6;
+  --color-purple-bg: #f5f3ff;
+  --color-purple-border: #c4b5fd;
+  --color-red: #f43f5e;
+  --color-red-bg: #fff1f2;
+  --color-red-border: #fecdd3;
+
+  /* 圆角统一 */
+  --radius-card: 1.25rem;
+  --radius-btn: 0.875rem;
+}
+
+/* 全局基数 */
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* 卡片样式 */
+.farm-card {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* 各语义色卡片左彩条 */
+.farm-card-green {
+  border-left: 3px solid var(--color-green);
+}
+.farm-card-blue {
+  border-left: 3px solid var(--color-blue);
+}
+.farm-card-amber {
+  border-left: 3px solid var(--color-amber);
+}
+.farm-card-purple {
+  border-left: 3px solid var(--color-purple);
+}
+.farm-card-red {
+  border-left: 3px solid var(--color-red);
+}
+
+/* 语义色角标 */
+.farm-badge-green {
+  background: var(--color-green-bg);
+  color: #059669;
+  border: 1px solid var(--color-green-border);
+}
+.farm-badge-blue {
+  background: var(--color-blue-bg);
+  color: #0284c7;
+  border: 1px solid var(--color-blue-border);
+}
+.farm-badge-amber {
+  background: var(--color-amber-bg);
+  color: #d97706;
+  border: 1px solid var(--color-amber-border);
+}
+.farm-badge-purple {
+  background: var(--color-purple-bg);
+  color: #7c3aed;
+  border: 1px solid var(--color-purple-border);
+}
+.farm-badge-red {
+  background: var(--color-red-bg);
+  color: #e11d48;
+  border: 1px solid var(--color-red-border);
+}
+
+/* AI 消息排版 */
+.ai-message p { margin-bottom: 0.5rem; }
+.ai-message p:last-child { margin-bottom: 0; }
+.ai-message ul, .ai-message ol { padding-left: 1.25rem; margin: 0.25rem 0 0.5rem; }
+.ai-message li { margin-bottom: 0.2rem; }
+.ai-message strong { font-weight: 600; color: #374151; }
+.ai-message h3 { font-size: 0.95rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.ai-message em { font-style: italic; color: #6b7280; }
+.ai-message code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+
+/* 图片闪烁避免 */
+img {
+  image-rendering: auto;
+}

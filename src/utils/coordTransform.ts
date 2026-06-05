@@ -20,6 +20,38 @@ function transformLng(lng: number, lat: number): number {
   return ret;
 }
 
+/**
+ * WKT POLYGON → GeoJSON Polygon
+ * 输入: "POLYGON((lng lat, lng lat, ...))"  WGS-84坐标系
+ * 输出: { type: "Polygon", coordinates: [[[lng, lat], ...]] }
+ * FarmMonitor 使用 WGS-84，不做 GCJ-02 偏移。
+ */
+export function wktToGeoJson(wkt: string): { type: 'Polygon'; coordinates: number[][][] } | null {
+  if (!wkt) return null;
+  const rings: number[][][] = [];
+  const ringRegex = /\(([^)]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = ringRegex.exec(wkt)) !== null) {
+    const points: number[][] = [];
+    const pairs = match[1].split(',');
+    for (const p of pairs) {
+      const parts = p.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        const lng = Number(parts[0]);
+        const lat = Number(parts[1]);
+        if (!isNaN(lng) && !isNaN(lat)) points.push([lng, lat]);
+      }
+    }
+    if (points.length === 0) return null;
+    const first = points[0], last = points[points.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      points.push([...first]);
+    }
+    rings.push(points);
+  }
+  return rings.length > 0 ? { type: 'Polygon', coordinates: rings } : null;
+}
+
 export function wgs84ToGcj02(lng: number, lat: number): [number, number] {
   const a = 6378245.0;
   const ee = 0.00669342162296594323;

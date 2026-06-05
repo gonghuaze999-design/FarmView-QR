@@ -206,7 +206,7 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="bg-white/80 backdrop-blur-xl px-4 py-3 flex items-center justify-between sticky top-0 z-50 border-b border-zinc-100 shadow-sm">
+      <header className="bg-white/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between fixed top-0 left-1/2 -translate-x-1/2 z-50 border-b shadow-sm w-full max-w-md" style={{ borderColor: '#f0f0eb' }}>
         {/* 左侧：头像 + 名称 */}
         <div className="flex items-center gap-2.5 flex-shrink-0 min-w-0">
           <button
