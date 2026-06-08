@@ -1385,7 +1385,7 @@ async function startServer() {
     // count 模式：代理内部渐进扩大时间范围，不用客户端关心天数
     if (targetPath.includes('getEnvInformationNew') && requestBody?.count && !requestBody?.startTime) {
       const end = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      const steps = [3, 365];
+      const steps = [3, 200];
       const count = requestBody.count;
       const { count: _c, ...baseBody } = requestBody;
       const headers = {
