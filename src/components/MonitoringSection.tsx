@@ -28,8 +28,12 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
     if (!farmlandId) { setLoading(false); return; }
     setLoading(true);
 
-    const allDims = WEATHER_DIMS.map(d => d.dim).join(',');
-    const res = await getEnvLatest(farmlandId, allDims, 10);
+    const dims1 = WEATHER_DIMS.slice(0, 6).map(d => d.dim).join(',');
+    const dims2 = WEATHER_DIMS.slice(6).map(d => d.dim).join(',');
+    const [res1, res2] = await Promise.allSettled([
+      getEnvLatest(farmlandId, dims1, 10),
+      getEnvLatest(farmlandId, dims2, 10),
+    ]);
 
     const latest: Record<string, string> = {};
     let latestTime = '';
@@ -51,7 +55,8 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
         }
       }
     };
-    extract(res);
+    extract(res1.status === 'fulfilled' ? res1.value : {});
+    extract(res2.status === 'fulfilled' ? res2.value : {});
 
     const displayTime = latestTime ? `记录时间 ${latestTime}` : '';
     setTimeHint(displayTime);

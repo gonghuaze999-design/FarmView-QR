@@ -229,10 +229,15 @@ export const MapSection: React.FC = () => {
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        const resNew = await getEnvLatest(farmlandId,
-          'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure,soil_temperature,soil_humidity,soil_ec',
-          10);
-        setDeviceData({ type: 'weather', ...(resNew.data || {}) });
+        const [r1, r2] = await Promise.allSettled([
+          getEnvLatest(farmlandId, 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 10),
+          getEnvLatest(farmlandId, 'soil_temperature,soil_humidity,soil_ec', 10),
+        ]);
+        const merged: any = {};
+        [r1, r2].forEach(r => {
+          if (r.status === 'fulfilled' && r.value?.data) Object.assign(merged, r.value.data);
+        });
+        setDeviceData({ type: 'weather', ...merged });
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, yearStart, endTime);
         setDeviceData(res.data);

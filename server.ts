@@ -45,7 +45,14 @@ try {
     source TEXT DEFAULT 'join',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
-  console.log('[DB] join_requests 表已就绪');
+  // 数据缓存持久化表
+  joinDb.exec(`CREATE TABLE IF NOT EXISTS data_cache (
+    key TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    ts INTEGER NOT NULL,
+    ttl INTEGER NOT NULL
+  )`);
+  console.log('[DB] join_requests + data_cache 表已就绪');
 } catch (e: any) {
   console.warn('[DB] SQLite 初始化失败（join_requests 功能不可用）:', e.message);
 }
@@ -74,7 +81,7 @@ const CACHE_TTL: Record<string, number> = {
   'locationList': 30 * 60_000,
   'cameraList': 10 * 60_000,
   'camera/count': 10 * 60_000,
-  'getEnvInformationNew': 30 * 60_000,
+  'getEnvInformationNew': 60 * 60_000,
   'getEnvRecordNow': 5 * 60_000,
   'querySoilReport': 30 * 60_000,
   'getInsectStatistics': 10 * 60_000,
@@ -100,23 +107,55 @@ function cacheKey(siteKey: string, method: string, path: string, body?: any): st
 }
 
 function getCache(key: string): CacheEntry | null {
+  // 先查内存
   const entry = dataCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > entry.ttl) {
-    dataCache.delete(key);
-    return null;
+  if (entry) {
+    if (Date.now() - entry.ts > entry.ttl) {
+      dataCache.delete(key);
+    } else {
+      return entry;
+    }
   }
-  return entry;
+  // 内存未命中，查 SQLite
+  if (joinDb) {
+    try {
+      const row = joinDb.prepare('SELECT data, ts, ttl FROM data_cache WHERE key = ?').get(key) as any;
+      if (row) {
+        if (Date.now() - row.ts > row.ttl) {
+          joinDb.prepare('DELETE FROM data_cache WHERE key = ?').run(key);
+        } else {
+          const restored = { data: JSON.parse(row.data), ts: row.ts, ttl: row.ttl };
+          dataCache.set(key, restored); // 恢复到内存
+          return restored;
+        }
+      }
+    } catch (_) { /* SQLite 读取失败，跳过 */ }
+  }
+  return null;
 }
 
 function setCache(key: string, data: any, ttl: number) {
-  dataCache.set(key, { data, ts: Date.now(), ttl });
+  const entry: CacheEntry = { data, ts: Date.now(), ttl };
+  dataCache.set(key, entry);
+  // 持久化到 SQLite
+  if (joinDb) {
+    try {
+      joinDb.prepare('INSERT OR REPLACE INTO data_cache (key, data, ts, ttl) VALUES (?, ?, ?, ?)').run(
+        key, JSON.stringify(data), entry.ts, ttl
+      );
+    } catch (_) { /* SQLite 写入失败，内存缓存仍有效 */ }
+  }
 }
 
 function clearSiteCache(siteKey: string) {
   const prefix = `${siteKey}:`;
   for (const key of dataCache.keys()) {
     if (key.startsWith(prefix)) dataCache.delete(key);
+  }
+  if (joinDb) {
+    try {
+      joinDb.prepare("DELETE FROM data_cache WHERE key LIKE ?").run(`${prefix}%`);
+    } catch (_) { /* ignore */ }
   }
 }
 
@@ -162,6 +201,29 @@ async function prewarmCache(siteKey: string, username: string, password: string,
         if (r.data?.code === 200) setCache(cacheKey(siteKey, 'POST', '/collect/collection/cameraList', { baseId, farmlandIds: farmlandIds.join(',') }), r.data, CACHE_TTL.cameraList);
       }).catch(() => {}),
     ];
+    // 气象（2组并行，每组[3,200]渐进，count=10，与前端缓存key一致）
+    for (const dim of ['air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 'soil_temperature,soil_humidity,soil_ec']) {
+      tasks.push((async () => {
+        for (const days of [3, 200]) {
+          const start = new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+          try {
+            const r = await axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
+              farmlandId: fid, dimension: dim, startTime: start, endTime: end,
+            }, { headers, timeout: 120000 });
+            if (r.data?.code === 200 && r.data?.data) {
+              const hasData = Object.values(r.data.data).some((v: any) => Array.isArray(v) && v.length > 0);
+              if (hasData) {
+                r.data.data = thinEnvData(r.data.data, 10);
+                setCache(cacheKey(siteKey, 'POST', '/collect/iot/getEnvInformationNew', { farmlandId: fid, dimension: dim, count: 10 }), r.data, CACHE_TTL.getEnvInformationNew);
+                console.log(`[Cache] 预加载气象 ${siteKey} ${dim.slice(0,15)}... OK (${days}天)`);
+                return;
+              }
+            }
+          } catch (_) { /* 继续下一档 */ }
+        }
+        console.log(`[Cache] 预加载气象 ${siteKey} ${dim.slice(0,15)}... 无数据`);
+      })());
+    }
 
     await Promise.allSettled(tasks);
     console.log(`[Cache] 基地 ${siteKey} 预加载完成`);
