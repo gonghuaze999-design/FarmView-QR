@@ -78,7 +78,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
 
   const updateDataPack = (dp: string) => { dataPackRef.current = dp; setDataPack(dp); };
 
-  // 加载数据包（6小时缓存）
+  // 加载数据包 + 值班评估结果（6小时缓存）
   useEffect(() => {
     const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
     const cached = sessionStorage.getItem(DATAPACK_KEY);
@@ -91,15 +91,25 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
         }
       } catch {}
     }
-    fetch(`/api/ai/data-pack?site=${encodeURIComponent(siteKey)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.ok && d.dataPack) {
-          updateDataPack(d.dataPack);
-          sessionStorage.setItem(DATAPACK_KEY, JSON.stringify({ dataPack: d.dataPack, updatedAt: d.updatedAt, siteKey }));
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch(`/api/ai/data-pack?site=${encodeURIComponent(siteKey)}`).then(r => r.json()),
+      fetch(`/api/ai/notifications?site=${encodeURIComponent(siteKey)}`).then(r => r.json()),
+    ]).then(([dp, notif]) => {
+      let fullPack = '';
+      if (dp.ok && dp.dataPack) {
+        fullPack = dp.dataPack;
+        sessionStorage.setItem(DATAPACK_KEY, JSON.stringify({ dataPack: dp.dataPack, updatedAt: dp.updatedAt, siteKey }));
+      }
+      if (notif.assessment) {
+        const a = notif.assessment;
+        fullPack += `\n\n## 基地值班专家最新评估（${a.level === 'urgent' ? '⚠️ 紧急' : '✅ 正常'}）\n`;
+        fullPack += `- 综合评级：${a.level}\n- 摘要：${a.summary}\n`;
+        if (a.items) a.items.forEach((i: any) => {
+          fullPack += `- [${i.level === 'urgent' ? '⚠️' : '✓'}] ${i.category}：${i.detail}\n`;
+        });
+      }
+      updateDataPack(fullPack);
+    }).catch(() => {});
   }, []);
 
   // 缓存到 sessionStorage

@@ -1071,21 +1071,20 @@ async function startServer() {
   });
 
   // ── AI 数据包 ──────────────────────────────────────────
-  app.get('/api/ai/data-pack', async (req, res) => {
-    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+  // 构建基地数据包（markdown格式，供AI和评估共用）
+  async function buildDataPack(siteKey: string): Promise<string> {
     const site = sitesConfig.sites[siteKey];
-    if (!site) return res.status(404).json({ error: '基地不存在' });
-
+    if (!site) throw new Error('基地不存在');
+    const token = await getTokenForSite(siteKey);
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const baseId = site.baseId;
+    const farmlandId = site.farmlandIds?.[0] || '';
+    const now = new Date();
     try {
-      const token = await getTokenForSite(siteKey);
-      const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
-      const baseId = site.baseId;
-      const farmlandId = site.farmlandIds?.[0] || '';
-      const now = new Date();
-      const yearStart = `${now.getFullYear()}-01-01 00:00:00`;
-      const today = now.toISOString().replace('T', ' ').slice(0, 10) + ' 23:59:59';
-      const halfYearAgo = new Date(now.getTime() - 180 * 86400000).toISOString().replace('T', ' ').slice(0, 19);
-      const pack: string[] = [];
+    const yearStart = `${now.getFullYear()}-01-01 00:00:00`;
+    const today = now.toISOString().replace('T', ' ').slice(0, 10) + ' 23:59:59';
+    const halfYearAgo = new Date(now.getTime() - 180 * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+    const pack: string[] = [];
 
       pack.push(`## 基地概况`);
       pack.push(`- 基地名称：${site.siteName}`);
@@ -1254,14 +1253,99 @@ async function startServer() {
         }
       }
 
-      pack.push(`\n---`);
-      pack.push(`以上是基地实时数据包。请基于这些数据回答用户问题。如果数据中没有所需信息，请诚实地告知用户。`);
-
-      res.json({ ok: true, dataPack: pack.join('\n'), updatedAt: now.toISOString() });
+      return pack.join('\n');
     } catch (e: any) {
-      console.error('[DataPack]', e.message);
+      console.error('[DataPack] 构建失败:', e.message);
+      return `## 数据包构建失败\n${e.message}`;
+    }
+  }
+
+  app.get('/api/ai/data-pack', async (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    try {
+      const pack = await buildDataPack(siteKey);
+      res.json({ ok: true, dataPack: pack, updatedAt: new Date().toISOString() });
+    } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // ── AI 值班专家：定期评估 ─────────────────────────
+  const ASSESSMENT_PROMPT = `你是 FarmView 基地值班农业技术专家，7×24小时在线监控基地运行状态。
+请基于以下基地数据包，从各维度逐项评估，输出严格JSON（不要markdown代码块）：
+
+{
+  "level": "normal|urgent",
+  "summary": "一句话总结基地整体状况",
+  "items": [
+    { "category": "气象", "level": "normal|urgent", "detail": "具体描述" },
+    { "category": "土壤", "level": "normal|urgent", "detail": "具体描述" },
+    { "category": "虫情", "level": "normal|urgent", "detail": "具体描述" },
+    { "category": "农事", "level": "normal|urgent", "detail": "具体描述" },
+    { "category": "遥感", "level": "normal|urgent", "detail": "具体描述" },
+    { "category": "综合", "level": "normal|urgent", "detail": "综合风险和行动建议" }
+  ]
+}
+
+判断标准：
+- 气象：温度<0°C或>40°C、湿度<10%或>95%、风速>20m/s、连续3天无降水标记为urgent
+- 土壤：pH<4或>9、有机质<10g/kg标记为urgent
+- 虫情：单类占比>50%或累计诱虫周增幅>100%标记为urgent
+- 农事：超期任务>5条、完成率<30%标记为urgent
+- 遥感：NDVI趋势连续下降>0.1标记为urgent
+- 综合：上述urgent>=2项则综合level为urgent`;
+
+  interface AssessmentItem { category: string; level: string; detail: string; }
+  interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
+
+  async function assessSite(siteKey: string): Promise<Assessment | null> {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) { console.warn('[Assess] GEMINI_API_KEY 未配置'); return null; }
+    try {
+      const pack = await buildDataPack(siteKey);
+      const res = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 1024 } },
+        { headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' }, timeout: 60000 }
+      );
+      const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return null;
+      // 提取JSON（可能被markdown包裹）
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON输出'); return null; }
+      const result: Assessment = JSON.parse(jsonMatch[0]);
+      result.items = result.items || [];
+      // 持久化
+      setCache(`${siteKey}:assessment:latest`, result, 60 * 60_000);
+      // 紧急通知
+      const urgents = result.items.filter(i => i.level === 'urgent');
+      if (urgents.length > 0 || result.level === 'urgent') {
+        const existing = getCache(`${siteKey}:notifications:unread`);
+        const notifs: any[] = existing?.data || [];
+        urgents.forEach(u => notifs.unshift({ ...u, time: new Date().toISOString() }));
+        setCache(`${siteKey}:notifications:unread`, notifs.slice(0, 20), 24 * 60 * 60_000);
+      }
+      console.log(`[Assess] ${siteKey}: ${result.level}, ${result.items.length}项, urgent=${urgents.length}`);
+      return result;
+    } catch (e: any) { console.warn(`[Assess] ${siteKey} 失败:`, e.message); return null; }
+  }
+
+  // 启动时立即评估一次，之后每30分钟
+  setTimeout(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 10000);
+  setInterval(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 30 * 60_000);
+
+  // 铃铛通知API
+  app.get('/api/ai/notifications', (req, res) => {
+    const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
+    const notifs = getCache(`${siteKey}:notifications:unread`);
+    const latest = getCache(`${siteKey}:assessment:latest`);
+    res.json({ unread: notifs?.data || [], assessment: latest?.data || null });
+  });
+  app.post('/api/ai/notifications/read', (req, res) => {
+    const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
+    const notifs = getCache(`${siteKey}:notifications:unread`);
+    if (notifs) { notifs.data = []; setCache(`${siteKey}:notifications:unread`, [], 24 * 60_60_000); }
+    res.json({ ok: true });
   });
 
   // AI 对话（SSE 流式输出）

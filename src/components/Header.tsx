@@ -182,9 +182,20 @@ export const Header: React.FC = () => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showBellMenu, setShowBellMenu] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [unreadNotifs, setUnreadNotifs] = useState<any[]>([]);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
+  const fetchNotifications = async () => {
+    const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
+    try {
+      const r = await fetch(`/api/ai/notifications?site=${siteKey}`);
+      const d = await r.json();
+      setUnreadNotifs(d.unread || []);
+    } catch {}
+  };
+
+  useEffect(() => { fetchNotifications(); const t = setInterval(fetchNotifications, 5 * 60_000); return () => clearInterval(t); }, []);
   useEffect(() => {
     if (!showBellMenu) return;
     const handler = (e: MouseEvent) => {
@@ -262,26 +273,50 @@ export const Header: React.FC = () => {
 
           <div className="relative" ref={bellRef}>
             <button
-              onClick={() => setShowBellMenu(!showBellMenu)}
+              onClick={() => { setShowBellMenu(!showBellMenu); if (!showBellMenu) fetchNotifications(); }}
               className="relative p-2 text-zinc-500 hover:text-zinc-700 hover:bg-zinc-100 rounded-full transition-colors"
             >
               <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full" />
+              {unreadNotifs.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                  {unreadNotifs.length > 9 ? '9+' : unreadNotifs.length}
+                </span>
+              )}
             </button>
 
             {showBellMenu && (
-              <div className="absolute right-0 top-11 w-44 bg-white rounded-2xl shadow-xl border border-zinc-100 overflow-hidden z-[60]">
-                  <button
-                    onClick={() => { setShowBellMenu(false); setShowQR(true); }}
-                    className="w-full flex items-center justify-between px-4 py-3 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <QrCode size={16} className="text-emerald-500" />
-                      基地推广
-                    </div>
-                    <ChevronRight size={14} className="text-zinc-400" />
-                  </button>
+              <div className="absolute right-0 top-11 w-72 bg-white rounded-2xl shadow-xl border border-zinc-100 overflow-hidden z-[60]">
+                <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between">
+                  <span className="text-sm font-bold text-zinc-800">
+                    {unreadNotifs.length > 0 ? `紧急通知 (${unreadNotifs.length})` : '消息中心'}
+                  </span>
+                  {unreadNotifs.length > 0 && (
+                    <button onClick={async () => {
+                      const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
+                      await fetch('/api/ai/notifications/read', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({site:siteKey}) });
+                      setUnreadNotifs([]);
+                    }} className="text-[10px] text-zinc-400 hover:text-zinc-600">全部已读</button>
+                  )}
                 </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {unreadNotifs.length > 0 ? unreadNotifs.map((n: any, i: number) => (
+                    <div key={i} className="px-4 py-2.5 border-b border-zinc-50 hover:bg-zinc-50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">{n.category}</span>
+                        <span className="text-[10px] text-zinc-400">{n.time ? new Date(n.time).toLocaleString('zh-CN') : ''}</span>
+                      </div>
+                      <p className="text-xs text-zinc-700 leading-relaxed">{n.detail}</p>
+                    </div>
+                  )) : (
+                    <div className="px-4 py-6 text-center text-xs text-zinc-400">暂无紧急通知</div>
+                  )}
+                </div>
+                <button onClick={() => { setShowBellMenu(false); setShowQR(true); }}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs text-zinc-500 hover:bg-zinc-50 border-t border-zinc-100">
+                  <span className="flex items-center gap-1.5"><QrCode size={12} />基地推广</span>
+                  <ChevronRight size={12} />
+                </button>
+              </div>
             )}
           </div>
         </div>
