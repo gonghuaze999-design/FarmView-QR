@@ -1291,7 +1291,7 @@ async function startServer() {
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, len=', text.length, '原始:', text.slice(0, 200), '清洗:', cleanText.slice(0, 200)); return null; }
       const raw: any = JSON.parse(jsonMatch[0]);
       // 适配任意JSON结构 → 统一Assessment格式
       const flattenItems = (obj: any, prefix = ''): AssessmentItem[] => {
