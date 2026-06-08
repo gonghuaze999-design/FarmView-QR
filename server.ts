@@ -1271,11 +1271,7 @@ async function startServer() {
   });
 
   // ── AI 值班专家：定期评估 ─────────────────────────
-  const ASSESSMENT_PROMPT = `你是 FarmView 基地值班农业技术专家。分析以下基地数据，输出严格JSON：
-
-{"level":"normal或urgent","summary":"一句话总结","items":[{"category":"气象","level":"normal或urgent","detail":"描述"},{"category":"土壤","level":"normal或urgent","detail":"描述"},{"category":"虫情","level":"normal或urgent","detail":"描述"},{"category":"农事","level":"normal或urgent","detail":"描述"},{"category":"遥感","level":"normal或urgent","detail":"描述"},{"category":"综合","level":"normal或urgent","detail":"综合风险和行动建议"}]}
-
-urgent判断：温度<0或>40°C、pH<4或>9、单类虫占比>50%、超期任务>5条、NDVI降>0.1。urgent>=2项则综合level为urgent。直接输出JSON，不要markdown。`;
+  const ASSESSMENT_PROMPT = `你是基地值班农业专家。基于数据简洁评估，输出JSON。每条detail不超过20字。判断：温度<0或>40=urgent、pH<4或>9=urgent、超期任务>5=urgent。urgent>=2项则综合urgent。`;
 
   interface AssessmentItem { category: string; level: string; detail: string; }
   interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
@@ -1287,7 +1283,7 @@ urgent判断：温度<0或>40°C、pH<4或>9、单类虫占比>50%、超期任�
       const pack = await buildDataPack(siteKey);
       const res = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2048 } },
+        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: 'application/json' } },
         { headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' }, timeout: 60000 }
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
