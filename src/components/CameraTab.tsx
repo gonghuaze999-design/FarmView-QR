@@ -30,13 +30,22 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
 
   const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
     if (!video || !streamUrl) return;
+    // 清理上次的监听器
+    (video as any).__hlsPlayerCleanup?.();
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     setStatus('loading');
 
-    const onPlaying = () => { setStatus('playing'); };
+    // timeupdate 事件 = 视频时间轴真正推进，不为假播放
+    const onTimeUpdate = () => { setStatus('playing'); };
     const onError = () => { setStatus('error'); };
-    video.addEventListener('playing', onPlaying, { once: true });
+    video.addEventListener('timeupdate', onTimeUpdate, { once: true });
     video.addEventListener('error', onError, { once: true });
+    // 播放器卸载时清理（避免 doPlay 重入时旧监听器残留）
+    const cleanup = () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('error', onError);
+    };
+    (video as any).__hlsPlayerCleanup = cleanup;
 
     const tryNative = () => {
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
