@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-import { RefreshCw, Download, Copy, Check, QrCode, Plus, Save, ArrowRight, ArrowLeft, ShieldCheck, MapPin } from 'lucide-react';
+import { RefreshCw, Download, Copy, Check, QrCode, Plus, Save, ArrowRight, ArrowLeft, ShieldCheck, MapPin, Trash2 } from 'lucide-react';
 
 interface JoinRequest {
   id: number; name: string; province: string; city: string; county: string;
@@ -24,21 +22,31 @@ const RequestsTab: React.FC = () => {
   };
   useEffect(() => { fetchData(); }, []);
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('基地申报信息汇总', 14, 18);
-    doc.setFontSize(10);
-    doc.text(`导出时间：${new Date().toLocaleString('zh-CN')}  共 ${rows.length} 条`, 14, 26);
-    (doc as any).autoTable({
-      startY: 32,
-      head: [['#', '提交时间', '姓名', '地址', '面积(亩)', '电话', '来源']],
-      body: rows.map((r, i) => [i + 1, r.created_at?.slice(0, 16) || '', r.name, `${r.province}${r.city}${r.county}${r.address}`, r.area, r.phone, r.source === 'apply' ? '申报基地' : '加入我们']),
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [16, 185, 129] },
-      alternateRowStyles: { fillColor: [245, 250, 247] },
-    });
-    doc.save(`基地申报_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.pdf`);
+  const exportCSV = () => {
+    const header = ['序号', '提交时间', '姓名', '省份', '城市', '区县', '详细地址', '面积(亩)', '电话', '来源'];
+    const body = rows.map((r, i) => [
+      i + 1,
+      r.created_at || '',
+      r.name,
+      r.province,
+      r.city,
+      r.county,
+      r.address,
+      r.area,
+      r.phone,
+      r.source === 'apply' ? '申报基地' : '加入我们',
+    ]);
+    const csvContent = [header, ...body].map(row =>
+      row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+    const BOM = '﻿';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `基地申报_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatRow = (r: JoinRequest) => `${r.created_at?.slice(0, 16)} | ${r.name} | ${r.province}${r.city}${r.county}${r.address} | ${r.area}亩 | ${r.phone} | ${r.source === 'apply' ? '申报基地' : '加入我们'}`;
@@ -55,7 +63,7 @@ const RequestsTab: React.FC = () => {
         <div className="flex gap-2">
           <button onClick={fetchData} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} />刷新</button>
           <button onClick={copyText} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors">{copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}{copied ? '已复制' : '复制'}</button>
-          <button onClick={exportPDF} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"><Download size={14} />导出PDF</button>
+          <button onClick={exportCSV} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"><Download size={14} />导出CSV</button>
         </div>
       </div>
       {loading ? <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-100 rounded-2xl animate-pulse" />)}</div>
@@ -305,11 +313,32 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 const SitesTab: React.FC = () => {
   const [sites, setSites] = useState<any[]>([]);
   const [showWizard, setShowWizard] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ siteKey: string; siteName: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchSites = () => {
     fetch('/api/admin/sites').then(r => r.json()).then(d => setSites(d.data || [])).catch(() => {});
   };
   useEffect(() => { fetchSites(); }, []);
+
+  const doDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const r = await fetch('/api/admin/delete-site', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteKey: deleteTarget.siteKey }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setDeleteTarget(null);
+        fetchSites();
+      } else {
+        alert(d.error || '删除失败');
+      }
+    } catch { alert('网络错误'); }
+    setDeleting(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -331,6 +360,31 @@ const SitesTab: React.FC = () => {
         </div>
       )}
 
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3 text-red-600">
+              <Trash2 size={20} />
+              <h3 className="text-lg font-bold">确认删除</h3>
+            </div>
+            <p className="text-sm text-zinc-600 mb-2">
+              确定要删除基地 <span className="font-bold text-zinc-800">「{deleteTarget.siteName}」</span> 吗？
+            </p>
+            <p className="text-xs text-red-500 mb-5 bg-red-50 rounded-xl p-3 border border-red-100">
+              此操作不可恢复，将清除该基地的所有配置、数据及卫星订阅服务。
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">取消</button>
+              <button onClick={doDelete} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-red-600 text-white hover:bg-red-700 disabled:bg-zinc-300 transition-colors">
+                {deleting ? '删除中...' : '确认删除'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {sites.length === 0 ? (
         <div className="text-center py-16 text-zinc-400 text-sm bg-zinc-50 rounded-2xl border border-zinc-100">暂无基地</div>
       ) : (
@@ -342,9 +396,16 @@ const SitesTab: React.FC = () => {
                   <span className="font-semibold text-zinc-800">{s.siteName}</span>
                   <span className="text-xs text-zinc-400 ml-2">{s.siteKey}</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-zinc-500">
-                  <span>🗺️ {s.landCount}块地</span>
-                  <span>🌾 {s.hasFarmMonitor ? '已订阅' : '—'}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-zinc-500">🗺️ {s.landCount}块地</span>
+                  <span className="text-xs text-zinc-500">🌾 {s.hasFarmMonitor ? '已订阅' : '—'}</span>
+                  <button
+                    onClick={() => setDeleteTarget({ siteKey: s.siteKey, siteName: s.siteName })}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="删除基地"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             </div>

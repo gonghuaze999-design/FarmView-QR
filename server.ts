@@ -458,6 +458,26 @@ async function startServer() {
     res.json({ ok: true, siteKey, url: `/site=${siteKey}` });
   });
 
+  // 删除基地
+  app.post('/api/admin/delete-site', (req, res) => {
+    const { siteKey } = req.body;
+    if (!siteKey) return res.status(400).json({ error: '缺少 siteKey' });
+    if (!sitesConfig.sites[siteKey]) return res.status(404).json({ error: `基地 ${siteKey} 不存在` });
+
+    const siteName = sitesConfig.sites[siteKey].siteName || siteKey;
+    delete sitesConfig.sites[siteKey];
+
+    const configPath = path.join(__dirname, 'sites-config.json');
+    fs.writeFileSync(configPath, JSON.stringify(sitesConfig, null, 2), 'utf-8');
+
+    // 清空 FarmMonitor token 缓存
+    farmMonitorTokenCache.delete(siteKey);
+    setupLock.delete(siteKey);
+
+    console.log(`[Admin] 已删除基地 ${siteKey} → ${siteName}`);
+    res.json({ ok: true });
+  });
+
   // 获取所有基地列表（含FarmMonitor状态）
   app.get('/api/admin/sites', (req, res) => {
     const list = Object.entries(sitesConfig.sites).map(([key, site]: [string, any]) => ({
