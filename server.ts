@@ -165,7 +165,7 @@ async function prewarmCache(siteKey: string, username: string, password: string,
       ...['air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 'soil_temperature,soil_humidity,soil_ec'].map(dim =>
         (async () => {
           const end = now.toISOString().replace('T', ' ').slice(0, 19);
-          for (const days of [3, 7, 30, 90, 365]) {
+          for (const days of [3, 365]) {
             const start = new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
             try {
               const r = await axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
@@ -1408,7 +1408,7 @@ async function startServer() {
     // count 模式：代理内部渐进扩大时间范围，不用客户端关心天数
     if (targetPath.includes('getEnvInformationNew') && requestBody?.count && !requestBody?.startTime) {
       const end = new Date().toISOString().replace('T', ' ').slice(0, 19);
-      const steps = [3, 7, 30, 90, 365];
+      const steps = [3, 365];
       const count = requestBody.count;
       const { count: _c, ...baseBody } = requestBody;
       const headers = {
