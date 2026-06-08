@@ -30,14 +30,18 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
 
   const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
     if (!video || !streamUrl) return;
-    // 先清理旧实例
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     setStatus('loading');
+
+    const onPlaying = () => { setStatus('playing'); };
+    const onError = () => { setStatus('error'); };
+    video.addEventListener('playing', onPlaying, { once: true });
+    video.addEventListener('error', onError, { once: true });
 
     const tryNative = () => {
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = streamUrl;
-        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
+        video.play().catch(() => setStatus('error'));
         return true;
       }
       return false;
@@ -51,12 +55,11 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
+        video.play().catch(() => setStatus('error'));
       });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           setStatus('error');
-          // 自动重试一次
           if (retryRef.current < 1) {
             retryRef.current++;
             setTimeout(() => doPlay(video, streamUrl), 3000);
@@ -64,7 +67,6 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
         }
       });
     } else {
-      // hls.js 不支持，尝试直接 video src
       video.src = streamUrl;
     }
   }, []);
@@ -175,7 +177,13 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
   const [playStatus, setPlayStatus] = useState<'loading' | 'playing' | 'error'>('loading');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPlayStatus('loading'); }, [activeIndex]);
+  useEffect(() => {
+    setPlayStatus('loading');
+    const timeout = setTimeout(() => {
+      setPlayStatus(prev => prev === 'loading' ? 'error' : prev);
+    }, 10000);
+    return () => clearTimeout(timeout);
+  }, [activeIndex]);
 
   useEffect(() => {
     if (!binding) return;
@@ -260,37 +268,26 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {cameras.map((cam, i) => {
             const isActive = i === activeIndex;
-            const isOnline = cam.status === 1;
+            const activeColor = playStatus === 'playing' ? '#10b981' : playStatus === 'loading' ? '#f59e0b' : '#f43f5e';
             return (
               <button
                 key={cam.id || i}
                 onClick={() => scrollTo(i)}
                 className="flex-shrink-0 w-[104px] text-left group"
               >
-                {/* 缩略图 */}
+                {/* 缩略图 — 用统一的暗色背景，不区分在线离线 */}
                 <div
                   className={`w-full aspect-video rounded-xl overflow-hidden mb-1.5 relative transition-all ${
                     isActive ? 'ring-2 ring-offset-1 shadow-md' : 'opacity-70 hover:opacity-100'
                   }`}
-                  style={{ ringColor: isActive ? (isOnline ? '#10b981' : '#f43f5e') : 'transparent', background: '#1a1a1a' }}
+                  style={{ ringColor: isActive ? activeColor : 'transparent', background: '#1a1a1a' }}
                 >
-                  {isOnline ? (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                      <Camera size={18} className="text-zinc-500" />
-                    </div>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-800/50">
-                      <WifiOff size={16} className="text-zinc-600" />
-                    </div>
-                  )}
-                  {/* 状态点 */}
-                  <span
-                    className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border border-white/20"
-                    style={{ background: isOnline ? '#10b981' : '#f43f5e' }}
-                  />
-                  {/* 选中指示 */}
+                  <div className="w-full h-full flex items-center justify-center bg-zinc-800">
+                    <Camera size={18} className="text-zinc-500" />
+                  </div>
+                  {/* 选中指示条 */}
                   {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: isOnline ? '#10b981' : '#f43f5e' }} />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: activeColor }} />
                   )}
                 </div>
                 {/* 名称 */}
