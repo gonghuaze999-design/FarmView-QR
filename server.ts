@@ -61,6 +61,118 @@ const satelliteCache = new Map<string, any[]>();        // siteKey → satellite
 const lastFetchDate = new Map<string, string>();         // siteKey → 'YYYY-MM-DD'
 const setupLock = new Set<string>();                     // 防止并发初始化
 
+// ── 数据缓存层 ──────────────────────────────────────
+type CacheEntry = { data: any; ts: number; ttl: number };
+const dataCache = new Map<string, CacheEntry>();          // cacheKey → { data, ts, ttl }
+
+const CACHE_TTL: Record<string, number> = {
+  'queryBaseData': 30 * 60_000,
+  'areaTotal': 30 * 60_000,
+  'mainCrop': 30 * 60_000,
+  'QueryCropGrowth': 30 * 60_000,
+  'land/list': 30 * 60_000,
+  'locationList': 30 * 60_000,
+  'cameraList': 10 * 60_000,
+  'camera/count': 10 * 60_000,
+  'getEnvInformationNew': 5 * 60_000,
+  'getEnvRecordNow': 5 * 60_000,
+  'querySoilReport': 30 * 60_000,
+  'getInsectStatistics': 10 * 60_000,
+  'getInsectImages': 10 * 60_000,
+  'queryWorkTask': 15 * 60_000,
+  'taskCount': 15 * 60_000,
+  'growsHight': 15 * 60_000,
+  'getCountByType': 10 * 60_000,
+  'data-pack': 10 * 60_000,
+  'default': 5 * 60_000,
+};
+
+function cacheKey(siteKey: string, method: string, path: string, body?: any): string {
+  const bodyStr = body ? JSON.stringify(body) : '';
+  return `${siteKey}:${method}:${path}:${bodyStr}`;
+}
+
+function getCache(key: string): CacheEntry | null {
+  const entry = dataCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > entry.ttl) {
+    dataCache.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function setCache(key: string, data: any, ttl: number) {
+  dataCache.set(key, { data, ts: Date.now(), ttl });
+}
+
+function clearSiteCache(siteKey: string) {
+  const prefix = `${siteKey}:`;
+  for (const key of dataCache.keys()) {
+    if (key.startsWith(prefix)) dataCache.delete(key);
+  }
+}
+
+// 瘦身：气象/虫情数据只保留末尾有效记录（大幅减小响应体积）
+function thinEnvData(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  const thinned: any = {};
+  for (const [dim, arr] of Object.entries(data)) {
+    if (!Array.isArray(arr)) { thinned[dim] = arr; continue; }
+    // 从末尾保留最近 500 条，前端够取最后有效值
+    thinned[dim] = arr.slice(-500);
+  }
+  return thinned;
+}
+
+// 后台预加载基地缓存
+async function prewarmCache(siteKey: string, username: string, password: string, baseId: number, farmlandIds: string[]) {
+  console.log(`[Cache] 开始预加载基地 ${siteKey}...`);
+  try {
+    // 获取 token
+    const loginRes = await axios.post(`${API_BASE}/auth/login`, {
+      username, password, code: 1, uuid: 'farmview', rememberMe: true,
+    }, { timeout: 10000 });
+    if (loginRes.data?.code !== 200) return;
+    const token = loginRes.data.data.access_token;
+    tokenCache.set(siteKey, token);
+    const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const fid = farmlandIds[0] || '';
+    const now = new Date();
+    const start180 = new Date(now.getTime() - 180 * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+    const end = now.toISOString().replace('T', ' ').slice(0, 19);
+
+    const tasks: Promise<any>[] = [
+      // 基地统计
+      axios.get(`${API_BASE}/farm/base/queryBaseData?baseId=${baseId}`, { headers, timeout: 15000 }).then(r => {
+        if (r.data?.code === 200) setCache(cacheKey(siteKey, 'GET', '/farm/base/queryBaseData', { baseId }), r.data, CACHE_TTL.queryBaseData);
+      }).catch(() => {}),
+      // 地块列表
+      axios.get(`${API_BASE}/farm/land/list?baseId=${baseId}`, { headers, timeout: 15000 }).then(r => {
+        if (r.data?.code === 200) setCache(cacheKey(siteKey, 'GET', `/farm/land/list?baseId=${baseId}`), r.data, CACHE_TTL['land/list']);
+      }).catch(() => {}),
+      // 摄像头
+      axios.post(`${API_BASE}/collect/collection/cameraList`, { baseId, farmlandIds: farmlandIds.join(',') }, { headers, timeout: 15000 }).then(r => {
+        if (r.data?.code === 200) setCache(cacheKey(siteKey, 'POST', '/collect/collection/cameraList', { baseId, farmlandIds: farmlandIds.join(',') }), r.data, CACHE_TTL.cameraList);
+      }).catch(() => {}),
+      // 气象（瘦身）
+      axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
+        farmlandId: fid, dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', startTime: start180, endTime: end,
+      }, { headers, timeout: 30000 }).then(r => {
+        if (r.data?.code === 200 && r.data?.data) {
+          r.data.data = thinEnvData(r.data.data);
+          setCache(cacheKey(siteKey, 'POST', '/collect/iot/getEnvInformationNew', { farmlandId: fid, dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', startTime: start180, endTime: end }), r.data, CACHE_TTL.getEnvInformationNew);
+        }
+      }).catch(() => {}),
+    ];
+
+    await Promise.allSettled(tasks);
+    console.log(`[Cache] 基地 ${siteKey} 预加载完成`);
+  } catch (e: any) {
+    console.warn(`[Cache] 预加载 ${siteKey} 失败:`, e.message);
+  }
+}
+
 async function getTokenForSite(siteKey: string): Promise<string> {
   if (tokenCache.has(siteKey)) return tokenCache.get(siteKey)!;
 
@@ -455,6 +567,9 @@ async function startServer() {
     fs.writeFileSync(configPath, JSON.stringify(sitesConfig, null, 2), 'utf-8');
     console.log(`[Admin] 新增基地 ${siteKey} → ${siteName}`);
 
+    // 后台异步预加载缓存
+    prewarmCache(siteKey, apiAuth.username, apiAuth.password, baseId, farmlandIds || []);
+
     res.json({ ok: true, siteKey, url: `/site=${siteKey}` });
   });
 
@@ -514,9 +629,11 @@ async function startServer() {
     const configPath = path.join(__dirname, 'sites-config.json');
     fs.writeFileSync(configPath, JSON.stringify(sitesConfig, null, 2), 'utf-8');
 
-    // 清空 FarmMonitor token 缓存
+    // 清空所有缓存
     farmMonitorTokenCache.delete(siteKey);
     setupLock.delete(siteKey);
+    clearSiteCache(siteKey);
+    tokenCache.delete(siteKey);
 
     console.log(`[Admin] 已删除基地 ${siteKey} → ${siteName}`);
     res.json({ ok: true });
@@ -1237,9 +1354,25 @@ async function startServer() {
   process.on('SIGTERM', () => clearInterval(DAILY_POLL_INTERVAL));
   process.on('SIGINT', () => clearInterval(DAILY_POLL_INTERVAL));
 
-  // --- 代理中间件：转发所有 /api/* 到后端 ---
+  // --- 代理中间件：转发所有 /api/* 到后端（含缓存） ---
   app.use('/api', async (req, res) => {
     const siteKey = String(req.headers['x-site-name'] || DEFAULT_SITE_KEY);
+    const method = req.method;
+    const targetPath = req.url;
+
+    // 获取路径中的关键标识用于 TTL 匹配
+    const ttlKey = Object.keys(CACHE_TTL).find(k => targetPath.includes(k)) || 'default';
+    const ttl = CACHE_TTL[ttlKey] || CACHE_TTL.default;
+    const ck = cacheKey(siteKey, method, targetPath, req.body);
+
+    // 检查缓存
+    if (method === 'GET' || method === 'POST') {
+      const cached = getCache(ck);
+      if (cached) {
+        console.log(`[Cache] HIT ${targetPath}`);
+        return res.json(cached.data);
+      }
+    }
 
     let token: string;
     try {
@@ -1249,45 +1382,59 @@ async function startServer() {
       return res.status(500).json({ error: '认证失败', detail: e.message });
     }
 
-    // 去掉 /api 前缀，还原真实路径
-    const targetPath = req.url; // express 在 app.use('/api') 下，req.url 已去掉 /api
     const targetUrl = `${API_BASE}${targetPath}`;
-
-    console.log(`[Proxy] ${req.method} ${targetUrl}`);
+    console.log(`[Proxy] ${method} ${targetUrl}`);
 
     try {
       const response = await axios({
-        method: req.method as any,
+        method: method as any,
         url: targetUrl,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
-        timeout: 15000,
+        data: ['POST', 'PUT', 'PATCH'].includes(method) ? req.body : undefined,
+        timeout: 60000,
         validateStatus: () => true,
       });
 
-      // token 失效时自动重新登录并重试一次（HTTP 401 或业务码 11009）
+      // token 失效时自动重新登录并重试一次
       if (response.status === 401 || response.data?.code === 11009) {
-        console.warn(`[Proxy] Token 失效(${response.data?.code || response.status})，为基地 ${siteKey} 重新登录后重试`);
+        console.warn(`[Proxy] Token 失效，为基地 ${siteKey} 重新登录后重试`);
         tokenCache.delete(siteKey);
         token = await getTokenForSite(siteKey);
         const retry = await axios({
-          method: req.method as any,
+          method: method as any,
           url: targetUrl,
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          data: ['POST', 'PUT', 'PATCH'].includes(req.method) ? req.body : undefined,
-          timeout: 15000,
+          data: ['POST', 'PUT', 'PATCH'].includes(method) ? req.body : undefined,
+          timeout: 60000,
           validateStatus: () => true,
         });
+        if (retry.data?.code === 200 && retry.data?.data) {
+          // 瘦身气象大数据
+          if (targetPath.includes('getEnvInformationNew') && retry.data.data) {
+            retry.data.data = thinEnvData(retry.data.data);
+          }
+          setCache(ck, retry.data, ttl);
+        }
         return res.status(retry.status).json(retry.data);
       }
 
-      res.status(response.status).json(response.data);
+      // 瘦身 + 缓存成功响应
+      let responseData = response.data;
+      if (response.data?.code === 200 && response.data?.data) {
+        if (targetPath.includes('getEnvInformationNew')) {
+          responseData = { ...response.data, data: thinEnvData(response.data.data) };
+        }
+        setCache(ck, responseData, ttl);
+        console.log(`[Cache] SET ${targetPath} (TTL=${ttl / 1000}s)`);
+      }
+
+      res.status(response.status).json(responseData);
     } catch (e: any) {
       console.error('[Proxy] 请求失败:', e.message);
       res.status(502).json({ error: '上游请求失败', detail: e.message });
