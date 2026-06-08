@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thermometer, Droplets, Wind, CloudRain, Sun, Zap, BarChart3, Bug, Sprout, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getEnvInfoNew, getEnvDataNow, getSoilReport, getInsectData, getInsectImages } from '../services/api';
+import { getFarmlandList, getEnvInfoNew, getSoilReport, getInsectData, getInsectImages } from '../services/api';
 
 /* ================================================================
    气象指标区 — 扩大查询范围至180天，设备离线也能抓到末次记录
@@ -28,47 +28,10 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number; on
     if (!farmlandId) { setLoading(false); return; }
     setLoading(true);
 
-    // 优先 getEnvRecordNow — 直接返回DB最新记录，不限时间范围
-    try {
-      const nowRes = await getEnvDataNow(farmlandId);
-      if (nowRes?.code === 200 && nowRes?.data) {
-        const raw = nowRes.data;
-        const latest: Record<string, string> = {};
-        let rt = '';
-
-        // 扁平对象格式: { air_temperature: 25.5, reportTime: "2025-..." }
-        if (!Array.isArray(raw) && typeof raw === 'object') {
-          rt = raw.reportTime || raw.report_time || '';
-          for (const d of WEATHER_DIMS) {
-            const v = raw[d.dim];
-            if (v != null && v !== '') latest[d.dim] = typeof v === 'number' ? v.toFixed(1) : String(v);
-          }
-        }
-        // 数组格式: [{ air_temperature: 25.5, reportTime: "..." }]
-        else if (Array.isArray(raw) && raw.length > 0) {
-          const rec = raw[raw.length - 1];
-          rt = rec.reportTime || rec.report_time || '';
-          for (const d of WEATHER_DIMS) {
-            const v = rec[d.dim];
-            if (v != null && v !== '') latest[d.dim] = typeof v === 'number' ? v.toFixed(1) : String(v);
-          }
-        }
-
-        if (Object.keys(latest).length > 0) {
-          setValues(latest);
-          const displayTime = rt ? `更新于 ${rt}` : '';
-          setTimeHint(displayTime);
-          if (onReportTime && rt) onReportTime(rt);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch (_) { /* 降级到 getEnvInfoNew */ }
-
-    // 降级：7天范围查询（匹配后端代理限制）
     const now = new Date();
     const end = now.toISOString().replace('T', ' ').slice(0, 19);
-    const start = new Date(now.getTime() - 7 * 86400 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    // 365天全量查询，不管设备多久没开机都能拉到最后一期数据
+    const start = new Date(now.getTime() - 365 * 86400 * 1000).toISOString().replace('T', ' ').slice(0, 19);
 
     const dims1 = WEATHER_DIMS.slice(0, 6).map(d => d.dim).join(',');
     const dims2 = WEATHER_DIMS.slice(6).map(d => d.dim).join(',');

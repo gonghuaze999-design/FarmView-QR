@@ -2,24 +2,10 @@ import axios from 'axios';
 
 const api = axios.create({ timeout: 30000 });
 
-// 注入当前站点标识 + 缓存破坏参数
+// 注入当前站点标识
 api.interceptors.request.use((config) => {
   const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
   config.headers['X-Site-Name'] = siteKey;
-  config.headers['Cache-Control'] = 'no-cache';
-  // POST 请求追加 _t 时间戳破坏缓存
-  if (config.method === 'post' && config.data) {
-    if (typeof config.data === 'string') {
-      try {
-        const data = JSON.parse(config.data);
-        config.data = JSON.stringify({ ...data, _t: Date.now() });
-      } catch { /* not JSON, skip */ }
-    } else {
-      config.data = { ...config.data, _t: Date.now() };
-    }
-  } else if (config.method === 'get') {
-    config.params = { ...config.params, _t: Date.now() };
-  }
   return config;
 });
 
