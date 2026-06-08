@@ -30,27 +30,13 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
 
   const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
     if (!video || !streamUrl) return;
-    // 清理上次的监听器
-    (video as any).__hlsPlayerCleanup?.();
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     setStatus('loading');
-
-    // timeupdate 事件 = 视频时间轴真正推进，不为假播放
-    const onTimeUpdate = () => { setStatus('playing'); };
-    const onError = () => { setStatus('error'); };
-    video.addEventListener('timeupdate', onTimeUpdate, { once: true });
-    video.addEventListener('error', onError, { once: true });
-    // 播放器卸载时清理（避免 doPlay 重入时旧监听器残留）
-    const cleanup = () => {
-      video.removeEventListener('timeupdate', onTimeUpdate);
-      video.removeEventListener('error', onError);
-    };
-    (video as any).__hlsPlayerCleanup = cleanup;
 
     const tryNative = () => {
       if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = streamUrl;
-        video.play().catch(() => setStatus('error'));
+        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
         return true;
       }
       return false;
@@ -64,7 +50,7 @@ const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: stri
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => setStatus('error'));
+        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
       });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
@@ -188,10 +174,6 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
 
   useEffect(() => {
     setPlayStatus('loading');
-    const timeout = setTimeout(() => {
-      setPlayStatus(prev => prev === 'loading' ? 'error' : prev);
-    }, 10000);
-    return () => clearTimeout(timeout);
   }, [activeIndex]);
 
   useEffect(() => {
@@ -260,10 +242,17 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
         {activeCam && (
           <div className="flex items-center gap-4 mt-2.5 px-1">
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${playStatus === 'playing' ? 'bg-emerald-500' : playStatus === 'loading' ? 'bg-amber-400 animate-pulse' : 'bg-red-400'}`} />
-              <span className="text-xs font-medium text-zinc-600">
-                {playStatus === 'playing' ? '在线' : playStatus === 'loading' ? '加载中' : '离线'}
-              </span>
+              {(() => {
+                const apiOnline = activeCam.status === 1;
+                const streamFailed = playStatus === 'error';
+                const online = apiOnline && !streamFailed;
+                return (
+                  <>
+                    <span className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-500' : 'bg-red-400'}`} />
+                    <span className="text-xs font-medium text-zinc-600">{online ? '在线' : '离线'}</span>
+                  </>
+                );
+              })()}
             </div>
             <span className="text-xs text-zinc-400 truncate flex-1">{activeCam.cameraName}</span>
             <span className="text-xs text-zinc-400">{cameras.length} 个设备</span>
@@ -277,29 +266,22 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {cameras.map((cam, i) => {
             const isActive = i === activeIndex;
-            const activeColor = playStatus === 'playing' ? '#10b981' : playStatus === 'loading' ? '#f59e0b' : '#f43f5e';
             return (
               <button
                 key={cam.id || i}
                 onClick={() => scrollTo(i)}
                 className="flex-shrink-0 w-[104px] text-left group"
               >
-                {/* 缩略图 — 用统一的暗色背景，不区分在线离线 */}
                 <div
                   className={`w-full aspect-video rounded-xl overflow-hidden mb-1.5 relative transition-all ${
-                    isActive ? 'ring-2 ring-offset-1 shadow-md' : 'opacity-70 hover:opacity-100'
+                    isActive ? 'ring-2 ring-offset-1 shadow-md ring-emerald-500' : 'opacity-70 hover:opacity-100'
                   }`}
-                  style={{ ringColor: isActive ? activeColor : 'transparent', background: '#1a1a1a' }}
+                  style={{ background: '#1a1a1a' }}
                 >
                   <div className="w-full h-full flex items-center justify-center bg-zinc-800">
                     <Camera size={18} className="text-zinc-500" />
                   </div>
-                  {/* 选中指示条 */}
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ background: activeColor }} />
-                  )}
                 </div>
-                {/* 名称 */}
                 <span className={`text-[11px] leading-tight block truncate ${isActive ? 'font-semibold text-zinc-800' : 'text-zinc-500'}`}>
                   {cam.cameraName || `摄像头 ${i + 1}`}
                 </span>
