@@ -245,7 +245,7 @@ async function getTokenForSite(siteKey: string): Promise<string> {
     code: 1,
     uuid: 'farmview',
     rememberMe: true,
-  });
+  }, { timeout: 10000 });
 
   const token = res.data?.data?.access_token;
   if (!token) throw new Error('登录接口未返回有效 Token');
@@ -1149,36 +1149,37 @@ async function startServer() {
         }
       } catch (e: any) { pack.push(`\n## 农事行为\n获取失败：${e.message}`); }
 
-      // IoT 气象（180天，过滤零值）
+      // IoT 气象（count模式，走代理缓存，秒返）
       try {
-        const envRes = await axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
-          farmlandId,
-          dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure,soil_temperature,soil_humidity',
-          startTime: halfYearAgo,
-          endTime: today,
-        }, { headers, timeout: 10000 });
-        if (envRes.data?.code === 200 && envRes.data?.data) {
-          const data = envRes.data.data;
-          pack.push(`\n## IoT气象监测（最近半年）`);
-          const summarize = (dim: string, label: string, unit: string) => {
-            const arr = data[dim];
-            if (!Array.isArray(arr) || arr.length === 0) return;
-            // 从末尾找有效值（跳过0）
-            let lastVal = null, lastTime = '';
-            for (let i = arr.length - 1; i >= Math.max(0, arr.length - 500); i--) {
+        const dimMeta: Record<string, [string, string]> = {
+          air_temperature: ['空气温度', '°C'], air_humidity: ['空气湿度', '%'],
+          wind_speed: ['风速', 'm/s'], precipitation: ['降水量', 'mm'],
+          light_intensity: ['光照强度', 'lux'], atmospheric_pressure: ['大气压', 'hPa'],
+          soil_temperature: ['土壤温度', '°C'], soil_humidity: ['土壤水分', '%'],
+          soil_ec: ['土壤EC值', 'μS/cm'],
+        };
+        const wxHeaders = { ...headers, 'X-Site-Name': siteKey };
+        const wxBase = `http://localhost:${PORT}/api/collect/iot/getEnvInformationNew`;
+        const [r1, r2] = await Promise.allSettled([
+          axios.post(wxBase, { farmlandId, dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', count: 10 }, { headers: wxHeaders, timeout: 15000 }),
+          axios.post(wxBase, { farmlandId, dimension: 'soil_temperature,soil_humidity,soil_ec', count: 10 }, { headers: wxHeaders, timeout: 15000 }),
+        ]);
+        pack.push(`\n## IoT气象监测`);
+        for (const dim of Object.keys(dimMeta)) {
+          for (const r of [r1, r2]) {
+            if (r.status !== 'fulfilled' || !r.value.data?.data?.[dim]) continue;
+            const arr = r.value.data.data[dim];
+            if (!Array.isArray(arr)) continue;
+            for (let i = arr.length - 1; i >= 0; i--) {
               const v = arr[i][dim];
-              if (v != null && v !== 0) { lastVal = v; lastTime = arr[i].reportTime || ''; break; }
+              if (v != null && v !== 0) {
+                const [label, unit] = dimMeta[dim];
+                pack.push(`- ${label}：${typeof v === 'number' ? v.toFixed(1) : v}${unit}（末次 ${arr[i].reportTime || '未知'}）`);
+                break;
+              }
             }
-            if (lastVal == null) return;
-            pack.push(`- ${label}：${typeof lastVal === 'number' ? lastVal.toFixed(1) : lastVal}${unit}（末次 ${lastTime || '未知'}）`);
-          };
-          summarize('air_temperature', '空气温度', '°C');
-          summarize('air_humidity', '空气湿度', '%');
-          summarize('wind_speed', '风速', 'm/s');
-          summarize('precipitation', '降水量', 'mm');
-          summarize('light_intensity', '光照强度', 'lux');
-          summarize('soil_temperature', '土壤温度', '°C');
-          summarize('soil_humidity', '土壤水分', '%');
+            break; // 从一个请求里找到了，跳过另一个
+          }
         }
       } catch (e: any) { pack.push(`\n## IoT气象\n获取失败：${e.message}`); }
 
