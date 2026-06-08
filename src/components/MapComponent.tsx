@@ -40,56 +40,53 @@ export const MapComponent = forwardRef(({
     }
   }));
 
+  const mapLoaded = useRef(false);
+
+  // 等地块中心点到了再初始化 AMap，不再有硬编码默认中心
   useEffect(() => {
+    if (!center || mapLoaded.current) return;
+    mapLoaded.current = true;
+
     const amapKey = (import.meta as any).env.VITE_AMAP_KEY;
     if (!amapKey) {
       setError('未配置高德地图 Key (VITE_AMAP_KEY)，无法加载地图');
       return;
     }
 
-    // 设置安全密钥
     (window as any)._AMapSecurityConfig = {
       securityJsCode: (import.meta as any).env.VITE_AMAP_SECURITY_CODE || '',
     };
 
-    // 加载地图脚本
     const script = document.createElement('script');
     script.src = `https://webapi.amap.com/maps?v=2.0&key=${amapKey}`;
     script.async = true;
-    
+
     script.onerror = () => {
-      setError('高德地图脚本加载失败，请检查网络或 Key 是否正确');
+      setError('高德地图脚本加载失败');
     };
 
     document.head.appendChild(script);
 
     script.onload = () => {
       const AMap = (window as any).AMap;
-      if (!AMap) {
-        setError('高德地图加载失败');
-        return;
-      }
-      
+      if (!AMap) { setError('高德地图加载失败'); return; }
+
       try {
-        const mapCenter = center || [116.397428, 39.90923];
         mapInstance.current = new AMap.Map(mapRef.current, {
           viewMode: '3D',
           zoom: 16,
-          center: mapCenter,
+          center: center,
           layers: [
             new AMap.TileLayer.Satellite(),
             new AMap.TileLayer.RoadNet()
           ]
         });
 
-        // 添加工具栏
         AMap.plugin(['AMap.ToolBar', 'AMap.Scale'], () => {
-          const toolbar = new AMap.ToolBar();
-          const scale = new AMap.Scale();
-          mapInstance.current.addControl(toolbar);
-          mapInstance.current.addControl(scale);
+          mapInstance.current.addControl(new AMap.ToolBar());
+          mapInstance.current.addControl(new AMap.Scale());
         });
-        
+
         setIsMapReady(true);
       } catch (err: any) {
         console.error(err);
@@ -103,7 +100,7 @@ export const MapComponent = forwardRef(({
         mapInstance.current = null;
       }
     };
-  }, []);
+  }, [center]);
 
   // 监听数据变化并重绘
   useEffect(() => {
@@ -207,13 +204,6 @@ export const MapComponent = forwardRef(({
         }
   }, [isMapReady, polygons, polygon, devices, onPolygonClick, onDeviceClick]);
 
-  // 地图中心跟随 center 属性变化
-  useEffect(() => {
-    if (mapInstance.current && center) {
-      mapInstance.current.setCenter(center);
-    }
-  }, [center]);
-
   useEffect(() => {
     if (mapInstance.current) {
       setTimeout(() => {
@@ -232,5 +222,17 @@ export const MapComponent = forwardRef(({
     );
   }
 
-  return <div ref={mapRef} className="w-full h-full bg-zinc-100 absolute inset-0 z-0 touch-pan-y" />;
+  return (
+    <div className="w-full h-full absolute inset-0 z-0">
+      <div ref={mapRef} className="w-full h-full bg-zinc-100" />
+      {!center && (
+        <div className="absolute inset-0 flex items-center justify-center bg-zinc-100/80 z-10">
+          <div className="flex flex-col items-center gap-2 text-zinc-400">
+            <div className="w-8 h-8 border-2 border-zinc-300 border-t-sky-500 rounded-full animate-spin" />
+            <span className="text-sm">加载地图数据...</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 });
