@@ -161,29 +161,6 @@ async function prewarmCache(siteKey: string, username: string, password: string,
       axios.post(`${API_BASE}/collect/collection/cameraList`, { baseId, farmlandIds: farmlandIds.join(',') }, { headers, timeout: 15000 }).then(r => {
         if (r.data?.code === 200) setCache(cacheKey(siteKey, 'POST', '/collect/collection/cameraList', { baseId, farmlandIds: farmlandIds.join(',') }), r.data, CACHE_TTL.cameraList);
       }).catch(() => {}),
-      // 气象（count=10，渐进扩大时间范围直到查到数据）
-      ...['air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 'soil_temperature,soil_humidity,soil_ec'].map(dim =>
-        (async () => {
-          const end = now.toISOString().replace('T', ' ').slice(0, 19);
-          for (const days of [3, 365]) {
-            const start = new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
-            try {
-              const r = await axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
-                farmlandId: fid, dimension: dim, startTime: start, endTime: end,
-              }, { headers, timeout: 90000 });
-              if (r.data?.code === 200 && r.data?.data) {
-                const hasData = Object.values(r.data.data).some((v: any) => Array.isArray(v) && v.length > 0);
-                if (hasData) {
-                  r.data.data = thinEnvData(r.data.data, 10);
-                  setCache(cacheKey(siteKey, 'POST', '/collect/iot/getEnvInformationNew', { farmlandId: fid, dimension: dim, count: 10 }), r.data, CACHE_TTL.getEnvInformationNew);
-                  console.log(`[Cache] 预加载气象 ${dim.slice(0, 20)}... OK (${days}天)`);
-                  return;
-                }
-              }
-            } catch (_) { /* 继续下一档 */ }
-          }
-        })()
-      ),
     ];
 
     await Promise.allSettled(tasks);
@@ -1426,7 +1403,7 @@ async function startServer() {
             url: targetUrl,
             headers,
             data: { ...baseBody, startTime: start, endTime: end },
-            timeout: 60000,
+            timeout: 120000,
             validateStatus: () => true,
           });
           if (stepRes.data?.code === 200 && stepRes.data?.data) {
