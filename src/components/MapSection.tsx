@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getIotLocations, getEnvInfoNew, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvLatest, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
 import { wgs84ToGcj02 } from '../utils/coordTransform';
 
 // HLS 视频播放器（支持萤石云 HLS 流）
@@ -225,14 +225,13 @@ export const MapSection: React.FC = () => {
       const baseId = binding.baseId;
       const farmlandId = binding.farmlandIds?.[0] || '';
       const now = new Date();
-      const halfYearStart = new Date(now.getTime() - 180 * 86400 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const yearStart = new Date(now.getTime() - 365 * 86400 * 1000).toISOString().replace('T', ' ').substring(0, 19);
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
-        const resNew = await getEnvInfoNew(farmlandId,
+        const resNew = await getEnvLatest(farmlandId,
           'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure,soil_temperature,soil_humidity,soil_ec',
-          halfYearStart, endTime);
+          10);
         setDeviceData({ type: 'weather', ...(resNew.data || {}) });
       } else if (device.type === 'insect') {
         const res = await getInsectData(farmlandId, yearStart, endTime);
