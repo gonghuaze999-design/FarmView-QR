@@ -121,13 +121,12 @@ function clearSiteCache(siteKey: string) {
 }
 
 // 瘦身：气象/虫情数据只保留末尾有效记录（大幅减小响应体积）
-function thinEnvData(data: any): any {
+function thinEnvData(data: any, count = 50): any {
   if (!data || typeof data !== 'object') return data;
   const thinned: any = {};
   for (const [dim, arr] of Object.entries(data)) {
     if (!Array.isArray(arr)) { thinned[dim] = arr; continue; }
-    // 从末尾保留最近 500 条，前端够取最后有效值
-    thinned[dim] = arr.slice(-500);
+    thinned[dim] = arr.slice(-count);
   }
   return thinned;
 }
@@ -162,15 +161,29 @@ async function prewarmCache(siteKey: string, username: string, password: string,
       axios.post(`${API_BASE}/collect/collection/cameraList`, { baseId, farmlandIds: farmlandIds.join(',') }, { headers, timeout: 15000 }).then(r => {
         if (r.data?.code === 200) setCache(cacheKey(siteKey, 'POST', '/collect/collection/cameraList', { baseId, farmlandIds: farmlandIds.join(',') }), r.data, CACHE_TTL.cameraList);
       }).catch(() => {}),
-      // 气象（瘦身）
-      axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
-        farmlandId: fid, dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', startTime: start180, endTime: end,
-      }, { headers, timeout: 30000 }).then(r => {
-        if (r.data?.code === 200 && r.data?.data) {
-          r.data.data = thinEnvData(r.data.data);
-          setCache(cacheKey(siteKey, 'POST', '/collect/iot/getEnvInformationNew', { farmlandId: fid, dimension: 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', startTime: start180, endTime: end }), r.data, CACHE_TTL.getEnvInformationNew);
-        }
-      }).catch(() => {}),
+      // 气象（count=10，渐进扩大时间范围直到查到数据）
+      ...['air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 'soil_temperature,soil_humidity,soil_ec'].map(dim =>
+        (async () => {
+          const end = now.toISOString().replace('T', ' ').slice(0, 19);
+          for (const days of [3, 7, 30, 90, 365]) {
+            const start = new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+            try {
+              const r = await axios.post(`${API_BASE}/collect/iot/getEnvInformationNew`, {
+                farmlandId: fid, dimension: dim, startTime: start, endTime: end,
+              }, { headers, timeout: 90000 });
+              if (r.data?.code === 200 && r.data?.data) {
+                const hasData = Object.values(r.data.data).some((v: any) => Array.isArray(v) && v.length > 0);
+                if (hasData) {
+                  r.data.data = thinEnvData(r.data.data, 10);
+                  setCache(cacheKey(siteKey, 'POST', '/collect/iot/getEnvInformationNew', { farmlandId: fid, dimension: dim, count: 10 }), r.data, CACHE_TTL.getEnvInformationNew);
+                  console.log(`[Cache] 预加载气象 ${dim.slice(0, 20)}... OK (${days}天)`);
+                  return;
+                }
+              }
+            } catch (_) { /* 继续下一档 */ }
+          }
+        })()
+      ),
     ];
 
     await Promise.allSettled(tasks);
@@ -1392,6 +1405,53 @@ async function startServer() {
     const targetUrl = `${API_BASE}${targetPath}`;
     const requestBody = req.body;
 
+    // count 模式：代理内部渐进扩大时间范围，不用客户端关心天数
+    if (targetPath.includes('getEnvInformationNew') && requestBody?.count && !requestBody?.startTime) {
+      const end = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const steps = [3, 7, 30, 90, 365];
+      const count = requestBody.count;
+      const { count: _c, ...baseBody } = requestBody;
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      };
+
+      for (const days of steps) {
+        const start = new Date(Date.now() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+        console.log(`[Proxy] count=${count} 尝试 ${days}天范围`);
+        let stepRes: any;
+        try {
+          stepRes = await axios({
+            method: 'POST',
+            url: targetUrl,
+            headers,
+            data: { ...baseBody, startTime: start, endTime: end },
+            timeout: 60000,
+            validateStatus: () => true,
+          });
+          if (stepRes.data?.code === 200 && stepRes.data?.data) {
+            const hasData = Object.values(stepRes.data.data).some(
+              (v: any) => Array.isArray(v) && v.length > 0
+            );
+            if (hasData) {
+              stepRes.data.data = thinEnvData(stepRes.data.data, count);
+              setCache(ck, stepRes.data, ttl);
+              console.log(`[Cache] SET count=${count} ${targetPath} (TTL=${ttl / 1000}s)`);
+              return res.json(stepRes.data);
+            }
+          }
+        } catch (_) { /* 继续下一档 */ }
+        // token 失效处理
+        if (stepRes && (stepRes.status === 401 || stepRes.data?.code === 11009)) {
+          tokenCache.delete(siteKey);
+          token = await getTokenForSite(siteKey);
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      // 所有范围都无数据
+      return res.json({ code: 200, msg: '操作成功', data: null });
+    }
+
     console.log(`[Proxy] ${method} ${targetUrl}`);
 
     try {
@@ -1466,6 +1526,13 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  // 启动后异步预加载所有基地数据
+  for (const [siteKey, site] of Object.entries(sitesConfig.sites) as [string, any][]) {
+    if (site.apiAuth && site.baseId) {
+      prewarmCache(siteKey, site.apiAuth.username, site.apiAuth.password, site.baseId, site.farmlandIds || []);
+    }
+  }
 }
 
 startServer();

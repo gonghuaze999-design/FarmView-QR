@@ -193,6 +193,12 @@ export const getEnvInfoNew = async (farmlandId: string, dimension: string, start
   return res.data;
 };
 
+// 按条数拉取最新记录（代理层内部渐进扩大时间范围直到查到数据）
+export const getEnvLatest = async (farmlandId: string, dimension: string, count = 10) => {
+  const res = await api.post('/api/collect/iot/getEnvInformationNew', { farmlandId, dimension, count });
+  return res.data;
+};
+
 export const getSoilReport = async (baseId: number) => {
   const res = await api.post('/api/center/base/querySoilReport', { baseId, startTime: '2020-01-01', endTime: '2026-12-31' });
   return res.data;

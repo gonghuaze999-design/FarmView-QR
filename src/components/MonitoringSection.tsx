@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thermometer, Droplets, Wind, CloudRain, Sun, Zap, BarChart3, Bug, Sprout, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getEnvInfoNew, getSoilReport, getInsectData, getInsectImages } from '../services/api';
+import { getFarmlandList, getEnvLatest, getSoilReport, getInsectData, getInsectImages } from '../services/api';
 
 /* ================================================================
    气象指标区 — 扩大查询范围至180天，设备离线也能抓到末次记录
@@ -28,16 +28,11 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number; on
     if (!farmlandId) { setLoading(false); return; }
     setLoading(true);
 
-    const now = new Date();
-    const end = now.toISOString().replace('T', ' ').slice(0, 19);
-    // 365天全量查询，不管设备多久没开机都能拉到最后一期数据
-    const start = new Date(now.getTime() - 365 * 86400 * 1000).toISOString().replace('T', ' ').slice(0, 19);
-
     const dims1 = WEATHER_DIMS.slice(0, 6).map(d => d.dim).join(',');
     const dims2 = WEATHER_DIMS.slice(6).map(d => d.dim).join(',');
     const [res1, res2] = await Promise.allSettled([
-      getEnvInfoNew(farmlandId, dims1, start, end),
-      getEnvInfoNew(farmlandId, dims2, start, end),
+      getEnvLatest(farmlandId, dims1, 10),
+      getEnvLatest(farmlandId, dims2, 10),
     ]);
 
     const latest: Record<string, string> = {};
