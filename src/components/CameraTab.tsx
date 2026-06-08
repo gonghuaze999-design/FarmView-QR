@@ -18,13 +18,15 @@ interface CameraTabProps {
   onFullscreenChange?: (fs: boolean) => void;
 }
 
-const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: string }> = ({ src, fallbackSrc, cameraName }) => {
+const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: string; onPlayStatus?: (s: 'loading' | 'playing' | 'error') => void }> = ({ src, fallbackSrc, cameraName, onPlayStatus }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullVideoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const retryRef = useRef(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
+
+  useEffect(() => { onPlayStatus?.(status); }, [status, onPlayStatus]);
 
   const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
     if (!video || !streamUrl) return;
@@ -170,7 +172,10 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
   const [cameras, setCameras] = useState<CameraInfo[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [playStatus, setPlayStatus] = useState<'loading' | 'playing' | 'error'>('loading');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setPlayStatus('loading'); }, [activeIndex]);
 
   useEffect(() => {
     if (!binding) return;
@@ -223,6 +228,7 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
               src={activeCam.hls || ''}
               fallbackSrc={activeCam.videoUrl || ''}
               cameraName={activeCam.cameraName}
+              onPlayStatus={setPlayStatus}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 bg-zinc-900">
@@ -237,9 +243,9 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
         {activeCam && (
           <div className="flex items-center gap-4 mt-2.5 px-1">
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${activeCam.status === 1 ? 'bg-emerald-500' : 'bg-red-400'}`} />
+              <span className={`w-2 h-2 rounded-full ${playStatus === 'playing' ? 'bg-emerald-500' : playStatus === 'loading' ? 'bg-amber-400 animate-pulse' : 'bg-red-400'}`} />
               <span className="text-xs font-medium text-zinc-600">
-                {activeCam.status === 1 ? '在线' : '离线'}
+                {playStatus === 'playing' ? '在线' : playStatus === 'loading' ? '加载中' : '离线'}
               </span>
             </div>
             <span className="text-xs text-zinc-400 truncate flex-1">{activeCam.cameraName}</span>
