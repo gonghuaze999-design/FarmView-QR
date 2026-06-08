@@ -46,7 +46,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ record, fieldName, onClose })
   return (
     <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center" onClick={onClose}>
       <div
-        className="bg-white w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl shadow-2xl"
+        className="bg-white w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* 顶部栏 */}

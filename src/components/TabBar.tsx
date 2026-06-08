@@ -18,7 +18,7 @@ const tabs: { key: TabKey; label: string; Icon: React.ElementType; color: string
 export const TabBar: React.FC<TabBarProps> = ({ active, onChange }) => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center" style={{ background: '#fffdf7', borderTop: '1px solid #f0f0eb' }}>
-      <div className="w-full max-w-md flex justify-around items-end px-2 pb-1 pt-3">
+      <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl flex justify-around items-end px-2 pb-1 pt-3">
         {tabs.map(({ key, label, Icon, color, activeBg }) => {
           const isActive = active === key;
           return (

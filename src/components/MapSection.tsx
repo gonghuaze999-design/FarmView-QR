@@ -317,7 +317,7 @@ export const MapSection: React.FC = () => {
 
       {/* Bottom Sheet 农田信息面板 (固定在屏幕底部) */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 mx-auto w-full max-w-md z-[101] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
+        className={`fixed bottom-0 left-0 right-0 mx-auto w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl z-[101] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
           isBottomSheetOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -394,7 +394,7 @@ export const MapSection: React.FC = () => {
 
       {/* 设备信息 Bottom Sheet */}
       <div 
-        className={`fixed bottom-0 left-0 right-0 mx-auto w-full max-w-md z-[101] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
+        className={`fixed bottom-0 left-0 right-0 mx-auto w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl z-[101] bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${
           isDeviceSheetOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
       >

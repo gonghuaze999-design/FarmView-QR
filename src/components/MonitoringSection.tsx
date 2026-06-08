@@ -399,8 +399,10 @@ export const MonitoringSection: React.FC = () => {
       ) : (
         <>
           <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} />
-          <SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} />
-          <InsectPanel farmlandId={farmlandId} refreshKey={refreshKey} />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 min-w-0"><SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} /></div>
+            <div className="flex-1 min-w-0"><InsectPanel farmlandId={farmlandId} refreshKey={refreshKey} /></div>
+          </div>
         </>
       )}
     </section>

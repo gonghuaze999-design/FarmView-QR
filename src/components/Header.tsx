@@ -46,7 +46,7 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl p-6 mx-4 w-full max-w-xs" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-3xl shadow-2xl p-6 mx-4 w-full max-w-xs sm:max-w-sm md:max-w-md" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5">
           <h2 className="text-base font-bold text-zinc-800">基地推广码</h2>
           <button onClick={onClose} className="p-1.5 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-full transition-colors">
@@ -134,7 +134,7 @@ const AvatarModal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md p-5 pb-8" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md sm:max-w-lg md:max-w-xl p-5 pb-8" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-base font-bold text-zinc-800">选择头像</h3>
           <button onClick={onClose} className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-full hover:bg-zinc-100 transition-colors">
@@ -218,7 +218,7 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <header className="bg-white/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between fixed top-0 left-1/2 -translate-x-1/2 z-50 border-b shadow-sm w-full max-w-md" style={{ borderColor: '#f0f0eb' }}>
+      <header className="bg-white/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between fixed top-0 left-1/2 -translate-x-1/2 z-50 border-b shadow-sm w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl" style={{ borderColor: '#f0f0eb' }}>
         {/* 左侧：头像 + 名称 */}
         <div className="flex items-center gap-2.5 flex-shrink-0 min-w-0">
           <button

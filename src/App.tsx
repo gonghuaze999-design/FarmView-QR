@@ -30,7 +30,7 @@ type SiteBindingResponse = {
 
 const UnknownSiteState: React.FC<{ siteKey: string; availableSites: string[] }> = ({ siteKey, availableSites }) => (
   <div className="min-h-screen flex justify-center" style={{ background: '#faf9f6' }}>
-    <div className="w-full max-w-md shadow-xl min-h-screen flex flex-col" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
+    <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl shadow-xl min-h-screen flex flex-col" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
       <div className="bg-gradient-to-br from-emerald-600 to-teal-600 px-6 pt-16 pb-12 text-center">
         <div className="text-6xl mb-4">🌾</div>
         <h1 className="text-2xl font-bold text-white">找不到该基地</h1>
@@ -152,7 +152,7 @@ const AppContent = () => {
   if (checkingSite) {
     return (
       <div className="min-h-screen pb-8 flex justify-center" style={{ background: '#faf9f6' }}>
-        <div className="w-full max-w-md bg-white shadow-xl min-h-screen" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
+        <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl bg-white shadow-xl min-h-screen" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
           <Header />
           <main className="p-5">
             <div className="rounded-3xl border p-6 flex items-center justify-center gap-3 shadow-sm" style={{ borderColor: '#f0f0eb', background: '#f9fafb', color: '#64748b' }}>
@@ -172,14 +172,14 @@ const AppContent = () => {
   return (
     <SiteProvider siteKey={siteKey} binding={siteBinding}>
       <div className="min-h-screen pb-8 flex justify-center" style={{ background: 'linear-gradient(180deg, #fef9ef 0%, #f8f6f0 100%)' }}>
-        <div className="w-full max-w-md shadow-xl min-h-screen relative" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
+      <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl shadow-xl min-h-screen relative" style={{ background: '#fffdf7', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
           <Header />
           <main className="pb-20 pt-[77px]" style={{ background: '#fffdf7' }}>
             {activeTab === 'overview' && (
               <div className="px-4 pb-6 space-y-3">
                 <MapSection />
                 {/* 基地信息卡 — 三列，统一风格(彩色底色+左边框点缀) */}
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
                   {[
                     { label: '当前作物', key: 'crop', icon: '🌱', color: '#059669', bg: '#ecfdf5' },
                     { label: '种植面积', key: 'area', unit: '亩', icon: '📐', color: '#0284c7', bg: '#f0f9ff' },
@@ -198,7 +198,7 @@ const AppContent = () => {
                   ))}
                 </div>
                 {/* 统计卡 — 同风格，彩色底色 */}
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
                   {[
                     { label: '地块', key: 'landCount', icon: '🗺️', color: '#10b981', bg: '#ecfdf5' },
                     { label: '设备', key: 'deviceCount', icon: '📡', color: '#0ea5e9', bg: '#f0f9ff' },
@@ -224,9 +224,9 @@ const AppContent = () => {
               </div>
             )}
             {activeTab === 'agri' && (
-              <div className="px-4 pb-6 space-y-4">
-                <TimelineSection />
-                <AgriMonitoringSection />
+              <div className="px-4 pb-6 space-y-4 sm:space-y-0 sm:flex sm:flex-row sm:gap-4">
+                <div className="sm:w-2/5 sm:min-w-0"><TimelineSection /></div>
+                <div className="sm:w-3/5 sm:min-w-0 space-y-4 sm:space-y-0"><AgriMonitoringSection /></div>
               </div>
             )}
             {activeTab === 'data' && (

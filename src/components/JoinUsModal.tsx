@@ -78,7 +78,7 @@ export const JoinUsModal: React.FC<{ onClose: () => void; source?: string }> = (
 
   return (
     <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col">
+      <div className="bg-white w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92vh] flex flex-col">
 
         {/* 顶部标题栏 */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 shrink-0">
