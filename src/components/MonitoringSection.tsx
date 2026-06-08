@@ -66,14 +66,16 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
       <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2" style={{ background: '#f0f9ff' }}>
         <CloudRain size={16} className="text-sky-500" />
         <span className="text-sm font-bold text-zinc-800">气象监测</span>
-        {timeHint && <span className="text-[10px] text-zinc-400 ml-auto mr-1">{timeHint}</span>}
-        <button
-          onClick={() => setPanelKey(k => k + 1)}
-          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors"
-          title="刷新气象数据"
-        >
-          <RefreshCw size={12} className="text-zinc-400" />
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          {timeHint && <span className="text-[10px] text-zinc-400">{timeHint}</span>}
+          <button
+            onClick={() => setPanelKey(k => k + 1)}
+            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors"
+            title="刷新气象数据"
+          >
+            <RefreshCw size={12} className="text-zinc-400" />
+          </button>
+        </div>
       </div>
       <div className="p-3">
         {loading ? (
