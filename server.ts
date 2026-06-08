@@ -1390,6 +1390,17 @@ async function startServer() {
     }
 
     const targetUrl = `${API_BASE}${targetPath}`;
+
+    // 气象/虫情请求限制日期范围，避免全量数据拖垮后端
+    let requestBody = req.body;
+    if (targetPath.includes('getEnvInformationNew') && requestBody?.startTime) {
+      const maxDays = 7;
+      const cutoff = new Date(Date.now() - maxDays * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+      if (requestBody.startTime < cutoff) {
+        requestBody = { ...requestBody, startTime: cutoff };
+      }
+    }
+
     console.log(`[Proxy] ${method} ${targetUrl}`);
 
     try {
@@ -1400,7 +1411,7 @@ async function startServer() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        data: ['POST', 'PUT', 'PATCH'].includes(method) ? req.body : undefined,
+        data: ['POST', 'PUT', 'PATCH'].includes(method) ? requestBody : undefined,
         timeout: 60000,
         validateStatus: () => true,
       });
