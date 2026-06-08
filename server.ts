@@ -1305,15 +1305,18 @@ async function startServer() {
       const pack = await buildDataPack(siteKey);
       const res = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 1024 } },
+        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2048 } },
         { headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' }, timeout: 60000 }
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 500), '| 清洗后:', cleanText.slice(0, 500)); return null; }
+      if (!cleanText.endsWith('}')) { console.warn('[Assess] JSON可能被截断(长度:', text.length, ')'); }
+      let jsonStr = cleanText;
+      if (!jsonStr.endsWith('}')) jsonStr = cleanText + '}';
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
       const result: Assessment = JSON.parse(jsonMatch[0]);
       result.items = result.items || [];
       // 持久化
