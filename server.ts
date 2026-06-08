@@ -1310,9 +1310,10 @@ async function startServer() {
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
-      // 提取JSON（可能被markdown包裹）
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON输出'); return null; }
+      // 去掉markdown代码块包裹，提取纯JSON
+      const cleanText = text.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON输出, 原始:', text.slice(0, 200)); return null; }
       const result: Assessment = JSON.parse(jsonMatch[0]);
       result.items = result.items || [];
       // 持久化
@@ -1344,7 +1345,7 @@ async function startServer() {
   app.post('/api/ai/notifications/read', (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
     const notifs = getCache(`${siteKey}:notifications:unread`);
-    if (notifs) { notifs.data = []; setCache(`${siteKey}:notifications:unread`, [], 24 * 60_60_000); }
+    if (notifs) { notifs.data = []; setCache(`${siteKey}:notifications:unread`, [], 24 * 60 * 60_000); }
     res.json({ ok: true });
   });
 
