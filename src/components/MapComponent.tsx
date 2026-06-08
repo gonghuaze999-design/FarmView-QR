@@ -207,9 +207,15 @@ export const MapComponent = forwardRef(({
         }
   }, [isMapReady, polygons, polygon, devices, onPolygonClick, onDeviceClick]);
 
+  // 地图中心跟随 center 属性变化
+  useEffect(() => {
+    if (mapInstance.current && center) {
+      mapInstance.current.setCenter(center);
+    }
+  }, [center]);
+
   useEffect(() => {
     if (mapInstance.current) {
-      // 延迟 resize 以确保容器尺寸已更新
       setTimeout(() => {
         mapInstance.current.resize();
       }, 100);

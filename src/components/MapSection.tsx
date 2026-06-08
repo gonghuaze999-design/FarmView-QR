@@ -76,7 +76,7 @@ export const MapSection: React.FC = () => {
   const [selectedPolygon, setSelectedPolygon] = useState<any>(null);
   const [polygons, setPolygons] = useState<any[]>([]);
   const [devices, setDevices] = useState<DeviceMarker[]>([]);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([122.063, 46.133]);
+  const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
   const mapRef = useRef<any>(null);
   const { binding } = useSiteContext();
 
@@ -124,8 +124,8 @@ export const MapSection: React.FC = () => {
           setPolygons(parsedPolygons);
 
           // 计算中心点（局部变量，立即用于设备坐标偏移）
-          let computedCenterLng = 122.063;
-          let computedCenterLat = 46.133;
+          let computedCenterLng = 116.397;
+          let computedCenterLat = 39.909;
           if (parsedPolygons.length > 0) {
             let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
             parsedPolygons.forEach(p => {
