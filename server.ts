@@ -1475,9 +1475,18 @@ async function startServer() {
       if (response.data?.code === 200 && response.data?.data) {
         if (targetPath.includes('getEnvInformationNew')) {
           responseData = { ...response.data, data: thinEnvData(response.data.data) };
+          // 只有查到实际数据才缓存，避免空结果污染后续不同时间范围的查询
+          const hasData = Object.values(responseData.data).some(
+            (v: any) => Array.isArray(v) && v.length > 0
+          );
+          if (hasData) {
+            setCache(ck, responseData, ttl);
+            console.log(`[Cache] SET ${targetPath} (TTL=${ttl / 1000}s)`);
+          }
+        } else {
+          setCache(ck, responseData, ttl);
+          console.log(`[Cache] SET ${targetPath} (TTL=${ttl / 1000}s)`);
         }
-        setCache(ck, responseData, ttl);
-        console.log(`[Cache] SET ${targetPath} (TTL=${ttl / 1000}s)`);
       }
 
       res.status(response.status).json(responseData);
