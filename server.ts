@@ -1294,6 +1294,7 @@ async function startServer() {
       if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
       const result: Assessment = JSON.parse(jsonMatch[0]);
       result.items = result.items || [];
+      console.log('[Assess] 解析结果:', JSON.stringify(result).slice(0, 300));
       // 持久化
       setCache(`${siteKey}:assessment:latest`, result, 60 * 60_000);
       // 紧急通知
