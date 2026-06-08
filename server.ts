@@ -88,8 +88,15 @@ const CACHE_TTL: Record<string, number> = {
 };
 
 function cacheKey(siteKey: string, method: string, path: string, body?: any): string {
-  const bodyStr = body ? JSON.stringify(body) : '';
-  return `${siteKey}:${method}:${path}:${bodyStr}`;
+  // 去掉时间字段避免每次请求生成不同 key
+  const stable: any = {};
+  if (body) {
+    for (const [k, v] of Object.entries(body)) {
+      if (k === 'startTime' || k === 'endTime') continue;
+      stable[k] = v;
+    }
+  }
+  return `${siteKey}:${method}:${path}:${JSON.stringify(stable)}`;
 }
 
 function getCache(key: string): CacheEntry | null {
