@@ -18,7 +18,7 @@ const WEATHER_DIMS = [
   { dim: 'soil_ec',              label: '土壤EC值', unit: 'μS/cm', Icon: Zap,        color: '#7c3aed', bg: '#f5f3ff' },
 ];
 
-const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number; onReportTime?: (t: string) => void }> = ({ farmlandId, refreshKey, onReportTime }) => {
+const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> = ({ farmlandId, refreshKey }) => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [timeHint, setTimeHint] = useState('');
   const [loading, setLoading] = useState(true);
@@ -53,9 +53,8 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number; on
     };
     extract(res);
 
-    const displayTime = latestTime ? `更新于 ${latestTime}` : '';
+    const displayTime = latestTime ? `记录时间 ${latestTime}` : '';
     setTimeHint(displayTime);
-    if (onReportTime && latestTime) onReportTime(latestTime);
     setValues(latest);
     setLoading(false);
   }, [farmlandId, panelKey]);
@@ -346,7 +345,6 @@ export const MonitoringSection: React.FC = () => {
   const { binding } = useSiteContext();
   const [farmlandId, setFarmlandId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [weatherReportTime, setWeatherReportTime] = useState('');
 
   useEffect(() => {
     if (!binding) return;
@@ -381,7 +379,6 @@ export const MonitoringSection: React.FC = () => {
           <h2 className="text-base font-bold text-zinc-800">数据监测</h2>
         </div>
         <div className="flex items-center gap-2">
-          {weatherReportTime && <span className="text-[10px] text-zinc-400">数据更新于 {weatherReportTime}</span>}
           <button
             onClick={doRefresh}
             className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
@@ -399,7 +396,7 @@ export const MonitoringSection: React.FC = () => {
         </div>
       ) : (
         <>
-          <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} onReportTime={setWeatherReportTime} />
+          <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} />
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 min-w-0"><SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} /></div>
             <div className="flex-1 min-w-0"><InsectPanel farmlandId={farmlandId} refreshKey={refreshKey} /></div>
