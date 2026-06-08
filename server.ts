@@ -1271,7 +1271,7 @@ async function startServer() {
   });
 
   // ── AI 值班专家：定期评估 ─────────────────────────
-  const ASSESSMENT_PROMPT = `你是基地值班农业专家。基于数据简洁评估，输出JSON。每条detail不超过20字。判断：温度<0或>40=urgent、pH<4或>9=urgent、超期任务>5=urgent。urgent>=2项则综合urgent。`;
+  const ASSESSMENT_PROMPT = '你是基地值班农业专家。输出JSON：{"level":"normal或urgent","summary":"一句话总结","items":[{"category":"类别","level":"normal或urgent","detail":"简洁描述"}]}。判断：温度<0或>40=urgent、pH<4或>9=urgent、超期任务>5=urgent。2项以上urgent则整体urgent。';
 
   interface AssessmentItem { category: string; level: string; detail: string; }
   interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
@@ -1291,7 +1291,7 @@ async function startServer() {
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON'); return null; }
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
       const raw: any = JSON.parse(jsonMatch[0]);
       // 适配任意JSON结构 → 统一Assessment格式
       const flattenItems = (obj: any, prefix = ''): AssessmentItem[] => {
