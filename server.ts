@@ -1283,11 +1283,13 @@ async function startServer() {
       const pack = await buildDataPack(siteKey);
       const res = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 1024 } },
+        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } },
         { headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' }, timeout: 60000 }
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return null;
+      const finishReason = res.data?.candidates?.[0]?.finishReason;
+      console.log('[Assess] 响应 len=', text?.length || 0, ' finishReason=', finishReason);
+      if (!text) { console.warn('[Assess] 空响应'); return null; }
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
