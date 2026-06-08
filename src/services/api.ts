@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({ timeout: 30000 });
+const api = axios.create({ timeout: 120000 });
 
 // 注入当前站点标识
 api.interceptors.request.use((config) => {
