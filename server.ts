@@ -1310,10 +1310,10 @@ async function startServer() {
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
-      // 去掉markdown代码块包裹，提取纯JSON
-      const cleanText = text.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim();
+      // 去掉所有markdown格式，提取纯JSON
+      const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON输出, 原始:', text.slice(0, 200)); return null; }
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 500), '| 清洗后:', cleanText.slice(0, 500)); return null; }
       const result: Assessment = JSON.parse(jsonMatch[0]);
       result.items = result.items || [];
       // 持久化
