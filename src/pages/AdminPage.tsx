@@ -313,7 +313,9 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
 const SitesTab: React.FC = () => {
   const [sites, setSites] = useState<any[]>([]);
   const [showWizard, setShowWizard] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ siteKey: string; siteName: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ siteKey: string; siteName: string; hasFarmMonitor: boolean; fmFieldCount: number } | null>(null);
+  const [deleteStep, setDeleteStep] = useState<'confirm' | 'farmMonitor' | null>(null);
+  const [cleanupFM, setCleanupFM] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const fetchSites = () => {
@@ -327,17 +329,33 @@ const SitesTab: React.FC = () => {
     try {
       const r = await fetch('/api/admin/delete-site', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteKey: deleteTarget.siteKey }),
+        body: JSON.stringify({ siteKey: deleteTarget.siteKey, cleanupFarmMonitor: cleanupFM }),
       });
       const d = await r.json();
       if (d.ok) {
         setDeleteTarget(null);
+        setDeleteStep(null);
+        setCleanupFM(false);
         fetchSites();
       } else {
         alert(d.error || '删除失败');
       }
     } catch { alert('网络错误'); }
     setDeleting(false);
+  };
+
+  const handleDeleteClick = (s: any) => {
+    setDeleteTarget({ siteKey: s.siteKey, siteName: s.siteName, hasFarmMonitor: s.hasFarmMonitor, fmFieldCount: s.fmFieldCount });
+    setDeleteStep('confirm');
+    setCleanupFM(false);
+  };
+
+  const handleFirstConfirm = () => {
+    if (deleteTarget?.hasFarmMonitor) {
+      setDeleteStep('farmMonitor');
+    } else {
+      doDelete();
+    }
   };
 
   return (
@@ -360,8 +378,9 @@ const SitesTab: React.FC = () => {
         </div>
       )}
 
-      {deleteTarget && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDeleteTarget(null)}>
+      {/* Step 1: 确认删除本系统基地 */}
+      {deleteTarget && deleteStep === 'confirm' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { setDeleteTarget(null); setDeleteStep(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-3 text-red-600">
               <Trash2 size={20} />
@@ -371,14 +390,46 @@ const SitesTab: React.FC = () => {
               确定要删除基地 <span className="font-bold text-zinc-800">「{deleteTarget.siteName}」</span> 吗？
             </p>
             <p className="text-xs text-red-500 mb-5 bg-red-50 rounded-xl p-3 border border-red-100">
-              此操作不可恢复，将清除该基地的所有配置、数据及卫星订阅服务。
+              此操作将清除该基地在本系统的所有配置和数据。
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+              <button onClick={() => { setDeleteTarget(null); setDeleteStep(null); }}
                 className="flex-1 py-2.5 rounded-xl font-medium text-sm border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">取消</button>
-              <button onClick={doDelete} disabled={deleting}
+              <button onClick={handleFirstConfirm}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: 是否同步取消麦吉看田 */}
+      {deleteTarget && deleteStep === 'farmMonitor' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => { doDelete(); }}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 mx-4 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3 text-amber-600">
+              <ShieldCheck size={20} />
+              <h3 className="text-lg font-bold">同步取消麦吉看田？</h3>
+            </div>
+            <p className="text-sm text-zinc-600 mb-2">
+              基地「{deleteTarget.siteName}」已关联 <span className="font-bold text-amber-700">麦吉看田卫星监测</span>（{deleteTarget.fmFieldCount} 个地块）。
+            </p>
+            <p className="text-xs text-zinc-500 mb-3 bg-zinc-50 rounded-xl p-3 border border-zinc-100">
+              即使不取消，麦吉看田账号仍可独立登录使用。大多数情况下建议同步取消，避免产生不必要的服务费用。
+            </p>
+            <label className="flex items-center gap-2 mb-5 cursor-pointer">
+              <input type="checkbox" checked={cleanupFM} onChange={e => setCleanupFM(e.target.checked)} className="w-4 h-4 rounded accent-red-600" />
+              <span className="text-sm text-zinc-700">同步取消麦吉看田的农场及订阅服务</span>
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => doDelete()}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm border border-zinc-200 text-zinc-600 hover:bg-zinc-50 transition-colors">
+                仅删除本系统
+              </button>
+              <button onClick={() => { setCleanupFM(true); doDelete(); }} disabled={deleting}
                 className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-red-600 text-white hover:bg-red-700 disabled:bg-zinc-300 transition-colors">
-                {deleting ? '删除中...' : '确认删除'}
+                {deleting ? '删除中...' : '同步删除全部'}
               </button>
             </div>
           </div>
@@ -400,7 +451,7 @@ const SitesTab: React.FC = () => {
                   <span className="text-xs text-zinc-500">🗺️ {s.landCount}块地</span>
                   <span className="text-xs text-zinc-500">🌾 {s.hasFarmMonitor ? '已订阅' : '—'}</span>
                   <button
-                    onClick={() => setDeleteTarget({ siteKey: s.siteKey, siteName: s.siteName })}
+                    onClick={() => handleDeleteClick(s)}
                     className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     title="删除基地"
                   >

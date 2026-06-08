@@ -459,12 +459,56 @@ async function startServer() {
   });
 
   // 删除基地
-  app.post('/api/admin/delete-site', (req, res) => {
-    const { siteKey } = req.body;
+  app.post('/api/admin/delete-site', async (req, res) => {
+    const { siteKey, cleanupFarmMonitor } = req.body;
     if (!siteKey) return res.status(400).json({ error: '缺少 siteKey' });
-    if (!sitesConfig.sites[siteKey]) return res.status(404).json({ error: `基地 ${siteKey} 不存在` });
+    const site = sitesConfig.sites[siteKey];
+    if (!site) return res.status(404).json({ error: `基地 ${siteKey} 不存在` });
 
-    const siteName = sitesConfig.sites[siteKey].siteName || siteKey;
+    const siteName = site.siteName || siteKey;
+
+    // 同步取消麦吉看田服务
+    if (cleanupFarmMonitor && site.farmMonitor?.farmId) {
+      const { farmId, fieldMap, email } = site.farmMonitor as { farmId: string; fieldMap: Record<string, string>; email?: string };
+      console.log(`[Admin] 同步取消麦吉看田：farmId=${farmId}，fields=${fieldMap ? Object.keys(fieldMap).length : 0}个`);
+      try {
+        const fmKey = siteKey;
+        let token = farmMonitorTokenCache.get(fmKey);
+        if (!token) {
+          const loginRes = await axios.post(`${FARM_MONITOR_BASE}/auth/login`, {
+            email: email || `fm_${siteKey}@farmview.local`,
+            password: FM_PASSWORD,
+          }, { timeout: 10000 });
+          if (loginRes.data?.code === 200) {
+            token = loginRes.data.data.token;
+          }
+        }
+        if (token) {
+          const fmHeaders = { Authorization: `Bearer ${token}` };
+          // 删除所有地块
+          if (fieldMap) {
+            for (const fieldId of Object.values(fieldMap)) {
+              try {
+                await axios.delete(`${FARM_MONITOR_BASE}/fields/${fieldId}`, { headers: fmHeaders, timeout: 8000 });
+                console.log(`[FarmMonitor] 已删除地块 ${fieldId}`);
+              } catch (e: any) {
+                console.warn(`[FarmMonitor] 删除地块 ${fieldId} 失败:`, e.message);
+              }
+            }
+          }
+          // 删除农场
+          try {
+            await axios.delete(`${FARM_MONITOR_BASE}/farms/${farmId}`, { headers: fmHeaders, timeout: 8000 });
+            console.log(`[FarmMonitor] 已删除农场 ${farmId}`);
+          } catch (e: any) {
+            console.warn(`[FarmMonitor] 删除农场 ${farmId} 失败:`, e.message);
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[Admin] FarmMonitor 清理异常:`, e.message);
+      }
+    }
+
     delete sitesConfig.sites[siteKey];
 
     const configPath = path.join(__dirname, 'sites-config.json');
