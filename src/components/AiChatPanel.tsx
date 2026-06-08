@@ -95,7 +95,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
       .then(r => r.json())
       .then(d => {
         if (d.ok && d.dataPack) {
-          setDataPack(d.dataPack);
+          updateDataPack(d.dataPack);
           sessionStorage.setItem(DATAPACK_KEY, JSON.stringify({ dataPack: d.dataPack, updatedAt: d.updatedAt, siteKey }));
         }
       })
