@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thermometer, Droplets, Wind, CloudRain, Sun, Zap, BarChart3, Bug, Sprout, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getEnvInfoNew, getSoilReport, getInsectData, getInsectImages } from '../services/api';
+import { getFarmlandList, getEnvInfoNew, getEnvDataNow, getSoilReport, getInsectData, getInsectImages } from '../services/api';
 
 /* ================================================================
    气象指标区 — 扩大查询范围至180天，设备离线也能抓到末次记录
@@ -18,18 +18,57 @@ const WEATHER_DIMS = [
   { dim: 'soil_ec',              label: '土壤EC值', unit: 'μS/cm', Icon: Zap,        color: '#7c3aed', bg: '#f5f3ff' },
 ];
 
-const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> = ({ farmlandId, refreshKey }) => {
+const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number; onReportTime?: (t: string) => void }> = ({ farmlandId, refreshKey, onReportTime }) => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [timeHint, setTimeHint] = useState('');
   const [loading, setLoading] = useState(true);
+  const [panelKey, setPanelKey] = useState(0);
 
   const fetchWeather = useCallback(async () => {
     if (!farmlandId) { setLoading(false); return; }
     setLoading(true);
+
+    // 优先 getEnvRecordNow — 直接返回DB最新记录，不限时间范围
+    try {
+      const nowRes = await getEnvDataNow(farmlandId);
+      if (nowRes?.code === 200 && nowRes?.data) {
+        const raw = nowRes.data;
+        const latest: Record<string, string> = {};
+        let rt = '';
+
+        // 扁平对象格式: { air_temperature: 25.5, reportTime: "2025-..." }
+        if (!Array.isArray(raw) && typeof raw === 'object') {
+          rt = raw.reportTime || raw.report_time || '';
+          for (const d of WEATHER_DIMS) {
+            const v = raw[d.dim];
+            if (v != null && v !== '') latest[d.dim] = typeof v === 'number' ? v.toFixed(1) : String(v);
+          }
+        }
+        // 数组格式: [{ air_temperature: 25.5, reportTime: "..." }]
+        else if (Array.isArray(raw) && raw.length > 0) {
+          const rec = raw[raw.length - 1];
+          rt = rec.reportTime || rec.report_time || '';
+          for (const d of WEATHER_DIMS) {
+            const v = rec[d.dim];
+            if (v != null && v !== '') latest[d.dim] = typeof v === 'number' ? v.toFixed(1) : String(v);
+          }
+        }
+
+        if (Object.keys(latest).length > 0) {
+          setValues(latest);
+          const displayTime = rt ? `更新于 ${rt}` : '';
+          setTimeHint(displayTime);
+          if (onReportTime && rt) onReportTime(rt);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (_) { /* 降级到 getEnvInfoNew */ }
+
+    // 降级：7天范围查询（匹配后端代理限制）
     const now = new Date();
     const end = now.toISOString().replace('T', ' ').slice(0, 19);
-    // 扩大至180天，设备长期离线也能抓到DB里最后一条记录
-    const start = new Date(now.getTime() - 180 * 86400 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const start = new Date(now.getTime() - 7 * 86400 * 1000).toISOString().replace('T', ' ').slice(0, 19);
 
     const dims1 = WEATHER_DIMS.slice(0, 6).map(d => d.dim).join(',');
     const dims2 = WEATHER_DIMS.slice(6).map(d => d.dim).join(',');
@@ -40,28 +79,19 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
 
     const latest: Record<string, string> = {};
     let latestTime = '';
-    let latestDateHint = '';
     const extract = (res: any) => {
       if (res.code === 200 && res.data) {
         for (const [dim, arr] of Object.entries(res.data)) {
           if (!Array.isArray(arr) || arr.length === 0) continue;
-          // 从末尾往前找最后一条有效记录（跳过设备离线后的空数据）
           let last: any = null;
-          let lastIdx = arr.length - 1;
           for (let i = arr.length - 1; i >= Math.max(0, arr.length - 300); i--) {
             const v = (arr[i] as any)[dim];
-            if (v != null && v !== 0) { last = arr[i]; lastIdx = i; break; }
+            if (v != null && v !== 0) { last = arr[i]; break; }
           }
-          if (!last) { last = arr[arr.length - 1]; lastIdx = arr.length - 1; }
+          if (!last) last = arr[arr.length - 1];
           const val = last[dim];
           if (val != null) latest[dim] = typeof val === 'number' ? val.toFixed(1) : String(val);
-          // 用有效记录位置推算近似日期
-          if (last.reportTime) {
-            const queryDays = 180;
-            const recordsPerDay = Math.max(arr.length / queryDays, 1);
-            const dayOffset = Math.round(lastIdx / recordsPerDay);
-            const estDate = new Date(new Date().getTime() - (queryDays - dayOffset) * 86400 * 1000);
-            latestDateHint = `${estDate.getFullYear()}-${String(estDate.getMonth()+1).padStart(2,'0')}-${String(estDate.getDate()).padStart(2,'0')}`;
+          if (last.reportTime && (!latestTime || String(last.reportTime) > latestTime)) {
             latestTime = String(last.reportTime);
           }
         }
@@ -70,16 +100,12 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
     extract(res1.status === 'fulfilled' ? res1.value : {});
     extract(res2.status === 'fulfilled' ? res2.value : {});
 
-    if (latestDateHint && latestTime) {
-      setTimeHint(`末次记录 ${latestDateHint} ${latestTime}`);
-    } else if (latestTime) {
-      setTimeHint(`末次记录 ${latestTime}`);
-    } else {
-      setTimeHint('');
-    }
+    const displayTime = latestTime ? `更新于 ${latestTime}` : '';
+    setTimeHint(displayTime);
+    if (onReportTime && latestTime) onReportTime(latestTime);
     setValues(latest);
     setLoading(false);
-  }, [farmlandId]);
+  }, [farmlandId, panelKey]);
 
   useEffect(() => { fetchWeather(); }, [fetchWeather, refreshKey]);
 
@@ -88,7 +114,14 @@ const WeatherPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> 
       <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2" style={{ background: '#f0f9ff' }}>
         <CloudRain size={16} className="text-sky-500" />
         <span className="text-sm font-bold text-zinc-800">气象监测</span>
-        {timeHint && <span className="text-[10px] text-zinc-400 ml-auto">{timeHint}</span>}
+        {timeHint && <span className="text-[10px] text-zinc-400 ml-auto mr-1">{timeHint}</span>}
+        <button
+          onClick={() => setPanelKey(k => k + 1)}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors"
+          title="刷新气象数据"
+        >
+          <RefreshCw size={12} className="text-zinc-400" />
+        </button>
       </div>
       <div className="p-3">
         {loading ? (
@@ -147,6 +180,7 @@ function soilVal(record: any, keys: string[]): number | null {
 const SoilPanel: React.FC<{ baseId: number | null; refreshKey: number }> = ({ baseId, refreshKey }) => {
   const [soil, setSoil] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [panelKey, setPanelKey] = useState(0);
 
   useEffect(() => {
     if (!baseId) { setLoading(false); return; }
@@ -158,15 +192,22 @@ const SoilPanel: React.FC<{ baseId: number | null; refreshKey: number }> = ({ ba
         else if (data && typeof data === 'object' && !Array.isArray(data)) setSoil(data);
       }
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [baseId, refreshKey]);
+  }, [baseId, refreshKey, panelKey]);
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2" style={{ background: '#fffbeb' }}>
         <Sprout size={16} className="text-amber-600" />
         <span className="text-sm font-bold text-zinc-800">土壤检测</span>
-        {soil?.reportTime && <span className="text-[10px] text-zinc-400 ml-auto">末次检测 {soil.reportTime}年</span>}
-        {!soil?.reportTime && soil?.report_farm && <span className="text-[10px] text-zinc-400 ml-auto">{soil.report_farm}</span>}
+        {soil?.reportTime && <span className="text-[10px] text-zinc-400 ml-auto mr-1">末次检测 {soil.reportTime}年</span>}
+        {!soil?.reportTime && soil?.report_farm && <span className="text-[10px] text-zinc-400 ml-auto mr-1">{soil.report_farm}</span>}
+        <button
+          onClick={() => setPanelKey(k => k + 1)}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors"
+          title="刷新土壤数据"
+        >
+          <RefreshCw size={12} className="text-zinc-400" />
+        </button>
       </div>
       <div className="p-4 space-y-3">
         {loading ? (
@@ -212,6 +253,7 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [imgCount, setImgCount] = useState(8);
+  const [panelKey, setPanelKey] = useState(0);
   const scrollRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -251,14 +293,21 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
       setImgCount(8);
       setLoading(false);
     });
-  }, [farmlandId, refreshKey]);
+  }, [farmlandId, refreshKey, panelKey]);
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2" style={{ background: '#f5f3ff' }}>
         <Bug size={16} className="text-violet-600" />
         <span className="text-sm font-bold text-zinc-800">虫情测报</span>
-        {timeHint && <span className="text-[10px] text-zinc-400 ml-auto">{timeHint}</span>}
+        {timeHint && <span className="text-[10px] text-zinc-400 ml-auto mr-1">{timeHint}</span>}
+        <button
+          onClick={() => setPanelKey(k => k + 1)}
+          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/60 transition-colors"
+          title="刷新虫情数据"
+        >
+          <RefreshCw size={12} className="text-zinc-400" />
+        </button>
       </div>
       <div className="p-4">
         {loading ? (
@@ -344,7 +393,7 @@ export const MonitoringSection: React.FC = () => {
   const { binding } = useSiteContext();
   const [farmlandId, setFarmlandId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [timeStr, setTimeStr] = useState('');
+  const [weatherReportTime, setWeatherReportTime] = useState('');
 
   useEffect(() => {
     if (!binding) return;
@@ -361,7 +410,6 @@ export const MonitoringSection: React.FC = () => {
 
   const doRefresh = () => {
     setRefreshKey(k => k + 1);
-    setTimeStr(new Date().toLocaleTimeString('zh-CN'));
   };
 
   useEffect(() => {
@@ -380,13 +428,13 @@ export const MonitoringSection: React.FC = () => {
           <h2 className="text-base font-bold text-zinc-800">数据监测</h2>
         </div>
         <div className="flex items-center gap-2">
-          {timeStr && <span className="text-[10px] text-zinc-400">更新于 {timeStr}</span>}
+          {weatherReportTime && <span className="text-[10px] text-zinc-400">数据更新于 {weatherReportTime}</span>}
           <button
             onClick={doRefresh}
             className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
           >
             <RefreshCw size={12} />
-            刷新
+            全部刷新
           </button>
         </div>
       </div>
@@ -398,7 +446,7 @@ export const MonitoringSection: React.FC = () => {
         </div>
       ) : (
         <>
-          <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} />
+          <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} onReportTime={setWeatherReportTime} />
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 min-w-0"><SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} /></div>
             <div className="flex-1 min-w-0"><InsectPanel farmlandId={farmlandId} refreshKey={refreshKey} /></div>
