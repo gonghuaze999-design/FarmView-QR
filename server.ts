@@ -1271,29 +1271,11 @@ async function startServer() {
   });
 
   // ── AI 值班专家：定期评估 ─────────────────────────
-  const ASSESSMENT_PROMPT = `你是 FarmView 基地值班农业技术专家，7×24小时在线监控基地运行状态。
-请基于以下基地数据包，从各维度逐项评估，输出严格JSON（不要markdown代码块）：
+  const ASSESSMENT_PROMPT = `你是 FarmView 基地值班农业技术专家。分析以下基地数据，输出严格JSON：
 
-{
-  "level": "normal|urgent",
-  "summary": "一句话总结基地整体状况",
-  "items": [
-    { "category": "气象", "level": "normal|urgent", "detail": "具体描述" },
-    { "category": "土壤", "level": "normal|urgent", "detail": "具体描述" },
-    { "category": "虫情", "level": "normal|urgent", "detail": "具体描述" },
-    { "category": "农事", "level": "normal|urgent", "detail": "具体描述" },
-    { "category": "遥感", "level": "normal|urgent", "detail": "具体描述" },
-    { "category": "综合", "level": "normal|urgent", "detail": "综合风险和行动建议" }
-  ]
-}
+{"level":"normal或urgent","summary":"一句话总结","items":[{"category":"气象","level":"normal或urgent","detail":"描述"},{"category":"土壤","level":"normal或urgent","detail":"描述"},{"category":"虫情","level":"normal或urgent","detail":"描述"},{"category":"农事","level":"normal或urgent","detail":"描述"},{"category":"遥感","level":"normal或urgent","detail":"描述"},{"category":"综合","level":"normal或urgent","detail":"综合风险和行动建议"}]}
 
-判断标准：
-- 气象：温度<0°C或>40°C、湿度<10%或>95%、风速>20m/s、连续3天无降水标记为urgent
-- 土壤：pH<4或>9、有机质<10g/kg标记为urgent
-- 虫情：单类占比>50%或累计诱虫周增幅>100%标记为urgent
-- 农事：超期任务>5条、完成率<30%标记为urgent
-- 遥感：NDVI趋势连续下降>0.1标记为urgent
-- 综合：上述urgent>=2项则综合level为urgent`;
+urgent判断：温度<0或>40°C、pH<4或>9、单类虫占比>50%、超期任务>5条、NDVI降>0.1。urgent>=2项则综合level为urgent。直接输出JSON，不要markdown。`;
 
   interface AssessmentItem { category: string; level: string; detail: string; }
   interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
@@ -1312,10 +1294,7 @@ async function startServer() {
       if (!text) return null;
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
-      if (!cleanText.endsWith('}')) { console.warn('[Assess] JSON可能被截断(长度:', text.length, ')'); }
-      let jsonStr = cleanText;
-      if (!jsonStr.endsWith('}')) jsonStr = cleanText + '}';
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
       const result: Assessment = JSON.parse(jsonMatch[0]);
       result.items = result.items || [];
