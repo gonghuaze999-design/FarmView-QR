@@ -1283,7 +1283,7 @@ async function startServer() {
       const pack = await buildDataPack(siteKey);
       const res = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: 'application/json' } },
+        { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 1024 } },
         { headers: { 'x-goog-api-key': geminiKey, 'Content-Type': 'application/json' }, timeout: 60000 }
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -1291,21 +1291,31 @@ async function startServer() {
       // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) { console.warn('[Assess] 未找到JSON, 原始:', text.slice(0, 300)); return null; }
-      const result: Assessment = JSON.parse(jsonMatch[0]);
-      result.items = result.items || [];
-      console.log('[Assess] 解析结果:', JSON.stringify(result).slice(0, 300));
+      if (!jsonMatch) { console.warn('[Assess] 未找到JSON'); return null; }
+      const raw: any = JSON.parse(jsonMatch[0]);
+      // 适配任意JSON结构 → 统一Assessment格式
+      const flattenItems = (obj: any, prefix = ''): AssessmentItem[] => {
+        if (!obj || typeof obj !== 'object') return [];
+        if (obj.level && obj.detail) return [obj as AssessmentItem];
+        return Object.entries(obj).flatMap(([k, v]) => flattenItems(v, k));
+      };
+      const items = flattenItems(raw);
+      const urgents = items.filter(i => i.level === 'urgent' || i.level === '紧急');
+      const result: Assessment = {
+        level: urgents.length >= 2 ? 'urgent' : 'normal',
+        summary: raw.summary || raw.overall || '',
+        items: items.slice(0, 10),
+      };
       // 持久化
       setCache(`${siteKey}:assessment:latest`, result, 60 * 60_000);
       // 紧急通知
-      const urgents = result.items.filter(i => i.level === 'urgent');
-      if (urgents.length > 0 || result.level === 'urgent') {
+      if (urgents.length > 0) {
         const existing = getCache(`${siteKey}:notifications:unread`);
         const notifs: any[] = existing?.data || [];
         urgents.forEach(u => notifs.unshift({ ...u, time: new Date().toISOString() }));
         setCache(`${siteKey}:notifications:unread`, notifs.slice(0, 20), 24 * 60 * 60_000);
       }
-      console.log(`[Assess] ${siteKey}: ${result.level}, ${result.items.length}项, urgent=${urgents.length}`);
+      console.log(`[Assess] ${siteKey}: ${result.level}, ${items.length}项, urgent=${urgents.length}`);
       return result;
     } catch (e: any) { console.warn(`[Assess] ${siteKey} 失败:`, e.message); return null; }
   }
