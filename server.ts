@@ -74,7 +74,7 @@ const CACHE_TTL: Record<string, number> = {
   'locationList': 30 * 60_000,
   'cameraList': 10 * 60_000,
   'camera/count': 10 * 60_000,
-  'getEnvInformationNew': 5 * 60_000,
+  'getEnvInformationNew': 30 * 60_000,
   'getEnvRecordNow': 5 * 60_000,
   'querySoilReport': 30 * 60_000,
   'getInsectStatistics': 10 * 60_000,
