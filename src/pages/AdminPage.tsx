@@ -501,6 +501,7 @@ const AssessmentsTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [assessing, setAssessing] = useState<Set<string>>(new Set());
 
   const fetchSites = () => {
     setLoading(true);
@@ -513,8 +514,10 @@ const AssessmentsTab: React.FC = () => {
   };
 
   const triggerAssess = async (siteKey: string) => {
+    setAssessing(prev => new Set(prev).add(siteKey));
     await fetch('/api/admin/assess', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: siteKey }) });
-    setTimeout(fetchSites, 5000);
+    setAssessing(prev => { const s = new Set(prev); s.delete(siteKey); return s; });
+    fetchSites();
   };
 
   return (
@@ -527,7 +530,7 @@ const AssessmentsTab: React.FC = () => {
         <div className="space-y-3">
           {sites.map(s => (
             <div key={s.siteKey}>
-              <div className={`rounded-2xl border overflow-hidden ${s.level === 'urgent' ? 'border-red-200 bg-red-50/50' : s.level === 'error' ? 'border-amber-200 bg-amber-50/50' : 'border-zinc-100 bg-white'}`}>
+              <div className={`rounded-2xl border overflow-hidden transition-shadow ${assessing.has(s.siteKey) ? 'ring-2 ring-emerald-300 shadow-lg' : ''} ${s.level === 'urgent' ? 'border-red-200 bg-red-50/50' : s.level === 'error' ? 'border-amber-200 bg-amber-50/50' : 'border-zinc-100 bg-white'}`}>
                 <div className="px-4 py-3 flex items-center justify-between cursor-pointer" onClick={() => { if (expanded === s.siteKey) setExpanded(null); else { setExpanded(s.siteKey); fetchHistory(s.siteKey); } }}>
                   <div className="flex items-center gap-3 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.level === 'urgent' ? 'bg-red-500' : s.level === 'error' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
@@ -553,7 +556,10 @@ const AssessmentsTab: React.FC = () => {
                 <div className="mt-1 ml-4 pl-4 border-l-2 border-zinc-100 space-y-2 py-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-zinc-500 font-medium">历史记录（最近30条）</span>
-                    <button onClick={() => triggerAssess(s.siteKey)} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200">立即评估</button>
+                    <button onClick={() => triggerAssess(s.siteKey)} disabled={assessing.has(s.siteKey)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${assessing.has(s.siteKey) ? 'bg-emerald-100 text-emerald-400' : 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'}`}>
+                      {assessing.has(s.siteKey) ? '评估中...' : '立即评估'}
+                    </button>
                   </div>
                   {history.length === 0 ? <div className="text-xs text-zinc-400">加载中...</div> : history.map((h: any, i: number) => (
                     <div key={i} className="flex items-center gap-2">

@@ -1419,8 +1419,8 @@ async function startServer() {
   // 管理员：手动触发某基地评估
   app.post('/api/admin/assess', async (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
-    res.json({ ok: true, running: true });
-    assessSite(siteKey);
+    const result = await assessSite(siteKey);
+    res.json({ ok: true, result });
   });
 
   // AI 对话（SSE 流式输出）
