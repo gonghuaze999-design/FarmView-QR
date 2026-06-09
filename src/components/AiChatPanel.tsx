@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Mic, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { X, Send, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { marked } from 'marked';
 
 interface Message {
   role: 'user' | 'assistant';
   text: string;
   imageBase64?: string;
-  audioBase64?: string;
 }
 
 interface AiChatPanelProps {
@@ -76,20 +75,6 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   const [, setDataPack] = useState<string>('');
 
   const updateDataPack = (dp: string) => { dataPackRef.current = dp; setDataPack(dp); };
-  const [kbPad, setKbPad] = useState(0);
-
-  // 键盘弹起时把面板推上去，避免输入框被遮挡
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const onResize = () => {
-      const pad = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      setKbPad(pad > 50 ? pad : 0);
-    };
-    vv.addEventListener('resize', onResize);
-    vv.addEventListener('scroll', onResize);
-    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize); };
-  }, []);
 
   // 加载数据包 + 值班评估结果（6小时缓存）
   useEffect(() => {
@@ -133,102 +118,6 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, streamText]);
-
-  // 微信式语音录制
-  const [voiceMode, setVoiceMode] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordTime, setRecordTime] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<any>(null);
-  const recordStartY = useRef(0);
-
-  const [voiceError, setVoiceError] = useState('');
-  const startRecording = async () => {
-    setVoiceError('');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          const msg: Message = { role: 'user', text: '[语音]', audioBase64: `data:audio/webm;base64,${base64}` };
-          sendAudioMessage(msg);
-        };
-        reader.readAsDataURL(blob);
-      };
-      recorder.start();
-      setIsRecording(true);
-      setRecordTime(0);
-      recordStartY.current = 0;
-      recordTimerRef.current = setInterval(() => setRecordTime(t => {
-        if (t >= 59) { stopRecording(true); return 0; }
-        return t + 1;
-      }), 1000);
-    } catch {
-      setVoiceError('录音需要HTTPS或授予麦克风权限');
-      setVoiceMode(false);
-    }
-  };
-
-  const stopRecording = (autoRestart = false) => {
-    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    setIsRecording(false);
-    if (autoRestart) setTimeout(startRecording, 300);
-  };
-
-  const cancelRecording = () => {
-    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
-    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
-    setIsRecording(false);
-    setRecordTime(0);
-  };
-
-  const sendAudioMessage = (msg: Message) => {
-    const newMessages = [...messages, msg];
-    setMessages(newMessages);
-    setStreaming(true);
-    setStreamText('');
-    fetch('/api/ai/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: newMessages, systemPrompt: (dataPackRef.current ? dataPackRef.current + '\n\n' : '') + SYSTEM_PROMPT }),
-    }).then(async res => {
-      const reader = res.body?.getReader();
-      if (!reader) return;
-      const decoder = new TextDecoder();
-      fullTextRef.current = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              if (fullTextRef.current) setMessages(prev => [...prev, { role: 'assistant', text: fullTextRef.current }]);
-              setStreamText('');
-              fullTextRef.current = '';
-            } else {
-              try {
-                const token = JSON.parse(data).token;
-                if (token) { fullTextRef.current += token; setStreamText(fullTextRef.current); }
-              } catch {}
-            }
-          }
-        }
-      }
-    }).catch(() => setStreaming(false)).finally(() => setStreaming(false));
-  };
 
   // 图片选择
   const compressImage = async (file: File): Promise<string> => {
@@ -342,7 +231,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[160] flex flex-col justify-end" style={{ paddingBottom: kbPad }}>
+    <div className="fixed inset-0 z-[160] flex flex-col justify-end">
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
@@ -456,55 +345,19 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
           </div>
         )}
 
-        {voiceError && (
-          <div className="px-4 py-2 text-xs text-red-500 bg-red-50 text-center">{voiceError}</div>
-        )}
         {/* 输入栏 */}
-        <div className="px-4 py-3 border-t flex-shrink-0" style={{ borderColor: '#f0f0eb' }}>
-          {isRecording ? (
-            <div
-              className="w-full h-12 rounded-full flex items-center justify-center gap-2 text-white font-medium text-sm select-none active:opacity-90 transition-opacity"
-              style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}
-              onTouchEnd={(e: any) => {
-                const dy = e.changedTouches[0].clientY - (recordStartY.current || e.changedTouches[0].clientY);
-                if (dy < -50) cancelRecording(); else stopRecording();
-              }}
-              onMouseUp={stopRecording}
-              onMouseLeave={cancelRecording}
-            >
-              <span className="w-3 h-3 bg-white rounded-full animate-pulse" />
-              <span>{String(Math.floor(recordTime / 60)).padStart(2, '0')}:{String(recordTime % 60).padStart(2, '0')}</span>
-              <span className="text-xs opacity-60">松开发送 上滑取消</span>
-            </div>
-          ) : voiceMode ? (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setVoiceMode(false)} className="p-2 rounded-full text-zinc-400 hover:text-zinc-600 transition-colors flex-shrink-0">
-                <X size={20} />
-              </button>
-              <button
-                className="flex-1 h-12 rounded-full bg-zinc-100 text-zinc-500 text-sm font-medium select-none active:bg-zinc-200 transition-colors"
-                onTouchStart={(e: any) => { recordStartY.current = e.touches[0].clientY; startRecording(); }}
-                onMouseDown={startRecording}
-              >按住说话</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button onClick={() => fileRef.current?.click()} className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 transition-colors flex-shrink-0">
-                <ImageIcon size={20} />
-              </button>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
-              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                placeholder="输入问题..." className="flex-1 min-w-0 bg-zinc-100 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
-              <button onClick={() => setVoiceMode(true)} className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 transition-colors flex-shrink-0">
-                <Mic size={20} />
-              </button>
-              <button onClick={sendMessage} disabled={(!input.trim() && !imagePreview) || imagePreview === 'loading'}
-                className="p-2 rounded-full flex-shrink-0 disabled:opacity-30 transition-colors"
-                style={{ background: (input.trim() || imagePreview) ? '#8b5cf6' : '#e5e7eb' }}>
-                <Send size={18} className="text-white" />
-              </button>
-            </div>
-          )}
+        <div className="px-4 py-3 border-t flex-shrink-0 flex items-center gap-2" style={{ borderColor: '#f0f0eb' }}>
+          <button onClick={() => fileRef.current?.click()} className="p-2 rounded-full text-zinc-400 hover:text-purple-500 hover:bg-purple-50 transition-colors flex-shrink-0">
+            <ImageIcon size={20} />
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+            placeholder="输入问题..." className="flex-1 min-w-0 bg-zinc-100 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
+          <button onClick={sendMessage} disabled={(!input.trim() && !imagePreview) || imagePreview === 'loading'}
+            className="p-2 rounded-full flex-shrink-0 disabled:opacity-30 transition-colors"
+            style={{ background: (input.trim() || imagePreview) ? '#8b5cf6' : '#e5e7eb' }}>
+            <Send size={18} className="text-white" />
+          </button>
         </div>
       </div>
     </div>
