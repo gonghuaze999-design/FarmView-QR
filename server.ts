@@ -52,7 +52,28 @@ try {
     ts INTEGER NOT NULL,
     ttl INTEGER NOT NULL
   )`);
-  console.log('[DB] join_requests + data_cache 表已就绪');
+  // 评估历史 + 通知表
+  joinDb.exec(`CREATE TABLE IF NOT EXISTS assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_key TEXT NOT NULL,
+    level TEXT NOT NULL,
+    summary TEXT,
+    items_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  joinDb.exec(`CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_key TEXT NOT NULL,
+    category TEXT,
+    level TEXT,
+    detail TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  // 清理150天前的记录
+  joinDb.prepare("DELETE FROM assessments WHERE created_at < datetime('now', '-150 days')").run();
+  joinDb.prepare("DELETE FROM notifications WHERE created_at < datetime('now', '-150 days')").run();
+  console.log('[DB] join_requests + data_cache + assessments + notifications 表已就绪');
 } catch (e: any) {
   console.warn('[DB] SQLite 初始化失败（join_requests 功能不可用）:', e.message);
 }
@@ -1288,12 +1309,10 @@ async function startServer() {
       );
       const text = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) { console.warn('[Assess] 空响应'); return null; }
-      // 去掉所有markdown格式，提取纯JSON
       const cleanText = text.replace(/```(?:json)?/g, '').replace(/`/g, '').trim();
       const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) { console.warn('[Assess] 未找到JSON'); return null; }
       const raw: any = JSON.parse(jsonMatch[0]);
-      // 适配任意JSON结构 → 统一Assessment格式
       const flattenItems = (obj: any, prefix = ''): AssessmentItem[] => {
         if (!obj || typeof obj !== 'object') return [];
         if (obj.level && obj.detail) return [obj as AssessmentItem];
@@ -1306,25 +1325,54 @@ async function startServer() {
         summary: raw.summary || raw.overall || '',
         items: items.slice(0, 10),
       };
-      // 持久化
-      setCache(`${siteKey}:assessment:latest`, result, 60 * 60_000);
-      // 紧急通知
+      // SQLite 持久化评估记录
+      if (joinDb) {
+        try { joinDb.prepare('INSERT INTO assessments (site_key, level, summary, items_json) VALUES (?,?,?,?)').run(siteKey, result.level, result.summary, JSON.stringify(result.items)); } catch {}
+      }
+      // 缓存latest（TTL 25h > 评估间隔12h）
+      setCache(`${siteKey}:assessment:latest`, result, 25 * 60 * 60_000);
+      // 紧急通知（去重：对比上次评估，同类别不重复）
       if (urgents.length > 0) {
+        const prev = getCache(`${siteKey}:assessment:prev_urgents`);
+        const prevCategories: string[] = prev?.data || [];
+        const newUrgents = urgents.filter(u => !prevCategories.includes(u.category));
+        if (newUrgents.length > 0 && joinDb) {
+          for (const u of newUrgents) {
+            try { joinDb.prepare('INSERT INTO notifications (site_key, category, level, detail) VALUES (?,?,?,?)').run(siteKey, u.category, 'urgent', u.detail); } catch {}
+          }
+        }
+        setCache(`${siteKey}:assessment:prev_urgents`, urgents.map(u => u.category), 25 * 60 * 60_000);
+        // 保持现有铃铛API兼容
         const existing = getCache(`${siteKey}:notifications:unread`);
         const notifs: any[] = existing?.data || [];
-        urgents.forEach(u => notifs.unshift({ ...u, time: new Date().toISOString() }));
-        setCache(`${siteKey}:notifications:unread`, notifs.slice(0, 20), 24 * 60 * 60_000);
+        newUrgents.forEach(u => notifs.unshift({ ...u, time: new Date().toISOString() }));
+        setCache(`${siteKey}:notifications:unread`, notifs.slice(0, 20), 25 * 60 * 60_000);
       }
-      console.log(`[Assess] ${siteKey}: ${result.level}, ${items.length}项, urgent=${urgents.length}`);
+      console.log(`[Assess] ${siteKey}: ${result.level}, ${items.length}项, urgent=${urgents.length}, new=${urgents.filter(u => { const prev = getCache(`${siteKey}:assessment:prev_urgents`); return !prev?.data?.includes(u.category); }).length}`);
       return result;
-    } catch (e: any) { console.warn(`[Assess] ${siteKey} 失败:`, e.message); return null; }
+    } catch (e: any) {
+      console.warn(`[Assess] ${siteKey} 失败:`, e.message);
+      if (joinDb) {
+        try { joinDb.prepare('INSERT INTO assessments (site_key, level, summary, items_json) VALUES (?,?,?,?)').run(siteKey, 'error', e.message, '[]'); } catch {}
+      }
+      return null;
+    }
   }
 
-  // 启动时立即评估一次，之后每30分钟
+  // 每天8:00和20:00评估（检查北京时间）
+  function isAssessTime(hour: number) { return hour === 8 || hour === 20; }
+  let lastAssessHour = -1;
+  setInterval(() => {
+    const beijingHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Shanghai' })).getHours();
+    if (isAssessTime(beijingHour) && beijingHour !== lastAssessHour) {
+      lastAssessHour = beijingHour;
+      for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk);
+    }
+  }, 60_000); // 每分钟检查一次
+  // 启动后立即评估一次
   setTimeout(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 10000);
-  setInterval(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 3 * 60 * 60_000);
 
-  // 铃铛通知API
+  // 铃铛通知API（前端用，兼容旧接口）
   app.get('/api/ai/notifications', (req, res) => {
     const siteKey = String(req.query.site || DEFAULT_SITE_KEY);
     const notifs = getCache(`${siteKey}:notifications:unread`);
@@ -1334,8 +1382,37 @@ async function startServer() {
   app.post('/api/ai/notifications/read', (req, res) => {
     const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
     const notifs = getCache(`${siteKey}:notifications:unread`);
-    if (notifs) { notifs.data = []; setCache(`${siteKey}:notifications:unread`, [], 24 * 60 * 60_000); }
+    if (notifs) { notifs.data = []; setCache(`${siteKey}:notifications:unread`, [], 25 * 60 * 60_000); }
+    // 同步标记SQLite通知已读
+    if (joinDb) { try { joinDb.prepare('UPDATE notifications SET is_read=1 WHERE site_key=?').run(siteKey); } catch {} }
     res.json({ ok: true });
+  });
+
+  // 管理员：获取所有基地评估汇总
+  app.get('/api/admin/assessments', (req, res) => {
+    if (!joinDb) return res.json({ sites: [] });
+    const rows = joinDb.prepare(`SELECT site_key, level, summary, items_json, MAX(created_at) as created_at FROM assessments GROUP BY site_key ORDER BY level='urgent' DESC, created_at DESC`).all() as any[];
+    const sites = rows.map((r: any) => ({
+      siteKey: r.site_key,
+      siteName: sitesConfig.sites[r.site_key]?.siteName || r.site_key,
+      level: r.level,
+      summary: r.summary,
+      items: JSON.parse(r.items_json || '[]'),
+      time: r.created_at,
+    }));
+    res.json({ sites });
+  });
+  // 管理员：获取某基地评估历史
+  app.get('/api/admin/assessments/:siteKey', (req, res) => {
+    if (!joinDb) return res.json([]);
+    const rows = joinDb.prepare('SELECT level, summary, items_json, created_at FROM assessments WHERE site_key=? ORDER BY created_at DESC LIMIT 30').all(req.params.siteKey) as any[];
+    res.json(rows.map((r: any) => ({ level: r.level, summary: r.summary, items: JSON.parse(r.items_json || '[]'), time: r.created_at })));
+  });
+  // 管理员：手动触发某基地评估
+  app.post('/api/admin/assess', async (req, res) => {
+    const siteKey = String(req.body.site || DEFAULT_SITE_KEY);
+    res.json({ ok: true, running: true });
+    assessSite(siteKey);
   });
 
   // AI 对话（SSE 流式输出）

@@ -6,7 +6,7 @@ interface JoinRequest {
   address: string; area: number; phone: string; source: string; created_at: string;
 }
 
-type AdminTab = 'requests' | 'sites';
+type AdminTab = 'requests' | 'sites' | 'assessments';
 
 /* ================================================================
    申报审核 Tab
@@ -471,6 +471,85 @@ const SitesTab: React.FC = () => {
    管理员主页
    ================================================================ */
 export const AdminPage: React.FC = () => {
+/* ================================================================
+   基地评估汇总 Tab
+   ================================================================ */
+const AssessmentsTab: React.FC = () => {
+  const [sites, setSites] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  const fetchSites = () => {
+    setLoading(true);
+    fetch('/api/admin/assessments').then(r => r.json()).then(d => setSites(d.sites || [])).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { fetchSites(); }, []);
+
+  const fetchHistory = (siteKey: string) => {
+    fetch(`/api/admin/assessments/${siteKey}`).then(r => r.json()).then(setHistory).catch(() => {});
+  };
+
+  const triggerAssess = async (siteKey: string) => {
+    await fetch('/api/admin/assess', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site: siteKey }) });
+    setTimeout(fetchSites, 5000);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-sm text-zinc-500">共 <span className="font-bold text-zinc-800">{sites.length}</span> 个基地</span>
+        <button onClick={fetchSites} className="p-2 rounded-full hover:bg-zinc-100"><RefreshCw size={16} className={loading ? 'animate-spin text-emerald-500' : 'text-zinc-400'} /></button>
+      </div>
+      {loading ? <div className="text-center py-8 text-zinc-400 text-sm">加载中...</div> : sites.length === 0 ? <div className="text-center py-8 text-zinc-400 text-sm">暂无评估数据</div> : (
+        <div className="space-y-3">
+          {sites.map(s => (
+            <div key={s.siteKey}>
+              <div className={`rounded-2xl border overflow-hidden ${s.level === 'urgent' ? 'border-red-200 bg-red-50/50' : s.level === 'error' ? 'border-amber-200 bg-amber-50/50' : 'border-zinc-100 bg-white'}`}>
+                <div className="px-4 py-3 flex items-center justify-between cursor-pointer" onClick={() => { if (expanded === s.siteKey) setExpanded(null); else { setExpanded(s.siteKey); fetchHistory(s.siteKey); } }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.level === 'urgent' ? 'bg-red-500' : s.level === 'error' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-zinc-800 truncate">{s.siteName}</h3>
+                      <p className="text-xs text-zinc-500 truncate">{s.summary || '(无摘要)'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[10px] text-zinc-400">{s.time?.slice(0, 16) || ''}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.level === 'urgent' ? 'bg-red-100 text-red-600' : s.level === 'error' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>{s.level === 'urgent' ? '紧急' : s.level === 'error' ? '失败' : '正常'}</span>
+                  </div>
+                </div>
+                {s.items?.length > 0 && (
+                  <div className="px-4 pb-2 grid grid-cols-2 gap-1">
+                    {s.items.slice(0, 6).map((it: any, i: number) => (
+                      <span key={i} className="text-[10px] text-zinc-600 truncate">{it.level === 'urgent' ? '⚠️' : '✓'} {it.category}: {it.detail}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {expanded === s.siteKey && (
+                <div className="mt-1 ml-4 pl-4 border-l-2 border-zinc-100 space-y-2 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-500 font-medium">历史记录（最近30条）</span>
+                    <button onClick={() => triggerAssess(s.siteKey)} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600 hover:bg-emerald-200">立即评估</button>
+                  </div>
+                  {history.length === 0 ? <div className="text-xs text-zinc-400">加载中...</div> : history.map((h: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${h.level === 'urgent' ? 'bg-red-400' : h.level === 'error' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                      <span className="text-[10px] text-zinc-400 w-28 flex-shrink-0">{h.time?.slice(0, 16)}</span>
+                      <span className="text-xs text-zinc-600 truncate">{h.summary}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
   const [tab, setTab] = useState<AdminTab>('requests');
 
   return (
@@ -478,7 +557,7 @@ export const AdminPage: React.FC = () => {
       <div className="w-full max-w-2xl shadow-xl min-h-screen" style={{ background: '#fffdf7' }}>
         <div className="bg-emerald-600 px-5 py-6">
           <h1 className="text-xl font-bold text-white">管理员后台</h1>
-          <p className="text-emerald-100 text-sm mt-0.5">基地管理 · 申报审核</p>
+          <p className="text-emerald-100 text-sm mt-0.5">基地管理 · 申报审核 · 评估汇总</p>
         </div>
 
         {/* Tab 切换 */}
@@ -486,6 +565,7 @@ export const AdminPage: React.FC = () => {
           {[
             { key: 'requests', label: '申报审核' },
             { key: 'sites', label: '基地管理' },
+            { key: 'assessments', label: '评估汇总' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key as AdminTab)}
               className={`flex-1 py-3 text-sm font-medium transition-colors ${tab === t.key ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-zinc-500 hover:text-zinc-700'}`}>
@@ -495,7 +575,7 @@ export const AdminPage: React.FC = () => {
         </div>
 
         <div className="p-5">
-          {tab === 'requests' ? <RequestsTab /> : <SitesTab />}
+          {tab === 'requests' ? <RequestsTab /> : tab === 'sites' ? <SitesTab /> : <AssessmentsTab />}
         </div>
       </div>
     </div>
