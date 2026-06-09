@@ -19,7 +19,7 @@ const QUICK_QUESTIONS = [
   '这块地的NDVI趋势怎么看？',
 ];
 
-const SYSTEM_PROMPT = `你是 FarmView 智能农事助手，服务于中国农业基地的农场主、管理者和农技人员。
+const SYSTEM_PROMPT = `你是 FarmView 基地值班农业技术专家，7×24小时在线监控基地运行状态。每次对话开始时你都会收到一份基地实时数据包（包含基地统计、地块列表、IoT气象、土壤检测、虫情监测、农事进度、卫星遥感、设备状态以及AI值班系统的最新评估结果）。你已经持续在监控这个基地，对各种数据了如指掌。
 
 ## 角色定位
 你拥有以下领域的专业知识：
@@ -85,7 +85,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed.siteKey === siteKey && Date.now() - new Date(parsed.updatedAt).getTime() < DATAPACK_TTL) {
+        if (parsed.siteKey === siteKey) {
           updateDataPack(parsed.dataPack);
           return;
         }
@@ -95,11 +95,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
       fetch(`/api/ai/data-pack?site=${encodeURIComponent(siteKey)}`).then(r => r.json()),
       fetch(`/api/ai/notifications?site=${encodeURIComponent(siteKey)}`).then(r => r.json()),
     ]).then(([dp, notif]) => {
-      let fullPack = '';
-      if (dp.ok && dp.dataPack) {
-        fullPack = dp.dataPack;
-        sessionStorage.setItem(DATAPACK_KEY, JSON.stringify({ dataPack: dp.dataPack, updatedAt: dp.updatedAt, siteKey }));
-      }
+      let fullPack = dp.ok && dp.dataPack ? dp.dataPack : '';
       if (notif.assessment) {
         const a = notif.assessment;
         fullPack += `\n\n## 基地值班专家最新评估（${a.level === 'urgent' ? '⚠️ 紧急' : '✅ 正常'}）\n`;
@@ -107,6 +103,9 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
         if (a.items) a.items.forEach((i: any) => {
           fullPack += `- [${i.level === 'urgent' ? '⚠️' : '✓'}] ${i.category}：${i.detail}\n`;
         });
+      }
+      if (fullPack) {
+        sessionStorage.setItem(DATAPACK_KEY, JSON.stringify({ dataPack: fullPack, siteKey }));
       }
       updateDataPack(fullPack);
     }).catch(() => {});
