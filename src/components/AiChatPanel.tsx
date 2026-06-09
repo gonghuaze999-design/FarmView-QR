@@ -129,7 +129,9 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   const recordTimerRef = useRef<any>(null);
   const recordStartY = useRef(0);
 
+  const [voiceError, setVoiceError] = useState('');
   const startRecording = async () => {
+    setVoiceError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -155,7 +157,10 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
         if (t >= 59) { stopRecording(true); return 0; }
         return t + 1;
       }), 1000);
-    } catch { /* permission denied */ }
+    } catch {
+      setVoiceError('录音需要HTTPS或授予麦克风权限');
+      setVoiceMode(false);
+    }
   };
 
   const stopRecording = (autoRestart = false) => {
@@ -329,7 +334,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
 
       {/* 面板 */}
       <div
-        className="relative w-full sm:max-w-md md:max-w-xl mx-auto rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full mx-auto sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden rounded-t-3xl"
         style={{ background: '#fffdf7', height: '62vh' }}
       >
         {/* 标题栏 */}
@@ -437,6 +442,9 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
           </div>
         )}
 
+        {voiceError && (
+          <div className="px-4 py-2 text-xs text-red-500 bg-red-50 text-center">{voiceError}</div>
+        )}
         {/* 输入栏 */}
         <div className="px-4 py-3 border-t flex-shrink-0" style={{ borderColor: '#f0f0eb' }}>
           {isRecording ? (
