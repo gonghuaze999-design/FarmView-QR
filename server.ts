@@ -1271,7 +1271,7 @@ async function startServer() {
   });
 
   // ── AI 值班专家：定期评估 ─────────────────────────
-  const ASSESSMENT_PROMPT = '你是基地值班农业专家。输出JSON：{"level":"normal或urgent","summary":"一句话总结","items":[{"category":"类别","level":"normal或urgent","detail":"简洁描述"}]}。判断：温度<0或>40=urgent、pH<4或>9=urgent、超期任务>5=urgent。2项以上urgent则整体urgent。';
+  const ASSESSMENT_PROMPT = '你是基地值班农业专家。输出JSON：{"level":"normal或urgent","summary":"一句话总结","items":[{"category":"类别","level":"normal或urgent","detail":"简洁描述"}]}。判断：温度<0或>40=urgent、风速>15m/s=大风urgent、降水量>50mm=暴雨urgent、pH<4或>9=urgent、超期任务>6=urgent。2项以上urgent则整体urgent。';
 
   interface AssessmentItem { category: string; level: string; detail: string; }
   interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
@@ -1322,7 +1322,7 @@ async function startServer() {
 
   // 启动时立即评估一次，之后每30分钟
   setTimeout(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 10000);
-  setInterval(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 30 * 60_000);
+  setInterval(() => { for (const sk of Object.keys(sitesConfig.sites)) assessSite(sk); }, 3 * 60 * 60_000);
 
   // 铃铛通知API
   app.get('/api/ai/notifications', (req, res) => {
