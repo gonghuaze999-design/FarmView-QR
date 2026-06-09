@@ -328,6 +328,18 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
               </div>
             </div>
           ))}
+          {streaming && !streamText && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-1" style={{ background: '#f5f3ff', border: '1px solid #ede9fe' }}>
+                <span className="text-xs text-purple-400">思考中</span>
+                <span className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              </div>
+            </div>
+          )}
           {streamText && (
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm text-zinc-700" style={{ background: '#f5f3ff', border: '1px solid #ede9fe' }}>
