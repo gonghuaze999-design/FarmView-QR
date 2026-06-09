@@ -591,7 +591,15 @@ async function startServer() {
   app.get('/api/admin/join-requests', (req, res) => {
     if (!joinDb) return res.status(503).json({ error: '数据库服务暂不可用' });
     const rows = joinDb.prepare('SELECT * FROM join_requests ORDER BY created_at DESC').all();
-    res.json({ ok: true, total: rows.length, data: rows });
+    res.json({ data: rows });
+  });
+
+  app.delete('/api/admin/join-requests/:id', (req, res) => {
+    if (!joinDb) return res.status(500).json({ error: 'DB 不可用' });
+    const id = parseInt(req.params.id);
+    if (!id) return res.status(400).json({ error: '无效ID' });
+    joinDb.prepare('DELETE FROM join_requests WHERE id = ?').run(id);
+    res.json({ ok: true });
   });
 
   // 验证数字农田账号并返回基地列表

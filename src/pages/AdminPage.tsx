@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { RefreshCw, Download, Copy, Check, QrCode, Plus, Save, ArrowRight, ArrowLeft, ShieldCheck, MapPin, Trash2 } from 'lucide-react';
+import { RefreshCw, Download, Copy, Check, QrCode, Plus, Save, ArrowRight, ArrowLeft, ShieldCheck, MapPin, Trash2, X } from 'lucide-react';
 
 interface JoinRequest {
   id: number; name: string; province: string; city: string; county: string;
@@ -15,12 +15,19 @@ const RequestsTab: React.FC = () => {
   const [rows, setRows] = useState<JoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const fetchData = () => {
     setLoading(true);
     fetch('/api/admin/join-requests').then(r => r.json()).then(d => setRows(d.data || [])).catch(() => setRows([])).finally(() => setLoading(false));
   };
   useEffect(() => { fetchData(); }, []);
+
+  const handleDelete = async (id: number) => {
+    await fetch(`/api/admin/join-requests/${id}`, { method: 'DELETE' });
+    setDeleteId(null);
+    fetchData();
+  };
 
   const exportCSV = () => {
     const header = ['序号', '提交时间', '姓名', '省份', '城市', '区县', '详细地址', '面积(亩)', '电话', '来源'];
@@ -71,13 +78,28 @@ const RequestsTab: React.FC = () => {
         : <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={r.id} className="bg-white border border-zinc-100 rounded-2xl p-4 shadow-sm">
+              {deleteId === r.id && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40" onClick={() => setDeleteId(null)}>
+                  <div className="bg-white rounded-2xl p-6 mx-4 w-full max-w-xs shadow-xl" onClick={e => e.stopPropagation()}>
+                    <p className="text-sm font-medium text-zinc-800 mb-1">确认删除</p>
+                    <p className="text-xs text-zinc-500 mb-4">删除 {r.name} 的申报记录？此操作不可撤销。</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setDeleteId(null)} className="flex-1 py-2 rounded-xl bg-zinc-100 text-zinc-600 text-sm">取消</button>
+                      <button onClick={() => handleDelete(r.id)} className="flex-1 py-2 rounded-xl bg-red-500 text-white text-sm">删除</button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white bg-emerald-500 rounded-full w-5 h-5 flex items-center justify-center shrink-0">{i + 1}</span>
                   <span className="font-semibold text-zinc-800">{r.name}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${r.source === 'apply' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>{r.source === 'apply' ? '申报基地' : '加入我们'}</span>
                 </div>
-                <span className="text-xs text-zinc-400 shrink-0">{r.created_at?.slice(0, 16)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-400 shrink-0">{r.created_at?.slice(0, 16)}</span>
+                  <button onClick={() => setDeleteId(r.id)} className="p-1 text-zinc-400 hover:text-red-500 transition-colors" title="删除"><Trash2 size={14} /></button>
+                </div>
               </div>
               <div className="text-sm text-zinc-600 space-y-0.5 ml-7">
                 <p>📍 {r.province}{r.city}{r.county}{r.address}</p>
