@@ -329,7 +329,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
 
       {/* 面板 */}
       <div
-        className="relative w-full max-w-md sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto rounded-t-3xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full sm:max-w-md md:max-w-xl mx-auto rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
         style={{ background: '#fffdf7', height: '62vh' }}
       >
         {/* 标题栏 */}
