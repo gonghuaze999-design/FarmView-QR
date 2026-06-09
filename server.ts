@@ -1356,6 +1356,9 @@ async function startServer() {
       if (m.imageBase64) {
         parts.push({ inlineData: { mimeType: 'image/png', data: m.imageBase64.replace(/^data:image\/\w+;base64,/, '') } });
       }
+      if (m.audioBase64) {
+        parts.push({ inlineData: { mimeType: 'audio/webm', data: m.audioBase64.replace(/^data:audio\/\w+;base64,/, '') } });
+      }
       if (m.text) parts.push({ text: m.text });
       return { role: m.role === 'assistant' ? 'model' : 'user', parts: parts.length > 0 ? parts : [{ text: '' }] };
     });
