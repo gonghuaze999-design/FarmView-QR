@@ -76,6 +76,20 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   const [, setDataPack] = useState<string>('');
 
   const updateDataPack = (dp: string) => { dataPackRef.current = dp; setDataPack(dp); };
+  const [kbPad, setKbPad] = useState(0);
+
+  // 键盘弹起时把面板推上去，避免输入框被遮挡
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const pad = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKbPad(pad > 50 ? pad : 0);
+    };
+    vv.addEventListener('resize', onResize);
+    vv.addEventListener('scroll', onResize);
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize); };
+  }, []);
 
   // 加载数据包 + 值班评估结果（6小时缓存）
   useEffect(() => {
@@ -328,7 +342,7 @@ export const AiChatPanel: React.FC<AiChatPanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[160] flex flex-col justify-end">
+    <div className="fixed inset-0 z-[160] flex flex-col justify-end" style={{ paddingBottom: kbPad }}>
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
