@@ -1,16 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Edit2, X, Camera, Check, QrCode, ChevronRight, Download } from 'lucide-react';
+import { Bell, X, QrCode, ChevronRight, Download } from 'lucide-react';
 import { WeatherWidget } from './WeatherWidget';
 import { useSiteContext } from '../contexts/SiteContext';
-
-const DEFAULT_AVATARS = [
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm1&backgroundColor=d1fae5',
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm2&backgroundColor=dbeafe',
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm3&backgroundColor=fef3c7',
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm4&backgroundColor=fce7f3',
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm5&backgroundColor=ede9fe',
-  'https://api.dicebear.com/7.x/thumbs/svg?seed=farm6&backgroundColor=d1fae5',
-];
 
 // 二维码生成弹窗
 const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> = ({ url, siteName, onClose }) => {
@@ -111,79 +102,11 @@ const QRModal: React.FC<{ url: string; siteName: string; onClose: () => void }> 
   );
 };
 
-// 头像选择弹窗
-const AvatarModal: React.FC<{
-  current: string;
-  onSelect: (url: string) => void;
-  onClose: () => void;
-}> = ({ current, onSelect, onClose }) => {
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      if (ev.target?.result) {
-        onSelect(ev.target.result as string);
-        onClose();
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md sm:max-w-lg md:max-w-xl p-5 pb-8" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-base font-bold text-zinc-800">选择头像</h3>
-          <button onClick={onClose} className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-full hover:bg-zinc-100 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* 默认头像网格 */}
-        <div className="grid grid-cols-6 gap-2 mb-4">
-          {DEFAULT_AVATARS.map((url, i) => (
-            <button
-              key={i}
-              onClick={() => { onSelect(url); onClose(); }}
-              className={`relative w-full aspect-square rounded-full overflow-hidden border-2 transition-all ${current === url ? 'border-emerald-500 scale-110' : 'border-transparent hover:border-emerald-300'}`}
-            >
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              {current === url && (
-                <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
-                  <Check size={12} className="text-emerald-600" />
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* 上传自定义头像 */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full border-2 border-dashed border-zinc-200 rounded-2xl py-3 flex items-center justify-center gap-2 text-sm text-zinc-500 hover:border-emerald-300 hover:text-emerald-600 transition-colors"
-        >
-          <Camera size={16} />
-          上传自定义头像
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      </div>
-    </div>
-  );
-};
-
 export const Header: React.FC = () => {
   const { binding } = useSiteContext();
-  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('farmview_avatar') || DEFAULT_AVATARS[0]);
-  const [userName, setUserName] = useState(() => localStorage.getItem('farmview_username') || '');
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showBellMenu, setShowBellMenu] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState<any[]>([]);
-  const nameInputRef = useRef<HTMLInputElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
   const fetchNotifications = async () => {
@@ -207,65 +130,16 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [showBellMenu]);
 
-  // 默认名称用基地名
-  const displayName = userName || binding?.siteName || '农场主';
+  const displayName = binding?.siteName || '农场主';
 
   // 当前页面 URL（用于生成二维码）
   const currentUrl = window.location.href;
 
-  const handleNameSave = () => {
-    localStorage.setItem('farmview_username', userName);
-    setIsEditingName(false);
-  };
-
-  const handleAvatarSelect = (url: string) => {
-    setAvatarUrl(url);
-    localStorage.setItem('farmview_avatar', url);
-  };
-
-  useEffect(() => {
-    if (isEditingName) nameInputRef.current?.focus();
-  }, [isEditingName]);
-
   return (
     <>
       <header className="bg-white/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between fixed top-0 left-1/2 -translate-x-1/2 z-50 border-b shadow-sm w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl" style={{ borderColor: '#f0f0eb' }}>
-        {/* 左侧：头像 + 名称 */}
-        <div className="flex items-center gap-2.5 flex-shrink-0 min-w-0">
-          <button
-            onClick={() => setShowAvatarModal(true)}
-            className="relative w-10 h-10 flex-shrink-0 group"
-          >
-            <img src={avatarUrl} alt="Avatar" className="w-full h-full rounded-full border-2 border-white shadow-sm object-cover transition-transform group-hover:scale-105" />
-            <div className="absolute -bottom-0.5 -right-0.5 bg-white p-0.5 rounded-full shadow-sm border border-zinc-100 text-zinc-400 group-hover:text-emerald-600 transition-colors">
-              <Edit2 size={10} />
-            </div>
-          </button>
-
-          {isEditingName ? (
-            <div className="flex items-center gap-1">
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={userName}
-                onChange={e => setUserName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleNameSave()}
-                placeholder={binding?.siteName || '输入名称'}
-                className="text-base font-bold text-zinc-800 outline-none border-b-2 border-emerald-500 bg-transparent w-28 placeholder-zinc-300"
-              />
-              <button onClick={handleNameSave} className="p-1 text-emerald-500 hover:text-emerald-600">
-                <Check size={14} />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsEditingName(true)}
-              className="text-base font-bold text-zinc-800 truncate max-w-[120px] hover:text-emerald-600 transition-colors text-left"
-            >
-              {displayName}
-            </button>
-          )}
-        </div>
+        {/* 左侧：基地名称 */}
+        <h1 className="text-base font-bold text-zinc-800 truncate max-w-[200px] sm:max-w-[300px] flex-shrink">{displayName}</h1>
 
         {/* 右侧：气象 + 铃铛 */}
         <div className="flex items-center gap-3 flex-shrink-0">
@@ -321,14 +195,6 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </header>
-
-      {showAvatarModal && (
-        <AvatarModal
-          current={avatarUrl}
-          onSelect={handleAvatarSelect}
-          onClose={() => setShowAvatarModal(false)}
-        />
-      )}
 
       {showQR && (
         <QRModal
