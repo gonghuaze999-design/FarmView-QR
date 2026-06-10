@@ -1305,11 +1305,23 @@ async function startServer() {
   interface AssessmentItem { category: string; level: string; detail: string; }
   interface Assessment { level: string; summary: string; items: AssessmentItem[]; }
 
+  function hashPack(pack: string): string {
+    let h = 0; for (let i = 0; i < pack.length; i++) { h = ((h << 5) - h) + pack.charCodeAt(i); h |= 0; }
+    return String(h);
+  }
+
   async function assessSite(siteKey: string): Promise<Assessment | null> {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) { console.warn('[Assess] GEMINI_API_KEY 未配置'); return null; }
     try {
       const pack = await buildDataPack(siteKey);
+      const newHash = hashPack(pack);
+      const prev = getCache(`${siteKey}:assessment:hash`);
+      if (prev && prev.data === newHash) {
+        console.log(`[Assess] ${siteKey}: 数据未变化，跳过`);
+        return null;
+      }
+      setCache(`${siteKey}:assessment:hash`, newHash, 25 * 60 * 60_000);
       const res = await axios.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
         { system_instruction: { parts: [{ text: ASSESSMENT_PROMPT }] }, contents: [{ role: 'user', parts: [{ text: pack }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } },
