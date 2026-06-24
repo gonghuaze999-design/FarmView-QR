@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Cloud, Wind, Droplets, AlertTriangle, X, Thermometer } from 'lucide-react';
 import { fetchWeatherData, WeatherData } from '../services/weatherService';
 import { useSiteContext } from '../contexts/SiteContext';
@@ -21,11 +21,22 @@ export const WeatherWidget: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
+  const fetchWeather = useCallback(async () => {
+    if (!coordsRef.current) return;
+    try {
+      const data = await fetchWeatherData(coordsRef.current.lat, coordsRef.current.lng);
+      setWeather(data);
+      setError(null);
+    } catch {
+      setError('无法获取天气数据');
+    }
+  }, []);
+
+  // 基地变化时重新计算中心坐标
   useEffect(() => {
     if (!binding?.baseId) return;
-
-    // 用基地 ID 查地块列表，取农田中心点坐标
     const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
     fetch(`/api/farm/land/list?baseId=${binding.baseId}`, {
       headers: { 'X-Site-Name': siteKey }
@@ -33,7 +44,6 @@ export const WeatherWidget: React.FC = () => {
       .then(r => r.json())
       .then(res => {
         if (res.code === 200 && res.data?.length > 0) {
-          // 解析所有地块坐标，计算中心点
           let lngs: number[] = [], lats: number[] = [];
           res.data.forEach((land: any) => {
             if (land.mapPolygonGeo) {
@@ -47,16 +57,22 @@ export const WeatherWidget: React.FC = () => {
             }
           });
           if (lngs.length > 0) {
-            const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-            const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-            return fetchWeatherData(centerLat, centerLng);
+            coordsRef.current = {
+              lat: (Math.min(...lats) + Math.max(...lats)) / 2,
+              lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+            };
+            fetchWeather();
           }
         }
-        throw new Error('无法获取农田坐标');
       })
-      .then(data => setWeather(data))
       .catch(() => setError('无法获取天气数据'));
-  }, [binding?.baseId]);
+  }, [binding?.baseId, fetchWeather]);
+
+  // 每10分钟刷新天气数据
+  useEffect(() => {
+    const t = setInterval(fetchWeather, 10 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [fetchWeather]);
 
   if (error) return <div className="text-red-500 text-xs bg-red-50 px-3 py-1.5 rounded-full border border-red-100">{error}</div>;
   if (!weather) return <div className="text-xs text-zinc-400 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100 animate-pulse">加载天气...</div>;
