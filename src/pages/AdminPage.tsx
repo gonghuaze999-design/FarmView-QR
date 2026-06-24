@@ -162,6 +162,13 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
     }
   };
 
+  // 只有一个基地时自动加载地块列表
+  useEffect(() => {
+    if (bases.length === 1) {
+      selectBase(bases[0].id);
+    }
+  }, [bases]);
+
   const toggleLand = (id: string) => {
     const next = new Set(selectedLands);
     next.has(id) ? next.delete(id) : next.add(id);
