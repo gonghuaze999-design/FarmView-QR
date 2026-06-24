@@ -21,6 +21,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - farmview_data:/app/data
+      - ./sites-config.json:/app/sites-config.json
 
 volumes:
   farmview_data:
