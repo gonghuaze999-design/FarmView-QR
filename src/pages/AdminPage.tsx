@@ -126,6 +126,8 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const [selectedBaseId, setSelectedBaseId] = useState<number | null>(null);
   const [lands, setLands] = useState<any[]>([]);
   const [selectedLands, setSelectedLands] = useState<Set<string>>(new Set());
+  const [iotDevices, setIotDevices] = useState<any[]>([]);
+  const [deviceLandMap, setDeviceLandMap] = useState<Record<string, string>>({});
   const [verifyStatus, setVerifyStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
   const [verifyMsg, setVerifyMsg] = useState('');
   const [token, setToken] = useState('');
@@ -175,6 +177,30 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
     setSelectedLands(next);
   };
 
+  const fetchDevices = async () => {
+    if (!selectedBaseId) return;
+    const r = await fetch('/api/admin/get-devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, baseId: selectedBaseId }) });
+    const d = await r.json();
+    if (d.ok && d.devices?.length > 0) {
+      setIotDevices(d.devices);
+      // 所有设备默认分配到第一个已选地块
+      const firstLand = lands.length > 0 ? String(lands[0].id) : '';
+      const map: Record<string, string> = {};
+      d.devices.forEach((dev: any) => { map[String(dev.id)] = firstLand; });
+      setDeviceLandMap(map);
+    }
+  };
+
+  const assignDevice = (deviceId: string, landId: string) => {
+    setDeviceLandMap(prev => ({ ...prev, [deviceId]: landId }));
+  };
+
+  const DEVICE_TYPE_MAP: Record<string, { icon: string; label: string; matchKey: string }> = {
+    weather: { icon: '📡', label: '气象站', matchKey: 'weather' },
+    insect: { icon: '🐛', label: '虫情灯', matchKey: 'insect' },
+    camera: { icon: '📷', label: '摄像头', matchKey: 'camera' },
+  };
+
   const doSave = async () => {
     setSaving(true);
     try {
@@ -185,6 +211,7 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           apiAuth: { username, password },
           baseId: selectedBaseId,
           farmlandIds: Array.from(selectedLands),
+          deviceBindings: deviceLandMap,
         }),
       });
       const d = await r.json();
@@ -225,10 +252,10 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
     <div className="space-y-4">
       {/* 步骤指示 */}
       <div className="flex items-center gap-2 text-xs text-zinc-500 mb-2">
-        {[1,2,3,4].map(s => (
+        {[1,2,3,4,5].map(s => (
           <React.Fragment key={s}>
             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[11px] font-bold ${step >= s ? 'bg-emerald-600' : 'bg-zinc-300'}`}>{s}</span>
-            <span className={step >= s ? 'text-emerald-700 font-medium' : ''}>{['基本信息','对接账号','选择地块','完成'][s-1]}</span>
+            <span className={step >= s ? 'text-emerald-700 font-medium' : ''}>{['基本信息','对接账号','选择地块','设备落位','完成'][s-1]}</span>
             {s < 4 && <span className="flex-1 h-px bg-zinc-200 mx-1" />}
           </React.Fragment>
         ))}
@@ -312,6 +339,48 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
         </div>
       )}
 
+      {/* Step 4: 设备落位 */}
+      {step === 4 && (
+        <div className="space-y-3">
+          {iotDevices.length === 0 ? (
+            <div className="text-center py-8 text-zinc-400 text-sm bg-zinc-50 rounded-2xl border border-zinc-100">
+              该基地暂无物联网设备
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-zinc-500">将设备分配到对应地块（共 {iotDevices.length} 个设备）</p>
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {iotDevices.map((dev: any) => {
+                  const devId = String(dev.id);
+                  const name = dev.name || `设备 ${devId}`;
+                  const nameLower = name.toLowerCase();
+                  let devType: 'weather' | 'insect' | 'camera' = 'weather';
+                  if (nameLower.includes('虫')) devType = 'insect';
+                  else if (nameLower.includes('摄像') || nameLower.includes('监控')) devType = 'camera';
+                  const meta = DEVICE_TYPE_MAP[devType];
+                  return (
+                    <div key={devId} className="flex items-center gap-3 bg-zinc-50 rounded-xl px-3 py-2.5">
+                      <span className="text-lg flex-shrink-0">{meta.icon}</span>
+                      <span className="text-sm text-zinc-700 flex-1 min-w-0 truncate">{name}</span>
+                      <select
+                        value={deviceLandMap[devId] || ''}
+                        onChange={e => assignDevice(devId, e.target.value)}
+                        className="text-xs px-2 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-600 focus:border-emerald-500 focus:outline-none max-w-[160px]"
+                      >
+                        <option value="">不绑定</option>
+                        {lands.filter((l: any) => selectedLands.has(String(l.id))).map((l: any) => (
+                          <option key={String(l.id)} value={String(l.id)}>{l.farmlandName || `地块${l.id}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* 导航按钮 */}
       <div className="flex gap-2 pt-2">
         {step > 1 && (
@@ -319,8 +388,8 @@ const NewSiteWizard: React.FC<{ onDone: () => void }> = ({ onDone }) => {
             <ArrowLeft size={14} />上一步
           </button>
         )}
-        {step < 4 ? (
-          <button onClick={() => setStep(step + 1)}
+        {step < 5 ? (
+          <button onClick={async () => { if (step === 3) await fetchDevices(); setStep(step + 1); }}
             disabled={(step === 1 && (!siteKey || !siteName)) || (step === 2 && verifyStatus !== 'ok') || (step === 3 && selectedLands.size === 0)}
             className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-zinc-300 disabled:text-zinc-500 transition-colors flex items-center justify-center gap-1">
             下一步<ArrowRight size={14} />

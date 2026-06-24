@@ -637,18 +637,46 @@ async function startServer() {
     }
   });
 
+  // 获取某基地下的物联网设备列表（用临时token）
+  app.post('/api/admin/get-devices', async (req, res) => {
+    const { token, baseId } = req.body;
+    if (!token || !baseId) return res.status(400).json({ error: '缺少参数' });
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const iotRes = await axios.get(`${API_BASE}/collect/iot/locationList?baseId=${baseId}`, { headers, timeout: 10000 });
+      if (iotRes.data?.code !== 200) return res.json({ ok: false, error: '获取设备失败' });
+      res.json({ ok: true, devices: iotRes.data.data || [] });
+    } catch (e: any) {
+      res.json({ ok: false, error: e.message });
+    }
+  });
+
   // 新增基地配置
   app.post('/api/admin/add-site', async (req, res) => {
-    const { siteKey, siteName, owner, apiAuth, baseId, farmlandIds } = req.body;
+    const { siteKey, siteName, owner, apiAuth, baseId, farmlandIds, deviceBindings } = req.body;
     if (!siteKey || !siteName || !apiAuth?.username || !apiAuth?.password || !baseId) {
       return res.status(400).json({ error: '缺少必要参数' });
     }
     if (sitesConfig.sites[siteKey]) return res.status(400).json({ error: `基地标识 ${siteKey} 已存在` });
 
+    // 从 deviceBindings 构建 devices 字段
+    const weatherIds: string[] = [];
+    const insectIds: string[] = [];
+    const cameraIds: string[] = [];
+    if (deviceBindings && typeof deviceBindings === 'object') {
+      for (const [landId, binds] of Object.entries(deviceBindings)) {
+        const b = binds as any;
+        if (b.weatherId) weatherIds.push(b.weatherId);
+        if (b.insectId) insectIds.push(b.insectId);
+        if (b.cameraId) cameraIds.push(b.cameraId);
+      }
+    }
+
     sitesConfig.sites[siteKey] = {
       siteName, owner: owner || 'admin', apiAuth, baseId,
       farmlandIds: farmlandIds || [],
-      devices: { weatherIds: [], insectIds: [], cameraIds: [] },
+      devices: { weatherIds, insectIds, cameraIds },
+      deviceBindings: deviceBindings || {},
     };
 
     const configPath = path.join(__dirname, 'sites-config.json');
