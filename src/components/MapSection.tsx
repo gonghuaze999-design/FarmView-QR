@@ -526,17 +526,16 @@ export const MapSection: React.FC = () => {
                 );
                 const cams = matched.length > 0 ? [matched[0]] : allCams.slice(0, 1);
                 return cams.length > 0 ? cams.map((cam: any, idx: number) => (
-                  <div key={idx} className="rounded-2xl overflow-hidden bg-black">
-                    <div className="relative aspect-video flex items-center justify-center">
-                      <div className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 z-10">
-                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> LIVE
+                  <div key={idx} className="aspect-video bg-black rounded-2xl overflow-hidden shadow-lg relative">
+                    {cam.status === 1 && (cam.hls || cam.videoUrl) ? (
+                      <HlsPlayer src={cam.hls || cam.videoUrl || ''} cameraName={cam.cameraName} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-zinc-500 bg-zinc-900">
+                        <div className="text-center">
+                          <p className="text-sm text-zinc-400">设备离线</p>
+                        </div>
                       </div>
-                      {cam.status === 1 ? (
-                        <HlsPlayer src={cam.hls || cam.videoUrl} cameraName={cam.cameraName} />
-                      ) : (
-                        <div className="text-zinc-500 text-sm">设备离线</div>
-                      )}
-                    </div>
+                    )}
                     <div className="px-3 py-2 bg-zinc-900">
                       <p className="text-xs text-zinc-300 font-medium">{cam.cameraName || `摄像头 ${idx + 1}`}</p>
                       <p className="text-[10px] text-zinc-500 mt-0.5">{cam.status === 1 ? '🟢 在线' : '🔴 离线'}</p>
