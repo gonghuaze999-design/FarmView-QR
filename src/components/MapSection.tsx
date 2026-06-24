@@ -200,6 +200,12 @@ export const MapSection: React.FC = () => {
   };
 
   const handleDeviceClick = async (device: DeviceMarker) => {
+    // 在用户点击事件链中预激活视频播放权限
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true;
+    v.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0;width:1px;height:1px';
+    document.body.appendChild(v);
+    v.play().then(() => v.remove(), () => v.remove());
+
     setSelectedDevice(device);
     setIsDeviceSheetOpen(true);
     setIsBottomSheetOpen(false);

@@ -185,6 +185,10 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
 
   const activeCam = cameras[activeIndex];
   const scrollTo = (index: number) => {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true;
+    v.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0;width:1px;height:1px';
+    document.body.appendChild(v);
+    v.play().then(() => v.remove(), () => v.remove());
     setActiveIndex(index);
     scrollRef.current?.children[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   };
