@@ -155,9 +155,26 @@ export const MapComponent = forwardRef(({
           allPolygons.push(polygonObj);
         }
 
-        // 自动缩放地图到多边形可视范围（只在初次加载时执行）
-        if (allPolygons.length > 0 && !hasFitView.current) {
-          mapInstance.current.setFitView(allPolygons);
+        // 自动缩放地图：优先以设备位置为中心，无设备时以地块为准
+        if (!hasFitView.current) {
+          const validDevices = (devices || []).filter(d => d.position[0] !== 0 && d.position[1] !== 0);
+          if (validDevices.length > 0) {
+            const lngs = validDevices.map(d => d.position[0]);
+            const lats = validDevices.map(d => d.position[1]);
+            const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+            const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+            if (validDevices.length === 1 || (maxLng - minLng < 0.0001 && maxLat - minLat < 0.0001)) {
+              // 只有1个设备或位置极近，强制合适缩放级别
+              mapInstance.current.setZoomAndCenter(15, [lngs[0], lats[0]]);
+            } else {
+              mapInstance.current.setBounds(
+                new AMap.Bounds([minLng, minLat], [maxLng, maxLat]),
+                false, [60, 60, 60, 60]
+              );
+            }
+          } else if (allPolygons.length > 0) {
+            mapInstance.current.setFitView(allPolygons);
+          }
           hasFitView.current = true;
         }
 
