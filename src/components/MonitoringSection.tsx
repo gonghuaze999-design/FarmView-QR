@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Thermometer, Droplets, Wind, CloudRain, Sun, Zap, BarChart3, Bug, Sprout, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useSiteContext } from '../contexts/SiteContext';
-import { getFarmlandList, getEnvLatest, getSoilReport, getInsectData, getInsectImages } from '../services/api';
+import { getFarmlandList, getIotLocations, getEnvLatest, getSoilReport, getInsectData, getInsectImages } from '../services/api';
 
 /* ================================================================
    气象指标区 — 扩大查询范围至180天，设备离线也能抓到末次记录
@@ -346,35 +346,87 @@ const InsectPanel: React.FC<{ farmlandId: string | null; refreshKey: number }> =
 };
 
 /* ================================================================
-   数据 Tab 主组件
+   数据 Tab 主组件 — 按设备类型匹配对应地块ID查询
    ================================================================ */
 export const MonitoringSection: React.FC = () => {
   const { binding } = useSiteContext();
-  const [farmlandId, setFarmlandId] = useState<string | null>(null);
+  const [weatherFid, setWeatherFid] = useState<string | null>(null);
+  const [insectFid, setInsectFid] = useState<string | null>(null);
+  const [hasSoilSensor, setHasSoilSensor] = useState(false);
+  const [devicesLoading, setDevicesLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!binding) return;
-    const bid = binding.baseId;
-    const fid = binding.farmlandIds?.[0];
-    if (fid) {
-      setFarmlandId(String(fid));
-    } else {
-      getFarmlandList(bid).then(res => {
-        if (res.code === 200 && res.data?.length > 0) setFarmlandId(String(res.data[0].id));
-      });
-    }
+    const baseId = binding.baseId;
+    setDevicesLoading(true);
+
+    Promise.all([
+      getFarmlandList(baseId),
+      getIotLocations(baseId),
+    ]).then(([landRes, iotRes]) => {
+      const lands: any[] = landRes.code === 200 ? (landRes.data || []) : [];
+      const devices: any[] = iotRes.code === 200 ? (iotRes.data || []) : [];
+
+      // 设备名提取乡镇关键词 → 匹配地块
+      const matchFarmland = (devName: string): string | null => {
+        const n = String(devName || '');
+        for (const kw of ['新元', '关坪', '罗田', '大进', '紫水', '大德', '和谦']) {
+          if (n.includes(kw)) {
+            const matched = lands.find((l: any) =>
+              String(l.farmlandName || '').includes(kw) && String(l.farmlandName || '').includes('1号')
+            );
+            if (matched) return String(matched.id);
+            // 没有1号地块，找任意包含该关键词的地块
+            const any = lands.find((l: any) => String(l.farmlandName || '').includes(kw));
+            if (any) return String(any.id);
+          }
+        }
+        return null;
+      };
+
+      let wfid: string | null = null;
+      let ifid: string | null = null;
+      let hasSoil = false;
+
+      for (const d of devices) {
+        const name = String(d.name || '').toLowerCase();
+        if (!wfid && (name.includes('气象') || name.includes('weather'))) {
+          wfid = matchFarmland(d.name);
+        }
+        if (!ifid && name.includes('虫')) {
+          ifid = matchFarmland(d.name);
+        }
+        if (name.includes('土壤') || name.includes('墒情') || name.includes('soil')) {
+          hasSoil = true;
+        }
+      }
+
+      setWeatherFid(wfid);
+      setInsectFid(ifid);
+      setHasSoilSensor(hasSoil);
+      setDevicesLoading(false);
+    }).catch(() => setDevicesLoading(false));
   }, [binding]);
 
-  const doRefresh = () => {
-    setRefreshKey(k => k + 1);
-  };
+  const doRefresh = () => setRefreshKey(k => k + 1);
 
   useEffect(() => {
-    doRefresh();
-    const t = setInterval(doRefresh, 5 * 60 * 1000);
+    const t = setInterval(() => setRefreshKey(k => k + 1), 5 * 60 * 1000);
     return () => clearInterval(t);
   }, []);
+
+  if (devicesLoading) {
+    return (
+      <section className="px-4 pb-6 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-zinc-100 animate-pulse" />
+          <div className="h-4 w-24 bg-zinc-100 rounded animate-pulse" />
+        </div>
+        {[1,2,3].map(i => <div key={i} className="h-48 bg-zinc-50 rounded-2xl animate-pulse" />)}
+      </section>
+    );
+  }
 
   return (
     <section className="px-4 pb-6 space-y-4">
@@ -385,28 +437,48 @@ export const MonitoringSection: React.FC = () => {
           </span>
           <h2 className="text-base font-bold text-zinc-800">数据监测</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={doRefresh}
-            className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
-          >
-            <RefreshCw size={12} />
-            全部刷新
-          </button>
-        </div>
+        <button
+          onClick={doRefresh}
+          className="text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 px-3 py-1.5 rounded-full font-medium transition-all flex items-center gap-1.5"
+        >
+          <RefreshCw size={12} /> 全部刷新
+        </button>
       </div>
 
-      {!farmlandId ? (
+      {!weatherFid && !insectFid ? (
         <div className="text-center py-16 text-zinc-400 text-sm bg-white rounded-2xl border border-zinc-100">
           <AlertTriangle size={28} className="mx-auto mb-3 text-zinc-300" />
-          未找到地块数据
+          该基地未布设物联网监测设备
         </div>
       ) : (
         <>
-          <WeatherPanel farmlandId={farmlandId} refreshKey={refreshKey} />
+          {weatherFid ? (
+            <WeatherPanel farmlandId={weatherFid} refreshKey={refreshKey} />
+          ) : (
+            <div className="bg-white rounded-2xl border border-zinc-100 p-6 text-center text-zinc-400 text-sm">
+              该基地未布设气象监测设备
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 min-w-0"><SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} /></div>
-            <div className="flex-1 min-w-0"><InsectPanel farmlandId={farmlandId} refreshKey={refreshKey} /></div>
+            <div className="flex-1 min-w-0">
+              {hasSoilSensor ? (
+                <SoilPanel baseId={binding?.baseId ?? null} refreshKey={refreshKey} />
+              ) : (
+                <div className="bg-white rounded-2xl border border-zinc-100 p-6 text-center text-zinc-400 text-sm h-full flex items-center justify-center">
+                  <div>该基地未布设土壤墒情传感器<br /><span className="text-xs text-zinc-300 mt-1">如布设后将自动显示土壤检测结果</span></div>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              {insectFid ? (
+                <InsectPanel farmlandId={insectFid} refreshKey={refreshKey} />
+              ) : (
+                <div className="bg-white rounded-2xl border border-zinc-100 p-6 text-center text-zinc-400 text-sm h-full flex items-center justify-center">
+                  该基地未布设虫情监测设备
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
