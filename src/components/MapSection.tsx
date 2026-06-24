@@ -202,6 +202,9 @@ export const MapSection: React.FC = () => {
               }
             }
 
+            // 同地块设备计数，避免重叠
+            const landDeviceCount: Map<string, number> = new Map();
+
             // 设备名 → 地块名关键词匹配规则
             const matchLand = (devName: string): string | null => {
               const n = devName.toLowerCase();
@@ -240,10 +243,16 @@ export const MapSection: React.FC = () => {
                 } catch (e) { /* ignore */ }
               }
               if (position[0] === 0) {
-                // 无坐标：按设备名匹配地块，放到地块中心
+                // 无坐标：按设备名匹配地块，放到地块中心+微偏移
                 const landId = matchLand(iot.name || '');
-                if (landId && landCentroids.has(landId)) {
-                  position = landCentroids.get(landId)!;
+                const centroid = landId ? landCentroids.get(landId) : null;
+                if (centroid) {
+                  const count = landDeviceCount.get(landId) || 0;
+                  landDeviceCount.set(landId, count + 1);
+                  // 同地块多设备散开：第1个中心，后续向东/南偏移
+                  const offsets: [number, number][] = [[0, 0], [0.0006, 0], [0, -0.0006], [-0.0006, 0], [0, 0.0006]];
+                  const [ox, oy] = offsets[count] || [0, 0];
+                  position = [centroid[0] + ox, centroid[1] + oy];
                 } else {
                   // 兜底：小偏移散开，避免全部重叠
                   const offset = 0.0005;
