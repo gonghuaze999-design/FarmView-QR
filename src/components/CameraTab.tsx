@@ -25,6 +25,7 @@ export const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName
   const retryRef = useRef(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
+  const autoRetryRef = useRef<() => void>();
 
   const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
     if (!video || !streamUrl) return;
@@ -80,11 +81,38 @@ export const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName
     return () => { if (fullscreen && hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
   }, [fullscreen, src, fallbackSrc, doPlay]);
 
+  // 自动重试：监听用户下一次任意点击/触摸，自动触发播放
+  useEffect(() => {
+    if (status !== 'error') return;
+    const retry = () => doPlay(videoRef.current, src);
+    autoRetryRef.current = retry;
+    const handler = () => {
+      autoRetryRef.current?.();
+      document.removeEventListener('click', handler, true);
+      document.removeEventListener('touchstart', handler, true);
+    };
+    document.addEventListener('click', handler, true);
+    document.addEventListener('touchstart', handler, true);
+    return () => {
+      document.removeEventListener('click', handler, true);
+      document.removeEventListener('touchstart', handler, true);
+    };
+  }, [status, src, doPlay]);
+
+  // 设置 video ref 回调，添加 WeChat X5 属性
+  const setVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    (videoRef as any).current = el;
+    if (el) {
+      el.setAttribute('playsinline', 'true');
+      el.setAttribute('webkit-playsinline', 'true');
+      el.setAttribute('x5-video-player-type', 'h5');
+    }
+  }, []);
+
   return (
     <>
       <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden">
-        {/* Native Safari: video element hidden until src set; others: hls.js controlled */}
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+        <video ref={setVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
 
         {/* Loading */}
         {status === 'loading' && (
@@ -95,15 +123,10 @@ export const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName
 
         {/* Error */}
         {status === 'error' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-2">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-2 cursor-pointer"
+            onClick={() => doPlay(videoRef.current, src)}>
             <AlertTriangle size={24} className="text-amber-400" />
-            <span className="text-white/60 text-xs">视频流加载失败</span>
-            <button
-              onClick={() => doPlay(videoRef.current, src)}
-              className="text-xs text-white bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full transition-colors"
-            >
-              点击重试
-            </button>
+            <span className="text-white/60 text-xs">点按播放视频</span>
           </div>
         )}
 
@@ -185,10 +208,6 @@ export const CameraTab: React.FC<CameraTabProps> = () => {
 
   const activeCam = cameras[activeIndex];
   const scrollTo = (index: number) => {
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true;
-    v.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0;width:1px;height:1px';
-    document.body.appendChild(v);
-    v.play().then(() => v.remove(), () => v.remove());
     setActiveIndex(index);
     scrollRef.current?.children[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   };

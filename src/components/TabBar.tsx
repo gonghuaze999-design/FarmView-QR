@@ -16,15 +16,6 @@ const tabs: { key: TabKey; label: string; Icon: React.ElementType; color: string
 ];
 
 export const TabBar: React.FC<TabBarProps> = ({ active, onChange }) => {
-  const handleClick = (key: TabKey) => {
-    // 预激活视频播放权限（浏览器要求play()在用户手势链中触发）
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true;
-    v.style.cssText = 'position:fixed;opacity:0;pointer-events:none;top:0;left:0;width:1px;height:1px';
-    document.body.appendChild(v);
-    v.play().then(() => v.remove(), () => v.remove());
-    onChange(key);
-  };
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center" style={{ background: '#fffdf7', borderTop: '1px solid #f0f0eb' }}>
       <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl lg:max-w-4xl xl:max-w-6xl flex justify-around items-end px-2 pb-1 pt-3">
@@ -33,7 +24,7 @@ export const TabBar: React.FC<TabBarProps> = ({ active, onChange }) => {
           return (
             <button
               key={key}
-              onClick={() => handleClick(key)}
+              onClick={() => onChange(key)}
               className="flex flex-col items-center gap-0.5 py-1.5 px-4 rounded-2xl transition-all duration-200 min-w-[64px]"
               style={{
                 background: isActive ? activeBg : 'transparent',
