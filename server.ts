@@ -658,6 +658,11 @@ async function startServer() {
     // 后台异步预加载缓存
     prewarmCache(siteKey, apiAuth.username, apiAuth.password, baseId, farmlandIds || []);
 
+    // 后台异步初始化 FarmMonitor（注册账号 + 创建农场/地块 + 触发卫星订阅）
+    ensureFarmMonitorSetup(siteKey)
+      .then(ok => console.log(`[Admin] FarmMonitor 初始化 ${siteKey}: ${ok ? '成功' : '失败'}`))
+      .catch(e => console.error(`[Admin] FarmMonitor 初始化 ${siteKey} 异常:`, e.message));
+
     res.json({ ok: true, siteKey, url: `/site=${siteKey}` });
   });
 
