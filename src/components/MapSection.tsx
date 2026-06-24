@@ -1,38 +1,87 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud, Loader2, AlertTriangle } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
 import { getFarmlandList, getIotLocations, getEnvLatest, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
 import { wgs84ToGcj02 } from '../utils/coordTransform';
+import Hls from 'hls.js';
 
-// HLS 视频播放器（支持萤石云 HLS 流）
+// HLS 视频播放器
 const HlsPlayer: React.FC<{ src: string; cameraName?: string }> = ({ src, cameraName }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullVideoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const retryRef = useRef(0);
   const [fullscreen, setFullscreen] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
 
-  const setupHls = (video: HTMLVideoElement) => {
-    if (!src || !video) return;
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-    } else {
-      import('hls.js').then(({ default: Hls }) => {
-        if (Hls.isSupported()) {
-          const hls = new Hls();
-          hls.loadSource(src);
-          hls.attachMedia(video);
+  const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
+    if (!video || !streamUrl) return;
+    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    setStatus('loading');
+
+    const tryNative = () => {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = streamUrl;
+        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
+        return true;
+      }
+      return false;
+    };
+
+    if (tryNative()) return;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: false });
+      hlsRef.current = hls;
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          setStatus('error');
+          if (retryRef.current < 1) {
+            retryRef.current++;
+            setTimeout(() => doPlay(video, streamUrl), 3000);
+          }
         }
       });
+    } else {
+      video.src = streamUrl;
     }
-  };
+  }, []);
 
-  useEffect(() => { if (videoRef.current) setupHls(videoRef.current); }, [src]);
-  useEffect(() => { if (fullscreen && fullVideoRef.current) setupHls(fullVideoRef.current); }, [fullscreen]);
+  useEffect(() => {
+    retryRef.current = 0;
+    doPlay(videoRef.current, src);
+    return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
+  }, [src, doPlay]);
+
+  useEffect(() => {
+    if (fullscreen) {
+      retryRef.current = 0;
+      doPlay(fullVideoRef.current, src);
+    }
+    return () => { if (fullscreen && hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
+  }, [fullscreen, src, doPlay]);
 
   return (
     <>
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden">
         <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+        {status === 'loading' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+            <Loader2 size={28} className="text-white/70 animate-spin" />
+          </div>
+        )}
+        {status === 'error' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-2">
+            <AlertTriangle size={24} className="text-amber-400" />
+            <span className="text-white/60 text-xs">视频流加载失败</span>
+          </div>
+        )}
         <button
           onClick={() => setFullscreen(true)}
           className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
@@ -141,8 +190,39 @@ export const MapSection: React.FC = () => {
             setMapCenter([computedCenterLng, computedCenterLat]);
           }
 
-          // 设备打点（在同一作用域内使用刚计算的中心点）
+          // 设备打点：无坐标设备按名称匹配到对应地块中心
           if (iotRes.code === 200 && iotRes.data) {
+            // 预计算每个地块的中心点（GCJ02）
+            const landCentroids: Map<string, [number, number]> = new Map();
+            for (const p of parsedPolygons) {
+              if (p.coordinates.length > 0) {
+                let cx = 0, cy = 0;
+                for (const c of p.coordinates) { cx += c[0]; cy += c[1]; }
+                landCentroids.set(String(p.id), [cx / p.coordinates.length, cy / p.coordinates.length] as [number, number]);
+              }
+            }
+
+            // 设备名 → 地块名关键词匹配规则
+            const matchLand = (devName: string): string | null => {
+              const n = devName.toLowerCase();
+              // 精确数字号匹配优先
+              const numMatch = n.match(/(\d+)号/);
+              const num = numMatch ? numMatch[1] : '';
+              for (const p of parsedPolygons) {
+                const lname = (p.farmlandName || '').toLowerCase();
+                if (n.includes('新元') && num === '1' && lname.includes('新元') && lname.includes('1号')) return String(p.id);
+                if (n.includes('新元') && num === '2' && lname.includes('新元') && lname.includes('2号')) return String(p.id);
+                if (n.includes('关坪') && lname.includes('关坪') && lname.includes('1号')) return String(p.id);
+              }
+              // 模糊匹配：不含数字号时，用地名关键词
+              for (const p of parsedPolygons) {
+                const lname = (p.farmlandName || '').toLowerCase();
+                if (n.includes('新元') && lname.includes('新元') && lname.includes('1号')) return String(p.id);
+                if (n.includes('关坪') && lname.includes('关坪')) return String(p.id);
+              }
+              return null;
+            };
+
             const parsedDevices = iotRes.data.map((iot: any, idx: number) => {
               let position: [number, number] = [0, 0];
               const lng = iot.longitude || iot.longtitude;
@@ -160,8 +240,15 @@ export const MapSection: React.FC = () => {
                 } catch (e) { /* ignore */ }
               }
               if (position[0] === 0) {
-                const offset = 0.002;
-                position = [computedCenterLng + (idx % 3 - 1) * offset, computedCenterLat + Math.floor(idx / 3) * offset];
+                // 无坐标：按设备名匹配地块，放到地块中心
+                const landId = matchLand(iot.name || '');
+                if (landId && landCentroids.has(landId)) {
+                  position = landCentroids.get(landId)!;
+                } else {
+                  // 兜底：小偏移散开，避免全部重叠
+                  const offset = 0.0005;
+                  position = [computedCenterLng + (idx % 3 - 1) * offset, computedCenterLat + Math.floor(idx / 3) * offset];
+                }
               }
 
               const nameStr = String(iot.name || '').toLowerCase();
