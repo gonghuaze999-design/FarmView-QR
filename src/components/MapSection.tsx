@@ -180,9 +180,6 @@ export const MapSection: React.FC = () => {
                 position,
                 status: iot.is_used === 1 ? 'online' : 'offline'
               };
-            }).filter((d: any) => {
-              const allIds = [...weatherIds.map(String), ...insectIds.map(String), ...cameraIds.map(String)];
-              return allIds.includes(d.id);
             });
             setDevices(parsedDevices);
             console.log('[MapSection] 设备列表:', parsedDevices.length, '个，中心点:', computedCenterLng, computedCenterLat);
