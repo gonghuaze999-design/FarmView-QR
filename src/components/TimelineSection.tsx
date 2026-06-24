@@ -12,9 +12,7 @@ const STATUS_MAP: Record<number, { label: string; color: string }> = {
 };
 
 function getDefaultYear(): number {
-  const now = new Date();
-  // 1月~6月（month 0~5）默认上一年，7月起默认当年
-  return now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear();
+  return new Date().getFullYear();
 }
 
 function formatDate(dt: string | null | undefined): string {
