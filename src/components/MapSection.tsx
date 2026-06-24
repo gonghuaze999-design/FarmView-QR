@@ -1,119 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud, Loader2, AlertTriangle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Maximize2, Minimize2, Map as MapIcon, Leaf, X, Info, Thermometer, Droplets, Activity, Bug, Cloud } from 'lucide-react';
 import { MapComponent, DeviceMarker } from './MapComponent';
 import { useSiteContext } from '../contexts/SiteContext';
 import { getFarmlandList, getIotLocations, getEnvLatest, getInsectData, getCameraList, getLandBatchInfo } from '../services/api';
 import { wgs84ToGcj02 } from '../utils/coordTransform';
-import Hls from 'hls.js';
-
-// HLS 视频播放器
-const HlsPlayer: React.FC<{ src: string; cameraName?: string }> = ({ src, cameraName }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const fullVideoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const retryRef = useRef(0);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
-
-  const doPlay = useCallback((video: HTMLVideoElement | null, streamUrl: string) => {
-    if (!video || !streamUrl) return;
-    if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
-    setStatus('loading');
-
-    const tryNative = () => {
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = streamUrl;
-        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
-        return true;
-      }
-      return false;
-    };
-
-    if (tryNative()) return;
-
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: false });
-      hlsRef.current = hls;
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().then(() => setStatus('playing')).catch(() => setStatus('error'));
-      });
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          setStatus('error');
-          if (retryRef.current < 1) {
-            retryRef.current++;
-            setTimeout(() => doPlay(video, streamUrl), 3000);
-          }
-        }
-      });
-    } else {
-      video.src = streamUrl;
-    }
-  }, []);
-
-  useEffect(() => {
-    retryRef.current = 0;
-    doPlay(videoRef.current, src);
-    return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [src, doPlay]);
-
-  useEffect(() => {
-    if (fullscreen) {
-      retryRef.current = 0;
-      doPlay(fullVideoRef.current, src);
-    }
-    return () => { if (fullscreen && hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [fullscreen, src, doPlay]);
-
-  return (
-    <>
-      <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden">
-        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-        {status === 'loading' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <Loader2 size={28} className="text-white/70 animate-spin" />
-          </div>
-        )}
-        {status === 'error' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 gap-2">
-            <AlertTriangle size={24} className="text-amber-400" />
-            <span className="text-white/60 text-xs">视频流加载失败</span>
-          </div>
-        )}
-        <button
-          onClick={() => setFullscreen(true)}
-          className="absolute bottom-3 right-3 bg-black/50 text-white p-1.5 rounded-lg hover:bg-black/80 transition-colors z-10"
-        >
-          <Maximize2 size={14} />
-        </button>
-      </div>
-
-      {fullscreen && (
-        <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
-          <video ref={fullVideoRef} autoPlay muted playsInline className="w-full h-full object-contain" />
-          <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-            <span className="text-white text-sm font-medium bg-black/40 px-3 py-1 rounded-full">
-              {cameraName || 'LIVE'}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-white text-xs bg-red-500/80 px-2 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> LIVE
-              </span>
-              <button
-                onClick={() => setFullscreen(false)}
-                className="bg-black/50 text-white p-2 rounded-full hover:bg-black/80 transition-colors"
-              >
-                <Minimize2 size={18} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
+import { HlsPlayer } from './CameraTab';
 
 export const MapSection: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -528,7 +419,7 @@ export const MapSection: React.FC = () => {
                 return cams.length > 0 ? cams.map((cam: any, idx: number) => (
                   <div key={idx} className="aspect-video bg-black rounded-2xl overflow-hidden shadow-lg relative">
                     {cam.status === 1 && (cam.hls || cam.videoUrl) ? (
-                      <HlsPlayer src={cam.hls || cam.videoUrl || ''} cameraName={cam.cameraName} />
+                      <HlsPlayer src={cam.hls || ''} fallbackSrc={cam.videoUrl || ''} cameraName={cam.cameraName} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-zinc-500 bg-zinc-900">
                         <div className="text-center">

@@ -18,7 +18,7 @@ interface CameraTabProps {
   onFullscreenChange?: (fs: boolean) => void;
 }
 
-const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: string }> = ({ src, fallbackSrc, cameraName }) => {
+export const HlsPlayer: React.FC<{ src: string; fallbackSrc?: string; cameraName?: string }> = ({ src, fallbackSrc, cameraName }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fullVideoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
