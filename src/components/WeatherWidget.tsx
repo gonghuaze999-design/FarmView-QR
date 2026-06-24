@@ -79,12 +79,12 @@ export const WeatherWidget: React.FC = () => {
   if (error) return <div className="text-red-500 text-xs bg-red-50 px-3 py-1.5 rounded-full border border-red-100">{error}</div>;
   if (!weather) return <div className="text-xs text-zinc-400 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-100 animate-pulse">加载天气...</div>;
 
-  const hourIndex = new Date().getHours(); // 当前北京时间小时（0-23）
-  const isRaining = weather.current.temperature > 0 && weather.hourly.precipitation[hourIndex] > 0;
+  const hourIndex = new Date().getHours();
+  const isRaining = weather.current.precipitation > 0;
   const rainStopIndex = weather.hourly.precipitation.slice(hourIndex).findIndex((p) => p === 0);
   const hoursUntilStop = rainStopIndex !== -1 ? rainStopIndex : null;
 
-  const isHighWind = weather.hourly.windSpeed[hourIndex] > 40;
+  const isHighWind = weather.current.windSpeed > 40;
   const windStopIndex = weather.hourly.windSpeed.slice(hourIndex).findIndex((s) => s <= 40);
   const hoursUntilWindStop = windStopIndex !== -1 ? windStopIndex : null;
 
@@ -135,7 +135,7 @@ export const WeatherWidget: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs text-zinc-500">风速</p>
-                <p className="font-bold text-zinc-800">{weather.hourly.windSpeed[hourIndex]} km/h</p>
+                <p className="font-bold text-zinc-800">{weather.current.windSpeed} km/h</p>
               </div>
             </div>
             <div className="bg-zinc-50 border border-zinc-100 p-4 rounded-2xl flex items-center gap-3 hover:bg-zinc-100 transition-colors">
@@ -144,7 +144,7 @@ export const WeatherWidget: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs text-zinc-500">降水</p>
-                <p className="font-bold text-zinc-800">{weather.hourly.precipitation[hourIndex]} mm</p>
+                <p className="font-bold text-zinc-800">{weather.current.precipitation} mm</p>
               </div>
             </div>
             <div className="bg-zinc-50 border border-zinc-100 p-4 rounded-2xl flex items-center gap-3 hover:bg-zinc-100 transition-colors">
