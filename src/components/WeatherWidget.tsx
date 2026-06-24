@@ -21,7 +21,6 @@ export const WeatherWidget: React.FC = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<string>('');
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const fetchWeather = useCallback(async () => {
@@ -30,7 +29,6 @@ export const WeatherWidget: React.FC = () => {
       const data = await fetchWeatherData(coordsRef.current.lat, coordsRef.current.lng);
       setWeather(data);
       setError(null);
-      setLastUpdate(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
     } catch {
       setError('无法获取天气数据');
     }
@@ -97,7 +95,6 @@ export const WeatherWidget: React.FC = () => {
         <Cloud className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform" />
         <span className="font-bold text-sm text-zinc-700">{weather.current.temperature}°C</span>
         <span className="text-xs text-zinc-400">{getWeatherDesc(weather.current.weatherCode)}</span>
-        {lastUpdate && <span className="text-[10px] text-zinc-300 ml-1">{lastUpdate}</span>}
       </button>
 
       {isOpen && (
