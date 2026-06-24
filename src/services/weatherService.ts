@@ -17,8 +17,8 @@ export interface WeatherData {
 }
 
 export const fetchWeatherData = async (lat: number, lon: number): Promise<WeatherData> => {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&hourly=temperature_2m,wind_speed_10m,precipitation&timezone=auto&alerts=true`;
-  const response = await fetch(url);
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&hourly=temperature_2m,wind_speed_10m,precipitation&timezone=auto&alerts=true&_t=${Date.now()}`;
+  const response = await fetch(url, { cache: 'no-cache' });
   if (!response.ok) throw new Error('Failed to fetch weather data');
   const data = await response.json();
   
