@@ -7,6 +7,7 @@ export interface DeviceMarker {
   name: string;
   position: [number, number];
   status: 'online' | 'offline';
+  farmlandId?: string;
 }
 
 export const MapComponent = forwardRef(({ 

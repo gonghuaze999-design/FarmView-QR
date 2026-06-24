@@ -118,6 +118,9 @@ export const MapSection: React.FC = () => {
             };
 
             const parsedDevices = iotRes.data.map((iot: any, idx: number) => {
+              // 按设备名匹配对应地块，用于定位和数据查询
+              const deviceFarmlandId = matchLand(iot.name || '');
+
               let position: [number, number] = [0, 0];
               const lng = iot.longitude || iot.longtitude;
               const lat = iot.latitude;
@@ -135,12 +138,10 @@ export const MapSection: React.FC = () => {
               }
               if (position[0] === 0) {
                 // 无坐标：按设备名匹配地块，放到地块中心+微偏移
-                const landId = matchLand(iot.name || '');
-                const centroid = landId ? landCentroids.get(landId) : null;
+                const centroid = deviceFarmlandId ? landCentroids.get(deviceFarmlandId) : null;
                 if (centroid) {
-                  const count = landDeviceCount.get(landId) || 0;
-                  landDeviceCount.set(landId, count + 1);
-                  // 同地块多设备散开：第1个中心，后续向东/南偏移
+                  const count = landDeviceCount.get(deviceFarmlandId!) || 0;
+                  landDeviceCount.set(deviceFarmlandId!, count + 1);
                   const offsets: [number, number][] = [[0, 0], [0.0006, 0], [0, -0.0006], [-0.0006, 0], [0, 0.0006]];
                   const [ox, oy] = offsets[count] || [0, 0];
                   position = [centroid[0] + ox, centroid[1] + oy];
@@ -165,7 +166,8 @@ export const MapSection: React.FC = () => {
                 type,
                 name: iot.name || `设备 ${iot.id}`,
                 position,
-                status: iot.is_used === 1 ? 'online' : 'offline'
+                status: iot.is_used === 1 ? 'online' : 'offline',
+                farmlandId: deviceFarmlandId || undefined,
               };
             });
             setDevices(parsedDevices);
@@ -213,9 +215,10 @@ export const MapSection: React.FC = () => {
       const endTime = now.toISOString().replace('T', ' ').substring(0, 19);
 
       if (device.type === 'weather') {
+        const weatherFarmlandId = device.farmlandId || farmlandId;
         const [r1, r2] = await Promise.allSettled([
-          getEnvLatest(farmlandId, 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 10),
-          getEnvLatest(farmlandId, 'soil_temperature,soil_humidity,soil_ec', 10),
+          getEnvLatest(weatherFarmlandId, 'air_temperature,air_humidity,wind_speed,precipitation,light_intensity,atmospheric_pressure', 10),
+          getEnvLatest(weatherFarmlandId, 'soil_temperature,soil_humidity,soil_ec', 10),
         ]);
         const merged: any = {};
         [r1, r2].forEach(r => {
@@ -223,7 +226,8 @@ export const MapSection: React.FC = () => {
         });
         setDeviceData({ type: 'weather', ...merged });
       } else if (device.type === 'insect') {
-        const res = await getInsectData(farmlandId, yearStart, endTime);
+        const insectFarmlandId = device.farmlandId || farmlandId;
+        const res = await getInsectData(insectFarmlandId, yearStart, endTime);
         setDeviceData(res.data);
       } else if (device.type === 'camera') {
         const allFarmlandIds = (binding.farmlandIds || []).join(',');
