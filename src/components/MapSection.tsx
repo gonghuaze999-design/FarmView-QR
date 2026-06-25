@@ -410,15 +410,19 @@ export const MapSection: React.FC = () => {
           ) : selectedDevice?.type === 'camera' ? (
             <div className="space-y-3">
               {(() => {
-                // 只显示当前点击设备对应的摄像头（按设备名匹配）
                 const allCams = deviceData && deviceData.length > 0 ? deviceData : [];
                 const deviceName = selectedDevice?.name || '';
-                // 球机1 → 新疆球机1，球机2 → 新疆球机2，尝试名称匹配
-                const matched = allCams.filter((cam: any) =>
-                  cam.cameraName?.includes(deviceName) ||
-                  deviceName.includes(cam.cameraName) ||
-                  allCams.indexOf(cam) === (deviceName.includes('1') ? 0 : deviceName.includes('2') ? 1 : 0)
-                );
+                // 先按地名关键词匹配，同地名多个时再按序号区分
+                const siteNames = ['关坪', '新元', '罗田'];
+                const siteKw = siteNames.find(k => deviceName.includes(k));
+                let matched = allCams.filter((cam: any) => siteKw && cam.cameraName?.includes(siteKw));
+                if (matched.length > 1) {
+                  const numMatch = deviceName.match(/(\d+)号/);
+                  if (numMatch) {
+                    const byNum = matched.filter((cam: any) => cam.cameraName?.includes(`${numMatch[1]}号`));
+                    if (byNum.length > 0) matched = byNum;
+                  }
+                }
                 const cams = matched.length > 0 ? [matched[0]] : allCams.slice(0, 1);
                 return cams.length > 0 ? cams.map((cam: any, idx: number) => (
                   <div key={idx} className="aspect-video bg-black rounded-2xl overflow-hidden shadow-lg relative">
