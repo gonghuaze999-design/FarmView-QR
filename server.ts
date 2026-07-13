@@ -323,6 +323,56 @@ async function getFarmMonitorToken(siteKey: string): Promise<string> {
   return token;
 }
 
+// ── FarmMonitor 带锁 Token 获取 ─────────────────────
+const fmTokenLocks = new Map<string, Promise<string>>();
+
+async function getFmToken(siteKey: string): Promise<string> {
+  const cached = farmMonitorTokenCache.get(siteKey);
+  if (cached) return cached;
+
+  if (!fmTokenLocks.has(siteKey)) {
+    fmTokenLocks.set(siteKey,
+      getFarmMonitorToken(siteKey).finally(() => fmTokenLocks.delete(siteKey))
+    );
+  }
+  return fmTokenLocks.get(siteKey)!;
+}
+
+// ── FarmMonitor 统一请求（自动 401 重试）────────────
+async function fmRequest(
+  config: { method: 'GET' | 'POST' | 'DELETE'; url: string; data?: any; timeout?: number; validateStatus?: (s: number) => boolean },
+  siteKey: string
+): Promise<any> {
+  const token = await getFmToken(siteKey);
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+  let res = await axios({
+    method: config.method,
+    url: config.url,
+    headers,
+    data: config.data,
+    timeout: config.timeout || 10000,
+    validateStatus: config.validateStatus || (() => true),
+  });
+
+  if (res.status === 401) {
+    console.warn(`[FarmMonitor] Token 过期，重新登录后重试`);
+    farmMonitorTokenCache.delete(siteKey);
+    const newToken = await getFmToken(siteKey);
+    const newHeaders = { Authorization: `Bearer ${newToken}`, 'Content-Type': 'application/json' };
+    res = await axios({
+      method: config.method,
+      url: config.url,
+      headers: newHeaders,
+      data: config.data,
+      timeout: config.timeout || 10000,
+      validateStatus: config.validateStatus || (() => true),
+    });
+  }
+
+  return res;
+}
+
 async function ensureFarmMonitorSetup(siteKey: string): Promise<boolean> {
   const site = sitesConfig.sites[siteKey];
   if (!site) return false;
@@ -379,24 +429,21 @@ async function ensureFarmMonitorSetup(siteKey: string): Promise<boolean> {
 
     // Step 2: 登录获取 token
     if (!token) {
-      token = await getFarmMonitorToken(siteKey);
+      token = await getFmToken(siteKey);
     } else {
       farmMonitorTokenCache.set(siteKey, token);
     }
-    const fmHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
     // Step 3: 创建 Farm
     console.log(`[FarmMonitor] Step 3: 创建基地 "${siteName}"`);
-    const farmRes = await axios.post(`${FARM_MONITOR_BASE}/farms`, {
-      name: siteName,
-    }, { headers: fmHeaders, timeout: 10000, validateStatus: () => true });
+    const farmRes = await fmRequest({ method: 'POST', url: `${FARM_MONITOR_BASE}/farms`, data: { name: siteName }, timeout: 10000 }, siteKey);
     let farmId: string;
     if (farmRes.data?.code === 201) {
       farmId = farmRes.data.data.id;
       console.log(`[FarmMonitor] 基地创建成功: ${farmId}`);
     } else if (farmRes.data?.code === 400) {
       // 可能已存在，查询已有 farm
-      const listRes = await axios.get(`${FARM_MONITOR_BASE}/farms`, { headers: fmHeaders, timeout: 10000 });
+      const listRes = await fmRequest({ method: 'GET', url: `${FARM_MONITOR_BASE}/farms`, timeout: 10000 }, siteKey);
       const existing = listRes.data?.data?.find((f: any) => f.name === siteName);
       if (existing) {
         farmId = existing.id;
@@ -421,9 +468,7 @@ async function ensureFarmMonitorSetup(siteKey: string): Promise<boolean> {
     // Step 4b: 获取 FarmMonitor 已有地块（支持断点续传）
     let existingFields: any[] = [];
     try {
-      const efRes = await axios.get(`${FARM_MONITOR_BASE}/fields?farm_id=${farmId}`, {
-        headers: fmHeaders, timeout: 10000,
-      });
+      const efRes = await fmRequest({ method: 'GET', url: `${FARM_MONITOR_BASE}/fields?farm_id=${farmId}`, timeout: 10000 }, siteKey);
       if (efRes.data?.code === 200 && Array.isArray(efRes.data?.data)) {
         existingFields = efRes.data.data;
         console.log(`[FarmMonitor] FarmMonitor 已有 ${existingFields.length} 个地块`);
@@ -467,12 +512,7 @@ async function ensureFarmMonitorSetup(siteKey: string): Promise<boolean> {
 
       try {
         console.log(`[FarmMonitor] 创建地块: ${landName}`);
-        const fieldRes = await axios.post(`${FARM_MONITOR_BASE}/fields`, {
-          farm_id: farmId,
-          name: landName,
-          crop_type: land.cropsName || '',
-          boundary: geojson,
-        }, { headers: fmHeaders, timeout: 30000, validateStatus: () => true });
+        const fieldRes = await fmRequest({ method: 'POST', url: `${FARM_MONITOR_BASE}/fields`, data: { farm_id: farmId, name: landName, crop_type: land.cropsName || '', boundary: geojson }, timeout: 30000 }, siteKey);
 
         if (fieldRes.data?.code === 201) {
           const fieldId = fieldRes.data.data.id;
@@ -499,9 +539,7 @@ async function ensureFarmMonitorSetup(siteKey: string): Promise<boolean> {
       console.log(`[FarmMonitor] 基地级订阅：触发 ${fieldIdsToFetch.length} 个新地块卫星检索`);
       for (const fieldId of fieldIdsToFetch) {
         try {
-          const fetchRes = await axios.post(`${FARM_MONITOR_BASE}/satellite/field/${fieldId}/fetch`, {}, {
-            headers: fmHeaders, timeout: 10000, validateStatus: () => true,
-          });
+          const fetchRes = await fmRequest({ method: 'POST', url: `${FARM_MONITOR_BASE}/satellite/field/${fieldId}/fetch`, data: {}, timeout: 10000 }, siteKey);
           console.log(`[FarmMonitor]   field ${fieldId} 订阅已触发 (code=${fetchRes.data?.code})`);
         } catch (e: any) {
           console.error(`[FarmMonitor]   field ${fieldId} 订阅触发失败: ${e.message}`);
@@ -525,16 +563,12 @@ async function fetchSatelliteForSite(siteKey: string): Promise<void> {
   const site = sitesConfig.sites[siteKey];
   if (!site?.farmMonitor?.fieldMap) return;
 
-  const token = await getFarmMonitorToken(siteKey);
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   const allRecords: any[] = [];
 
   const fieldMap = site.farmMonitor.fieldMap as Record<string, string>;
   for (const [localId, fieldId] of Object.entries(fieldMap)) {
     try {
-      const res = await axios.get(`${FARM_MONITOR_BASE}/satellite/field/${fieldId}`, {
-        headers, timeout: 15000,
-      });
+      const res = await fmRequest({ method: 'GET', url: `${FARM_MONITOR_BASE}/satellite/field/${fieldId}`, timeout: 15000 }, siteKey);
       if (res.data?.code === 200 && Array.isArray(res.data?.data)) {
         for (const rec of res.data.data) {
           allRecords.push({ ...rec, _localFieldId: localId });
@@ -705,40 +739,26 @@ async function startServer() {
 
     // 同步取消麦吉看田服务
     if (cleanupFarmMonitor && site.farmMonitor?.farmId) {
-      const { farmId, fieldMap, email } = site.farmMonitor as { farmId: string; fieldMap: Record<string, string>; email?: string };
+      const { farmId, fieldMap } = site.farmMonitor as { farmId: string; fieldMap: Record<string, string> };
       console.log(`[Admin] 同步取消麦吉看田：farmId=${farmId}，fields=${fieldMap ? Object.keys(fieldMap).length : 0}个`);
       try {
-        const fmKey = siteKey;
-        let token = farmMonitorTokenCache.get(fmKey);
-        if (!token) {
-          const loginRes = await axios.post(`${FARM_MONITOR_BASE}/auth/login`, {
-            email: email || `fm_${siteKey}@farmview.local`,
-            password: FM_PASSWORD,
-          }, { timeout: 10000 });
-          if (loginRes.data?.code === 200) {
-            token = loginRes.data.data.token;
-          }
-        }
-        if (token) {
-          const fmHeaders = { Authorization: `Bearer ${token}` };
-          // 删除所有地块
-          if (fieldMap) {
-            for (const fieldId of Object.values(fieldMap)) {
-              try {
-                await axios.delete(`${FARM_MONITOR_BASE}/fields/${fieldId}`, { headers: fmHeaders, timeout: 8000 });
-                console.log(`[FarmMonitor] 已删除地块 ${fieldId}`);
-              } catch (e: any) {
-                console.warn(`[FarmMonitor] 删除地块 ${fieldId} 失败:`, e.message);
-              }
+        // 删除所有地块
+        if (fieldMap) {
+          for (const fieldId of Object.values(fieldMap)) {
+            try {
+              await fmRequest({ method: 'DELETE', url: `${FARM_MONITOR_BASE}/fields/${fieldId}`, timeout: 8000 }, siteKey);
+              console.log(`[FarmMonitor] 已删除地块 ${fieldId}`);
+            } catch (e: any) {
+              console.warn(`[FarmMonitor] 删除地块 ${fieldId} 失败:`, e.message);
             }
           }
-          // 删除农场
-          try {
-            await axios.delete(`${FARM_MONITOR_BASE}/farms/${farmId}`, { headers: fmHeaders, timeout: 8000 });
-            console.log(`[FarmMonitor] 已删除农场 ${farmId}`);
-          } catch (e: any) {
-            console.warn(`[FarmMonitor] 删除农场 ${farmId} 失败:`, e.message);
-          }
+        }
+        // 删除农场
+        try {
+          await fmRequest({ method: 'DELETE', url: `${FARM_MONITOR_BASE}/farms/${farmId}`, timeout: 8000 }, siteKey);
+          console.log(`[FarmMonitor] 已删除农场 ${farmId}`);
+        } catch (e: any) {
+          console.warn(`[FarmMonitor] 删除农场 ${farmId} 失败:`, e.message);
         }
       } catch (e: any) {
         console.warn(`[Admin] FarmMonitor 清理异常:`, e.message);
