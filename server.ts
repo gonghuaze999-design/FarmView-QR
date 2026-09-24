@@ -24,7 +24,7 @@ try {
   console.error('[Config] 解析 sites-config.json 失败:', e.message);
 }
 
-const API_BASE = 'http://cpca.hyspi.com:54082';
+const API_BASE = 'https://cpca.hyspi.com:54082';
 const DEFAULT_SITE_KEY = 'base-current';
 
 // ── SQLite：申报信息持久化 ──────────────────────────
