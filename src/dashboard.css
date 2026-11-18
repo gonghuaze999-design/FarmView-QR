@@ -143,13 +143,12 @@
 .mod-map .mod-bd .map-wrap { position: absolute !important; inset: 0 !important; }
 .mod-map .mod-bd .amap-container, .mod-map .mod-bd .amap-layers, .mod-map .mod-bd .amap-maps { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 
-/* 主位切换按钮（E 模板） */
-.t-E .area-map, .t-E .area-cam { position: relative; }
+/* 主位切换按钮（E 模板）——位于标题行右端 */
+.mod-hd-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .main-switch {
-  position: absolute; top: 2.4rem; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 0.25rem; z-index: 5;
-  background: rgba(6, 20, 28, 0.78); border: 1px solid rgba(16, 185, 129, 0.45);
-  border-radius: 0.5rem; padding: 0.18rem; backdrop-filter: blur(4px);
+  display: flex; gap: 0.2rem;
+  background: rgba(16, 185, 129, 0.14); border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 0.5rem; padding: 0.12rem;
 }
 .main-switch button {
   background: transparent; color: #9fd6bb; border: 0; border-radius: 0.35rem;

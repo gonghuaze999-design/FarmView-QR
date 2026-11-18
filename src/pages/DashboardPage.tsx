@@ -199,14 +199,17 @@ const KpiCard = ({
 );
 
 const Mod = ({
-  title, badge, children, className,
+  title, badge, children, className, extra,
 }: {
-  title: string; badge?: string; children?: ReactNode; className?: string;
+  title: string; badge?: string; children?: ReactNode; className?: string; extra?: ReactNode;
 }) => (
   <div className={`mod ${className || ''}`}>
     <div className="mod-hd">
       <span className="mod-title">{title}</span>
-      {badge && <span className="mod-badge">{badge}</span>}
+      <div className="mod-hd-right">
+        {extra}
+        {badge && <span className="mod-badge">{badge}</span>}
+      </div>
     </div>
     <div className="mod-bd">{children}</div>
   </div>
@@ -522,16 +525,15 @@ export const DashboardPage = () => {
         title="地块分布全景"
         badge={polygons.length ? `${polygons.length} 块 · 点击摄像头图标切换监控` : undefined}
         className="mod-map"
+        extra={mainSwitch}
       >
-        {mainSwitch}
         <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} onDeviceClick={handleDeviceClick} />
       </Mod>
     </section>
   );
   const camSection = (
     <section className="area-cam">
-      <Mod title="实时监控 · 全景放大" badge={cameras ? `${cameras.length} 路` : undefined} className="mod-cam">
-        {mainSwitch}
+      <Mod title="实时监控 · 全景放大" badge={cameras ? `${cameras.length} 路` : undefined} className="mod-cam" extra={mainSwitch}>
         <CameraPanel cameras={cameras} idx={camIdx} onSelect={(i) => setCamIdx(i)} />
       </Mod>
     </section>
