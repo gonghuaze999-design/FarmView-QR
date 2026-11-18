@@ -143,6 +143,20 @@
 .mod-map .mod-bd > div { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 .mod-map .mod-bd .amap-container, .mod-map .mod-bd .amap-layers, .mod-map .mod-bd .amap-maps { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 
+/* 主位切换按钮（E 模板） */
+.t-E .area-map, .t-E .area-cam { position: relative; }
+.main-switch {
+  position: absolute; top: 2.4rem; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 0.25rem; z-index: 5;
+  background: rgba(6, 20, 28, 0.78); border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 0.5rem; padding: 0.18rem; backdrop-filter: blur(4px);
+}
+.main-switch button {
+  background: transparent; color: #9fd6bb; border: 0; border-radius: 0.35rem;
+  padding: 0.2rem 0.65rem; font-size: 0.68rem; font-weight: 800; cursor: pointer;
+}
+.main-switch button.act { background: rgba(16, 185, 129, 0.4); color: #d1fae5; box-shadow: 0 0 0.4rem rgba(16, 185, 129, 0.35); }
+
 /* 摄像头：单窗口 + 切换，离线黑屏 */
 .cam-single { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; }
 .cam-video {

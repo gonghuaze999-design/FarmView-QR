@@ -238,6 +238,10 @@ export const DashboardPage = () => {
   const [camIdx, setCamIdx] = useState(0);
   const [showMain, setShowMain] = useState<'map' | 'cam'>('map');
 
+  const switchMain = (m: 'map' | 'cam') => {
+    setShowMain(m);
+  };
+
   const handleDeviceClick = (d: DeviceMarker) => {
     if (d.type !== 'camera' || !cameras) return;
     const i = cameras.findIndex(
@@ -245,7 +249,7 @@ export const DashboardPage = () => {
     );
     if (i >= 0) {
       setCamIdx(i);
-      setShowMain('cam');
+      switchMain('cam');
     }
   };
 
@@ -471,14 +475,6 @@ export const DashboardPage = () => {
     return () => clearInterval(t);
   }, [baseId, siteKey]);
 
-  /* E 模板：地图/摄像头主位轮换 */
-  useEffect(() => {
-    const template = templateOf(dims.w, dims.h, isPhone);
-    if (template !== 'E') return;
-    const t = setInterval(() => setShowMain((m) => (m === 'map' ? 'cam' : 'map')), 20000);
-    return () => clearInterval(t);
-  }, [dims]);
-
   /* rem 缩放基准：必须设在根元素（rem 只认根字号） */
   useEffect(() => {
     const el = document.documentElement;
@@ -511,6 +507,13 @@ export const DashboardPage = () => {
   const vCam = useCountUp(live.cameras ?? kpi?.cameras ?? 0);
   const vBench = useCountUp(kpi?.benchmarkYield ?? 0, 2);
 
+  const mainSwitch = (template === 'E' && (
+    <div className="main-switch">
+      <button className={showMain === 'map' ? 'act' : ''} onClick={() => switchMain('map')}>地图</button>
+      <button className={showMain === 'cam' ? 'act' : ''} onClick={() => switchMain('cam')}>监控</button>
+    </div>
+  ));
+
   const mapSection = (
     <section className="area-map">
       <Mod
@@ -518,6 +521,7 @@ export const DashboardPage = () => {
         badge={polygons.length ? `${polygons.length} 块 · 点击摄像头图标切换监控` : undefined}
         className="mod-map"
       >
+        {mainSwitch}
         <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} onDeviceClick={handleDeviceClick} />
       </Mod>
     </section>
@@ -525,6 +529,7 @@ export const DashboardPage = () => {
   const camSection = (
     <section className="area-cam">
       <Mod title="实时监控 · 全景放大" badge={cameras ? `${cameras.length} 路` : undefined} className="mod-cam">
+        {mainSwitch}
         <CameraPanel cameras={cameras} idx={camIdx} onSelect={(i) => setCamIdx(i)} />
       </Mod>
     </section>
@@ -550,7 +555,6 @@ export const DashboardPage = () => {
             </div>
             {years.length > 0 && (
               <div className="dash-year">
-                <span className="dash-year-label">年度</span>
                 <div className="dash-year-select">
                   <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
                     {years.map((y) => (
