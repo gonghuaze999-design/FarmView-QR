@@ -263,6 +263,42 @@
 .ndvi-img img { width: 100%; height: 4.6rem; object-fit: cover; display: block; }
 .ndvi-img-cap { position: absolute; bottom: 0.2rem; left: 0.3rem; font-size: 0.52rem; color: #fff; background: rgba(6,20,28,.75); border-radius: 0.25rem; padding: 0.05rem 0.35rem; }
 
+/* ===== 虫情面板 ===== */
+.ins-wrap { display: flex; flex-direction: column; gap: 0.35rem; height: 100%; min-height: 0; }
+.ins-total { font-size: 0.62rem; color: #9fd6bb; flex-shrink: 0; }
+.ins-total b { font-size: 0.9rem; color: #eaf5ee; margin: 0 0.2rem; font-variant-numeric: tabular-nums; }
+.ins-top { display: flex; flex-direction: column; gap: 0.22rem; flex: 1; min-height: 0; overflow: hidden; }
+.ins-row { display: flex; align-items: center; gap: 0.3rem; }
+.ins-name { font-size: 0.55rem; color: #d1fae5; width: 2.6rem; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ins-bar { flex: 1; height: 0.42rem; background: rgba(16,185,129,.1); border-radius: 0.2rem; overflow: hidden; }
+.ins-bar div { height: 100%; border-radius: 0.2rem; transition: width .8s ease; }
+.ins-v { font-size: 0.55rem; width: 1.6rem; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.ins-img { position: relative; border-radius: 0.45rem; overflow: hidden; border: 1px solid rgba(167,139,250,.35); flex-shrink: 0; }
+.ins-img img { width: 100%; height: 5rem; object-fit: cover; display: block; }
+.ins-img-cap { position: absolute; bottom: 0.2rem; left: 0.3rem; font-size: 0.52rem; color: #fff; background: rgba(6,20,28,.78); border-radius: 0.25rem; padding: 0.05rem 0.35rem; }
+
+/* ===== 农事模块 ===== */
+.farm-wrap { display: flex; flex-direction: column; gap: 0.35rem; height: 100%; min-height: 0; }
+.farm-cd { display: flex; gap: 0.4rem; flex-shrink: 0; }
+.farm-cd-item {
+  flex: 1; background: rgba(251,191,36,.07); border: 1px solid rgba(251,191,36,.28);
+  border-radius: 0.45rem; padding: 0.3rem 0.5rem; display: flex; flex-direction: column; line-height: 1.25;
+}
+.farm-cd-label { font-size: 0.52rem; color: #fbbf24; font-weight: 800; }
+.farm-cd-item b { font-size: 0.85rem; color: #eaf5ee; font-variant-numeric: tabular-nums; }
+.farm-cd-tip { font-size: 0.48rem; color: #6b8a7b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.farm-list { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.2rem; }
+.farm-row { display: flex; align-items: center; gap: 0.3rem; font-size: 0.55rem; flex-shrink: 0; }
+.farm-dot { width: 0.3rem; height: 0.3rem; border-radius: 50%; background: #34d399; box-shadow: 0 0 0.3rem rgba(52,211,153,.6); flex-shrink: 0; }
+.farm-name { color: #d1fae5; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.farm-land { color: #6b8a7b; flex-shrink: 0; max-width: 5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.farm-time { color: #4b6b5d; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* 降级: 用户偏好减少动效 */
+@media (prefers-reduced-motion: reduce) {
+  .dash-root *, .dash-root *::before, .dash-root *::after { animation: none !important; transition: none !important; }
+}
+
 /* ===== 产业价值区 ===== */
 .value-strip { display: flex; flex-direction: column; gap: 0.5rem; height: 100%; justify-content: center; }
 .value-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
@@ -289,16 +325,16 @@
 .area-kpi, .area-map, .area-cam, .area-wth, .area-ndvi, .area-ins, .area-farm, .area-value { min-height: 0; min-width: 0; }
 .area-kpi { display: grid; gap: 0.5rem; }
 
-/* A 桌面 16:9：地图主视觉通高，摄像头横条正下方，右列气象+长势 */
+/* A 桌面 16:9：地图主视觉通高，摄像头横条正下方，右列气象+长势，左列下虫情，底行左农事 */
 .t-A { grid-template-columns: 16.5rem 1fr 15rem; grid-template-rows: 1fr 12.5rem 6.4rem;
-  grid-template-areas: "kpi map wth" "kpi cam ndvi" "value value value"; }
+  grid-template-areas: "kpi map wth" "ins cam ndvi" "farm value value"; }
 .t-A .area-kpi { grid-area: kpi; grid-template-columns: 1fr; grid-template-rows: repeat(6, 1fr); }
 .t-A .area-map { grid-area: map; } .t-A .area-cam { grid-area: cam; }
 .t-A .area-wth { grid-area: wth; } .t-A .area-ndvi { grid-area: ndvi; }
-.t-A .area-ins, .t-A .area-farm { display: none; }
+.t-A .area-ins { grid-area: ins; } .t-A .area-farm { grid-area: farm; }
 .t-A .area-value { grid-area: value; }
 .t-A .ndvi-img { display: none; }
-.t-A .wth-fc { grid-template-columns: repeat(7, 1fr); }
+.t-A .ins-img { display: none; }
 
 /* B iPad 4:3：地图左列通高，摄像头在地图正下方 */
 .t-B { grid-template-columns: 56fr 44fr; grid-template-rows: 1fr 10.5rem 6rem;

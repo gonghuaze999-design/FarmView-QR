@@ -373,6 +373,170 @@ const CameraPanel = ({
   );
 };
 
+/* ---------- 虫情面板（三灯总量 + 害虫排行 + AI图轮播） ---------- */
+const PESTS = ['斜纹夜蛾', '黏虫', '烟青虫', '棉铃虫', '蚜虫', '甜菜夜蛾', '小菜蛾', '玉米螟', '二化螟', '稻纵卷叶螟', '草地贪夜蛾'];
+const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLands: string[] }) => {
+  const [total, setTotal] = useState<number | null>(null);
+  const [top, setTop] = useState<{ name: string; v: number }[]>([]);
+  const [imgs, setImgs] = useState<{ ai: string; time: string }[]>([]);
+  const [imgIdx, setImgIdx] = useState(0);
+  const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
+
+  useEffect(() => {
+    if (!baseId || insectLands.length === 0) return;
+    (async () => {
+      try {
+        const rs = await Promise.allSettled(
+          insectLands.slice(0, 3).map((fid) =>
+            fetch('/api/collect/iot/getInsectStatistics', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Site-Name': siteKey },
+              body: JSON.stringify({ farmlandId: fid, startTime: '2026-01-01 00:00:00', endTime: '2026-12-31 23:59:59' }),
+            }).then((r) => r.json())
+          )
+        );
+        const merged: Record<string, number> = {};
+        let sum = 0;
+        rs.forEach((r) => {
+          if (r.status !== 'fulfilled' || r.value?.code !== 200) return;
+          const d = r.value.data;
+          if (!d || typeof d !== 'object') return;
+          sum += Number(d.total || 0);
+          (Array.isArray(d.insect) ? d.insect : []).forEach((sp: Record<string, unknown>) => {
+            const n = String(sp.insectName || '');
+            const v = Number(sp.insectValue || 0);
+            if (n) merged[n] = (merged[n] || 0) + v;
+          });
+        });
+        setTotal(sum);
+        setTop(Object.entries(merged).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, v]) => ({ name, v })));
+      } catch {}
+    })();
+    (async () => {
+      try {
+        const r = await fetch('/api/collect/iot/getInsectImages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Site-Name': siteKey },
+          body: JSON.stringify({ farmlandId: insectLands[0], startTime: '2026-01-01 00:00:00', endTime: '2026-12-31 23:59:59' }),
+        });
+        const d = await r.json();
+        const list = Array.isArray(d.data?.images) ? d.data.images : [];
+        setImgs(
+          list.slice(-6).reverse().map((x: Record<string, unknown>) => ({
+            ai: String(x.imageResult || x.image || ''),
+            time: String(x.reportTime || '').slice(0, 16),
+          }))
+        );
+      } catch {}
+    })();
+  }, [baseId, insectLands.length, siteKey]);
+
+  useEffect(() => {
+    if (!imgs.length) return;
+    const t = setInterval(() => setImgIdx((i) => (i + 1) % imgs.length), 5000);
+    return () => clearInterval(t);
+  }, [imgs]);
+
+  const maxV = Math.max(1, ...top.map((t) => t.v));
+  return (
+    <div className="ins-wrap">
+      <div className="ins-total">
+        累计诱虫 <b>{total != null ? total.toLocaleString() : '—'}</b> 只
+      </div>
+      <div className="ins-top">
+        {top.length === 0 ? (
+          <div className="mod-ph"><div className="mod-ph-icon" /><div>虫情数据加载中…</div></div>
+        ) : (
+          top.map((t) => {
+            const isPest = PESTS.some((p) => t.name.includes(p));
+            return (
+              <div key={t.name} className="ins-row">
+                <span className="ins-name" title={t.name}>{t.name}</span>
+                <div className="ins-bar"><div style={{ width: `${(t.v / maxV) * 100}%`, background: isPest ? 'linear-gradient(90deg,#7f1d1d,#f87171)' : 'linear-gradient(90deg,#0e5c33,#34d399)' }} /></div>
+                <span className="ins-v" style={{ color: isPest ? '#f87171' : '#9fd6bb' }}>{t.v}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+      {imgs.length > 0 && (
+        <div className="ins-img">
+          <img src={imgs[imgIdx].ai} alt="" />
+          <span className="ins-img-cap">AI识别 · {imgs[imgIdx].time}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ---------- 农事模块（近期任务滚动 + 2027节点倒计时） ---------- */
+const FarmPanel = ({ baseId }: { baseId: number | null }) => {
+  const [tasks, setTasks] = useState<{ name: string; time: string; land: string }[] | null>(null);
+  const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
+
+  useEffect(() => {
+    if (!baseId) return;
+    fetch('/api/farm/work/queryWorkTask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Site-Name': siteKey },
+      body: JSON.stringify({ baseId, startTime: '2026-01-01 00:00:00', endTime: '2026-12-31 23:59:59', pageNum: 1, pageSize: 100 }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const rows = Array.isArray(d.data?.rows) ? d.data.rows : [];
+        setTasks(
+          rows
+            .map((t: Record<string, unknown>) => ({
+              name: String(t.taskName || ''),
+              time: String(t.scheduledStartTime || '').slice(0, 10),
+              land: String(t.landName || ''),
+            }))
+            .sort((a: { time: string }, b: { time: string }) => b.time.localeCompare(a.time))
+            .slice(0, 10)
+        );
+      })
+      .catch(() => {});
+  }, [baseId, siteKey]);
+
+  const now = new Date();
+  const dayOf = (d: Date) => Math.ceil((d.getTime() - now.getTime()) / 86400000);
+  const countdowns = [
+    { label: '定植窗口', target: new Date('2027-04-20'), tip: '对标罗田早定植20天' },
+    { label: '采摘窗口', target: new Date('2027-08-25'), tip: '8月下旬启动抢收' },
+  ];
+
+  return (
+    <div className="farm-wrap">
+      <div className="farm-cd">
+        {countdowns.map((c) => {
+          const days = dayOf(c.target);
+          return (
+            <div key={c.label} className="farm-cd-item">
+              <span className="farm-cd-label">{c.label}</span>
+              <b>{days > 0 ? `${days} 天` : '已开启'}</b>
+              <span className="farm-cd-tip">{c.tip}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="farm-list">
+        {!tasks ? (
+          <div className="mod-ph"><div className="mod-ph-icon" /><div>农事数据加载中…</div></div>
+        ) : (
+          tasks.map((t, i) => (
+            <div key={i} className="farm-row">
+              <span className="farm-dot" />
+              <span className="farm-name">{t.name}</span>
+              <span className="farm-land">{t.land}</span>
+              <span className="farm-time">{t.time.slice(5)}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ---------- 子组件 ---------- */
 const KpiCard = ({
   label, value, unit, sub, color, delay, children,
@@ -740,10 +904,25 @@ export const DashboardPage = () => {
       </Mod>
     </section>
   );
+  const insectLands = devices.filter((d) => d.type === 'insect' && d.farmlandId).map((d) => d.farmlandId as string);
   const wthSection = (
     <section className="area-wth">
       <Mod title="气象环境" className="mod-wth">
         <WeatherPanel firstLandId={polygons[0]?.id} wgsCenter={wgsCenter} kpi={kpi} />
+      </Mod>
+    </section>
+  );
+  const insSection = (
+    <section className="area-ins">
+      <Mod title="虫情监测" badge="AI识别" className="mod-ins">
+        <InsectPanel baseId={baseId} insectLands={insectLands.length ? insectLands : polygons[0] ? [polygons[0].id] : []} />
+      </Mod>
+    </section>
+  );
+  const farmSection = (
+    <section className="area-farm">
+      <Mod title="农事动态" badge="2027 倒计时" className="mod-farm">
+        <FarmPanel baseId={baseId} />
       </Mod>
     </section>
   );
@@ -833,11 +1012,7 @@ export const DashboardPage = () => {
             <>
               {showMain === 'map' ? mapSection : camSection}
               {wthSection}
-              <section className="area-ins">
-                <Mod title="虫情监测" badge="P4">
-                  <Placeholder text={`本年度累计识别 ${kpi?.insectTotal ?? '—'} 只 · P4 上线`} />
-                </Mod>
-              </section>
+              {insSection}
             </>
           ) : (
             <>
@@ -845,16 +1020,8 @@ export const DashboardPage = () => {
               {camSection}
               {wthSection}
               {ndviSection}
-              <section className="area-ins">
-                <Mod title="虫情监测" badge="P4">
-                  <Placeholder text={`本年度累计识别 ${kpi?.insectTotal ?? '—'} 只 · P4 上线`} />
-                </Mod>
-              </section>
-              <section className="area-farm">
-                <Mod title="农事动态" badge="P4">
-                  <Placeholder text={`${kpi?.workTasks ?? '—'} 条农事任务 · P4 上线`} />
-                </Mod>
-              </section>
+              {insSection}
+              {farmSection}
             </>
           )}
 
