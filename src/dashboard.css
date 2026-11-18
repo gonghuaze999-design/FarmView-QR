@@ -319,9 +319,9 @@
 }
 
 /* ===== 产业价值区 ===== */
-.value-strip { display: flex; flex-direction: column; gap: 0.5rem; height: 100%; justify-content: center; }
+.value-strip { display: flex; flex-direction: column; gap: 0.3rem; height: 100%; justify-content: flex-start; overflow: hidden; }
 .value-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
-.chain-node { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #d1fae5; }
+.chain-node { display: flex; align-items: center; gap: 0.35rem; font-size: 0.68rem; color: #d1fae5; flex-shrink: 0; }
 .chain-dot {
   width: 0.5rem; height: 0.5rem; border-radius: 50%;
   background: #fbbf24; box-shadow: 0 0 0.5rem rgba(251,191,36,.7);
@@ -330,13 +330,13 @@
 @keyframes chainPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.25); opacity: 1; } }
 .chain-text { white-space: nowrap; }
 .chain-arrow { color: #f59e0b; opacity: .7; }
-.value-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.35rem; width: 100%; }
-.value-chain { justify-content: space-between; width: 100%; }
+.value-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.3rem; width: 100%; }
+.value-chain { justify-content: space-between; width: 100%; flex-wrap: wrap; row-gap: 0.15rem; }
 .value-item {
   background: rgba(251,191,36,.07);
   border: 1px solid rgba(251,191,36,.22);
-  border-radius: 0.5rem; padding: 0.3rem 0.55rem; min-width: 0;
-  position: relative; overflow: hidden;
+  border-radius: 0.5rem; padding: 0.16rem 0.45rem; min-width: 0;
+  position: relative; overflow: hidden; line-height: 1.25;
 }
 .value-item::after {
   content: ""; position: absolute; top: 0; bottom: 0; width: 30%;
@@ -345,8 +345,8 @@
 }
 @keyframes shine { 0% { left: -35%; } 60%, 100% { left: 110%; } }
 .mod-value .mod-badge { color: #fbbf24; border-color: rgba(251,191,36,.55); }
-.value-item-label { display: block; font-size: 0.62rem; color: #fbbf24; font-weight: 800; letter-spacing: .06em; }
-.value-item-text { display: block; font-size: 0.66rem; color: #d1fae5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.value-item-label { display: block; font-size: 0.58rem; color: #fbbf24; font-weight: 800; letter-spacing: .06em; }
+.value-item-text { display: block; font-size: 0.6rem; color: #d1fae5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ===== 模板栅格 ===== */
 .dash-main { flex: 1; min-height: 0; display: grid; gap: 0.5rem; }
@@ -394,9 +394,9 @@
 .t-E .area-wth { grid-area: wth; } .t-E .area-ins { grid-area: ins; }
 .t-E .area-value { grid-area: value; }
 .t-E .area-ndvi, .t-E .area-farm { display: none; }
-.t-E .value-items { grid-template-columns: repeat(6, 1fr); }
-.t-E .value-strip { flex-direction: row; align-items: center; gap: 0.9rem; }
-.t-E .value-chain { flex-wrap: nowrap; flex-shrink: 0; }
+.t-E .value-items { display: none; }
+.t-E .value-strip { flex-direction: row; align-items: center; gap: 0.9rem; overflow: hidden; }
+.t-E .value-chain { flex-wrap: nowrap; flex-shrink: 1; min-width: 0; overflow: hidden; }
 
 
 /* F 竖屏（降级滚动） */
@@ -408,6 +408,9 @@
 .t-F .area-kpi .kpi-card { min-height: 4.8rem; }
 .t-F .mod { min-height: 7.5rem; }
 .t-F .area-map .mod, .t-F .area-cam .mod { min-height: 12rem; }
+
+/* F竖屏: 价值条目两列 */
+.t-F .value-items { grid-template-columns: repeat(2, 1fr); }
 
 /* 滚动条 */
 .t-F::-webkit-scrollbar { width: 0.25rem; }
