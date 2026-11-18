@@ -90,6 +90,7 @@
 
 /* ===== 模块卡片 ===== */
 .mod {
+  position: relative;
   background: rgba(16, 185, 129, 0.07);
   border: 1px solid rgba(16, 185, 129, 0.28);
   border-radius: 0.75rem;
@@ -136,27 +137,24 @@
 
 /* 地图模块：布满显示区 */
 .mod-map, .mod-cam { border-radius: 0.75rem; }
-.mod-map .mod-bd, .mod-cam .mod-bd { padding: 0.2rem; }
-.dash-map { width: 100%; height: 100%; display: block; }
-.map-poly { stroke: rgba(52, 211, 153, 0.8); stroke-width: 0.0012; }
-.map-label { fill: #a7f3d0; font-size: 0.012rem; font-weight: 700; opacity: .92; }
-.bench-ring {
-  fill: none; stroke: #fbbf24; stroke-width: 0.0016;
-  animation: benchPulse 2.2s ease-out infinite;
-}
-.bench-ring.r2 { animation-delay: 1.1s; }
-@keyframes benchPulse {
-  0% { opacity: .9; transform: scale(1); transform-origin: center; }
-  100% { opacity: 0; transform: scale(1.8); transform-origin: center; }
-}
+.mod-map .mod-bd, .mod-cam .mod-bd { padding: 0.2rem; position: relative; overflow: hidden; }
+/* AMap 容器：强制约束在卡片内 */
+.mod-map .mod-bd > div { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
+.mod-map .mod-bd .amap-container, .mod-map .mod-bd .amap-layers, .mod-map .mod-bd .amap-maps { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 
-/* 摄像头网格 */
-.cam-grid { display: grid; gap: 0.4rem; height: 100%; }
-.cam-tile {
-  position: relative; border-radius: 0.6rem; overflow: hidden;
-  background: #04120c; border: 1px solid rgba(16,185,129,.3); min-height: 0;
+/* 摄像头：单窗口 + 切换，离线黑屏 */
+.cam-single { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; }
+.cam-video {
+  flex: 1; position: relative; border-radius: 0.6rem; overflow: hidden;
+  background: #000; border: 1px solid rgba(16,185,129,.3); min-height: 0;
 }
-.cam-tile video, .cam-tile > div { width: 100%; height: 100%; object-fit: cover; }
+.cam-video video { width: 100%; height: 100%; object-fit: cover; }
+.cam-video > div { width: 100%; height: 100%; }
+.cam-offline {
+  position: absolute; inset: 0; background: #000;
+  display: flex; align-items: center; justify-content: center;
+  color: #2f4238; font-size: 0.7rem; letter-spacing: .1em;
+}
 .cam-live {
   position: absolute; top: 0.35rem; left: 0.35rem;
   font-size: 0.58rem; font-weight: 900; letter-spacing: .1em;
@@ -171,6 +169,16 @@
   background: linear-gradient(90deg, rgba(6,20,28,.85), transparent);
   padding: 0.12rem 0.5rem 0.12rem 0.35rem; border-radius: 0.25rem;
 }
+.cam-switch { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.cam-btn {
+  flex: 1; background: rgba(16,185,129,.10); color: #9fd6bb;
+  border: 1px solid rgba(16,185,129,.3); border-radius: 0.45rem;
+  padding: 0.3rem 0.4rem; font-size: 0.68rem; font-weight: 700; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+}
+.cam-btn.act { background: rgba(16,185,129,.28); color: #d1fae5; border-color: rgba(52,211,153,.7); box-shadow: 0 0 0.5rem rgba(16,185,129,.35); }
+.cam-btn-off { font-size: 0.55rem; color: #f87171; font-weight: 600; }
 
 /* ===== KPI ===== */
 .kpi-card {
@@ -266,7 +274,7 @@
 .t-E .value-items { grid-template-columns: repeat(6, 1fr); }
 .t-E .value-strip { flex-direction: row; align-items: center; gap: 0.9rem; }
 .t-E .value-chain { flex-wrap: nowrap; flex-shrink: 0; }
-.t-E .cam-grid { grid-template-columns: repeat(3, 1fr) !important; }
+
 
 /* F 竖屏（降级滚动） */
 .t-F {

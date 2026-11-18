@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, RotateCcw, RotateCw } from 'lucide-react';
 import { HlsPlayer } from '../components/CameraTab';
+import { MapComponent, type DeviceMarker } from '../components/MapComponent';
+import { wgs84ToGcj02 } from '../utils/coordTransform';
 import '../dashboard.css';
 
 type Template = 'A' | 'B' | 'C' | 'E' | 'F';
@@ -40,20 +42,16 @@ interface Snapshot {
   kpi: SnapshotKpi;
   value: { headline: string; chain: string[]; items: { label: string; text: string }[] };
 }
-interface Land {
+interface LandPoly {
   id: string;
-  name: string;
+  farmlandName: string;
   size: number;
-  region: string;
-  pts: [number, number][];
-  cx: number;
-  cy: number;
-}
-interface Device {
-  id: string;
-  name: string;
-  type: 'weather' | 'insect' | 'camera';
-  land: string;
+  backgroundColor: string;
+  borderColor: string;
+  transparency: number;
+  borderWidth: number;
+  coordinates: [number, number][];
+  centroid: [number, number];
 }
 interface Camera {
   id: string;
@@ -62,28 +60,6 @@ interface Camera {
   status: number;
 }
 
-const REGION_RULES: [string, string][] = [
-  ['新元村', '新元'], ['关坪', '关坪'], ['罗田', '罗田'], ['大进', '大进'],
-  ['紫水', '紫水'], ['大德', '大德'], ['和谦', '和谦'],
-];
-const REGION_COLORS: Record<string, string> = {
-  罗田: '#34d399', 新元: '#38bdf8', 关坪: '#f87171', 紫水: '#a78bfa',
-  和谦: '#fbbf24', 大德: '#2dd4bf', 大进: '#f472b6',
-};
-const regionOf = (name: string) => {
-  for (const [k, v] of REGION_RULES) if (name.includes(k)) return v;
-  return '其他';
-};
-const wktPoly = (w?: string | null): [number, number][] | null => {
-  const m = /POLYGON\(\(([^)]+)\)\)/.exec(w || '');
-  if (!m) return null;
-  return m[1].split(',').map((p) => {
-    const q = p.trim().split(/\s+/);
-    return [parseFloat(q[0]), parseFloat(q[1])];
-  });
-};
-
-/* ---------- hooks ---------- */
 const useCountUp = (target: number, decimals = 0, duration = 1400) => {
   const [v, setV] = useState(0);
   useEffect(() => {
@@ -112,134 +88,74 @@ const useClock = () => {
     date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
   };
 };
-const templateOf = (w: number, h: number): Template => {
+const templateOf = (w: number, h: number, isPhone: boolean): Template => {
   if (w === 0 || h === 0) return 'A';
   const ar = w / h;
   if (ar >= 1.9) return 'E';
   if (ar >= 1.55) return 'A';
   if (ar >= 1.35) return 'B';
   if (ar >= 1) return 'C';
-  return 'F';
+  // AR < 1：手机竖屏降级用 F；大屏设备(折叠屏展开 0.89:1 等)用 C 四象限
+  return isPhone ? 'F' : 'C';
 };
 
-/* ---------- 地图（SVG 深色版） ---------- */
-const MapPanel = ({ lands, devices }: { lands: Land[] | null; devices: Device[] | null }) => {
-  const box = useMemo(() => {
-    if (!lands || lands.length === 0) return null;
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    lands.forEach((l) =>
-      l.pts.forEach(([x, y]) => {
-        x0 = Math.min(x0, x); y0 = Math.min(y0, y);
-        x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-      })
+/* ---------- 地图（与总览页同方案：高德卫星+路网+地块+设备） ---------- */
+const MapPanel = ({
+  polygons,
+  devices,
+  center,
+  mapRef,
+}: {
+  polygons: LandPoly[];
+  devices: DeviceMarker[];
+  center?: [number, number];
+  mapRef: MutableRefObject<any>;
+}) => {
+  if (!center) {
+    return (
+      <div className="mod-ph">
+        <div className="mod-ph-icon" />
+        <div>地图加载中…</div>
+      </div>
     );
-    const padX = (x1 - x0) * 0.06 || 0.01;
-    const padY = (y1 - y0) * 0.06 || 0.01;
-    return { x: x0 - padX, y: y0 - padY, w: x1 - x0 + padX * 2, h: y1 - y0 + padY * 2 };
-  }, [lands]);
-
-  if (!lands || !box) {
-    return <div className="mod-ph"><div className="mod-ph-icon" /><div>地块数据加载中…</div></div>;
   }
-  // 罗田标杆光环（取罗田最大地块中心）
-  let bench: { x: number; y: number } | null = null;
-  let benchSize = 0;
-  lands.forEach((l) => {
-    if (l.region === '罗田' && l.size > benchSize) {
-      benchSize = l.size;
-      bench = { x: l.cx, y: l.cy };
-    }
-  });
-  // 区域标注（每区域取最大地块）
-  const regionCtr: Record<string, { x: number; y: number; size: number }> = {};
-  lands.forEach((l) => {
-    const c = regionCtr[l.region];
-    if (!c || l.size > c.size) regionCtr[l.region] = { x: l.cx, y: l.cy, size: l.size };
-  });
-
-  return (
-    <svg viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} className="dash-map" preserveAspectRatio="xMidYMid meet">
-      {lands.map((l) => (
-        <g key={l.id}>
-          <polygon
-            points={l.pts.map((p) => p.join(',')).join(' ')}
-            className="map-poly"
-            fill={l.region === '罗田' ? 'rgba(52,211,153,.16)' : 'rgba(16,185,129,.10)'}
-          >
-            <title>{`${l.name} · ${l.size} 亩`}</title>
-          </polygon>
-        </g>
-      ))}
-      {lands.map((l) => (
-        <circle
-          key={`b-${l.id}`}
-          cx={l.cx}
-          cy={l.cy}
-          r={Math.sqrt(l.size) * 0.0016}
-          fill={REGION_COLORS[l.region] || '#888'}
-          fillOpacity={0.92}
-          stroke="#ffffff"
-          strokeWidth={0.0008}
-        >
-          <title>{`${l.name} · ${l.size} 亩`}</title>
-        </circle>
-      ))}
-      {bench && (
-        <g>
-          <circle cx={bench.x} cy={bench.y} r={Math.sqrt(benchSize) * 0.0016 + 0.008} className="bench-ring" />
-          <circle cx={bench.x} cy={bench.y} r={Math.sqrt(benchSize) * 0.0016 + 0.013} className="bench-ring r2" />
-        </g>
-      )}
-      {(devices || []).map((d) => {
-        const land = lands.find((l) => l.id === d.land);
-        if (!land) return null;
-        const color = d.type === 'weather' ? '#38bdf8' : d.type === 'insect' ? '#a78bfa' : '#f87171';
-        return (
-          <g key={d.id}>
-            <rect
-              x={land.cx - 0.0035}
-              y={land.cy - 0.0035}
-              width={0.007}
-              height={0.007}
-              rx={0.0015}
-              fill={color}
-              stroke="#0a241b"
-              strokeWidth={0.0008}
-            >
-              <title>{d.name}</title>
-            </rect>
-          </g>
-        );
-      })}
-      {Object.entries(regionCtr).map(([reg, c]) => (
-        <text
-          key={reg}
-          x={c.x}
-          y={c.y - Math.sqrt(c.size) * 0.0016 - 0.004}
-          textAnchor="middle"
-          className="map-label"
-        >
-          {reg}
-        </text>
-      ))}
-    </svg>
-  );
+  return <MapComponent ref={mapRef} isFullScreen={false} center={center} polygon={[]} polygons={polygons} devices={devices} />;
 };
 
-/* ---------- 摄像头 ---------- */
+/* ---------- 摄像头（单窗口 + 切换，离线黑屏） ---------- */
 const CameraPanel = ({ cameras }: { cameras: Camera[] | null }) => {
+  const [idx, setIdx] = useState(0);
   if (!cameras || cameras.length === 0) {
-    return <div className="mod-ph"><div className="mod-ph-icon" /><div>摄像头数据加载中…</div></div>;
+    return (
+      <div className="mod-ph">
+        <div className="mod-ph-icon" />
+        <div>摄像头数据加载中…</div>
+      </div>
+    );
   }
+  const cur = cameras[Math.min(idx, cameras.length - 1)];
+  const online = cur.status === 1 && !!cur.hls;
   return (
-    <div className="cam-grid" style={{ gridTemplateColumns: `repeat(${Math.min(cameras.length, 3)}, 1fr)` }}>
-      {cameras.map((c) => (
-        <div className="cam-tile" key={c.id}>
-          <HlsPlayer src={c.hls} cameraName={c.name} />
-          <span className={`cam-live ${c.status === 1 ? 'on' : ''}`}>LIVE</span>
-          <span className="cam-name">{c.name}</span>
-        </div>
-      ))}
+    <div className="cam-single">
+      <div className="cam-video">
+        {online ? (
+          <HlsPlayer src={cur.hls} cameraName={cur.name} />
+        ) : (
+          <div className="cam-offline">
+            <span>设备离线</span>
+          </div>
+        )}
+        {online && <span className="cam-live on">LIVE</span>}
+        <span className="cam-name">{cur.name}</span>
+      </div>
+      <div className="cam-switch">
+        {cameras.map((c, i) => (
+          <button key={c.id} className={`cam-btn ${i === idx ? 'act' : ''}`} onClick={() => setIdx(i)}>
+            {c.name}
+            {c.status !== 1 && <span className="cam-btn-off">离线</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
@@ -285,6 +201,7 @@ export const DashboardPage = () => {
   const siteKey = params.get('site') || 'base-current';
 
   const rootRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [isPhone, setIsPhone] = useState(false);
   const [portraitMode, setPortraitMode] = useState(false);
@@ -295,8 +212,9 @@ export const DashboardPage = () => {
   const [baseId, setBaseId] = useState<number | null>(null);
   const [live, setLive] = useState<{ devices?: number; cameras?: number }>({});
   const [baseName, setBaseName] = useState('重庆药用高辣度辣椒基地');
-  const [lands, setLands] = useState<Land[] | null>(null);
-  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [polygons, setPolygons] = useState<LandPoly[]>([]);
+  const [devices, setDevices] = useState<DeviceMarker[]>([]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>();
   const [cameras, setCameras] = useState<Camera[] | null>(null);
   const [showMain, setShowMain] = useState<'map' | 'cam'>('map');
 
@@ -321,6 +239,12 @@ export const DashboardPage = () => {
       window.removeEventListener('orientationchange', measure);
     };
   }, []);
+
+  /* 模板变化后重绘地图 */
+  useEffect(() => {
+    const t = setTimeout(() => mapRef.current?.resize?.(), 350);
+    return () => clearTimeout(t);
+  }, [dims, templateOf(dims.w, dims.h, isPhone)]);
 
   /* 基地信息 + 年份列表 + 快照 */
   useEffect(() => {
@@ -361,41 +285,110 @@ export const DashboardPage = () => {
     })();
   }, [year]);
 
-  /* 地块 + 设备 + 摄像头 */
+  /* 地块 + 设备 + 摄像头（与总览页 MapSection 同解析逻辑） */
   useEffect(() => {
     if (!baseId) return;
     (async () => {
       try {
-        const r = await fetch(`/api/farm/land/list?baseId=${baseId}`, { headers: { 'X-Site-Name': siteKey } });
-        const d = await r.json();
-        if (d.code === 200 && Array.isArray(d.data)) {
-          const ls: Land[] = [];
-          d.data.forEach((l: Record<string, unknown>) => {
-            const pts = wktPoly(String(l.mapPolygonGeo || ''));
-            if (!pts || pts.length < 3) return;
-            const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-            const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-            ls.push({
-              id: String(l.id), name: String(l.farmlandName || ''),
-              size: Number(l.size || 0), region: regionOf(String(l.farmlandName || '')),
-              pts, cx, cy,
+        const [landRes, iotRes] = await Promise.all([
+          fetch(`/api/farm/land/list?baseId=${baseId}`, { headers: { 'X-Site-Name': siteKey } }).then((r) => r.json()),
+          fetch(`/api/collect/iot/locationList?baseId=${baseId}`, { headers: { 'X-Site-Name': siteKey } }).then((r) => r.json()),
+        ]);
+
+        const parsed: LandPoly[] = [];
+        if (landRes.code === 200 && Array.isArray(landRes.data)) {
+          landRes.data.forEach((land: Record<string, unknown>) => {
+            const wkt = String(land.mapPolygonGeo || '');
+            const m = /POLYGON\(\(([^)]+)\)\)/.exec(wkt);
+            if (!m) return;
+            const coords = m[1]
+              .split(',')
+              .map((p) => {
+                const [lng, lat] = p.trim().split(/\s+/).map(Number);
+                return wgs84ToGcj02(lng, lat) as [number, number];
+              })
+              .filter((c) => !Number.isNaN(c[0]) && !Number.isNaN(c[1]));
+            if (coords.length < 3) return;
+            const cx = coords.reduce((s, c) => s + c[0], 0) / coords.length;
+            const cy = coords.reduce((s, c) => s + c[1], 0) / coords.length;
+            parsed.push({
+              id: String(land.id),
+              farmlandName: String(land.farmlandName || ''),
+              size: Number(land.size || 0),
+              backgroundColor: String(land.backgroundColor || '#10b981'),
+              borderColor: String(land.borderColor || '#059669'),
+              transparency: Number(land.transparency ?? 30),
+              borderWidth: Number(land.borderWidth ?? 2),
+              coordinates: coords,
+              centroid: [cx, cy],
             });
           });
-          setLands(ls);
-        }
-      } catch {}
-    })();
-    (async () => {
-      try {
-        const r = await fetch(`/api/collect/iot/locationList?baseId=${baseId}`, { headers: { 'X-Site-Name': siteKey } });
-        const d = await r.json();
-        if (d.code === 200 && Array.isArray(d.data)) {
-          const devs: Device[] = d.data.map((x: Record<string, unknown>) => {
-            const name = String(x.name || '');
-            const type = name.includes('气象') ? 'weather' : name.includes('虫') ? 'insect' : 'camera';
-            return { id: String(x.id), name, type, land: '' };
-          });
-          setDevices(devs);
+          setPolygons(parsed);
+
+          let center: [number, number] | undefined;
+          if (parsed.length > 0) {
+            let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+            parsed.forEach((p) =>
+              p.coordinates.forEach((c) => {
+                minLng = Math.min(minLng, c[0]); maxLng = Math.max(maxLng, c[0]);
+                minLat = Math.min(minLat, c[1]); maxLat = Math.max(maxLat, c[1]);
+              })
+            );
+            center = [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
+            setMapCenter(center);
+          }
+
+          /* 设备：与 MapSection 同名匹配+偏移散开 */
+          if (iotRes.code === 200 && Array.isArray(iotRes.data)) {
+            const centroids = new Map<string, [number, number]>();
+            parsed.forEach((p) => centroids.set(p.id, p.centroid));
+            const landCount = new Map<string, number>();
+            const matchLand = (devName: string): string | null => {
+              const n = devName.toLowerCase();
+              const numMatch = n.match(/(\d+)号/);
+              const num = numMatch ? numMatch[1] : '';
+              for (const p of parsed) {
+                const lname = p.farmlandName.toLowerCase();
+                if (n.includes('新元') && num === '1' && lname.includes('新元') && lname.includes('1号')) return p.id;
+                if (n.includes('新元') && num === '2' && lname.includes('新元') && lname.includes('2号')) return p.id;
+                if (n.includes('关坪') && lname.includes('关坪') && lname.includes('1号')) return p.id;
+              }
+              for (const p of parsed) {
+                const lname = p.farmlandName.toLowerCase();
+                if (n.includes('新元') && lname.includes('新元') && lname.includes('1号')) return p.id;
+                if (n.includes('关坪') && lname.includes('关坪')) return p.id;
+              }
+              return null;
+            };
+            const offsets: [number, number][] = [[0, 0], [0.0006, 0], [0, -0.0006], [-0.0006, 0], [0, 0.0006]];
+            const markers: DeviceMarker[] = iotRes.data.map((iot: Record<string, unknown>) => {
+              const name = String(iot.name || '');
+              const fid = matchLand(name);
+              let position: [number, number] = [0, 0];
+              const centroid = fid ? centroids.get(fid) : undefined;
+              if (centroid) {
+                const count = landCount.get(fid!) || 0;
+                landCount.set(fid!, count + 1);
+                const [ox, oy] = offsets[count] || [0, 0];
+                position = [centroid[0] + ox, centroid[1] + oy];
+              } else if (center) {
+                position = [center[0], center[1]];
+              }
+              const n = name.toLowerCase();
+              let type: DeviceMarker['type'] = 'weather';
+              if (n.includes('虫')) type = 'insect';
+              else if (n.includes('摄像') || n.includes('监控') || n.includes('球机')) type = 'camera';
+              return {
+                id: String(iot.id),
+                type,
+                name: name || `设备 ${iot.id}`,
+                position,
+                status: iot.is_used === 1 ? 'online' : 'offline',
+                farmlandId: fid || undefined,
+              };
+            });
+            setDevices(markers);
+          }
         }
       } catch {}
     })();
@@ -414,32 +407,16 @@ export const DashboardPage = () => {
         if (d.code === 200 && Array.isArray(d.data)) {
           setCameras(
             d.data.map((c: Record<string, unknown>) => ({
-              id: String(c.id), name: String(c.cameraName || '摄像头'),
-              hls: String(c.hls || ''), status: Number(c.status ?? 0),
+              id: String(c.id),
+              name: String(c.cameraName || '摄像头'),
+              hls: String(c.hls || ''),
+              status: Number(c.status ?? 0),
             }))
           );
         }
       } catch {}
     })();
   }, [baseId, siteKey]);
-
-  /* 设备落位：地名匹配地块（新元→新元村1号，关坪→关坪1号…） */
-  useEffect(() => {
-    if (!lands || !devices) return;
-    setDevices(
-      devices.map((d) => {
-        let matched = '';
-        for (const l of lands) {
-          const kw = l.name.replace(/村.*|地块|号地|示范地|_地/g, '').slice(0, 2);
-          if (kw && d.name.includes(kw)) {
-            matched = l.id;
-            break;
-          }
-        }
-        return { ...d, land: matched };
-      })
-    );
-  }, [lands]);
 
   /* 实时设备/摄像头计数（快照兜底） */
   useEffect(() => {
@@ -465,14 +442,14 @@ export const DashboardPage = () => {
 
   /* E 模板：地图/摄像头主位轮换 */
   useEffect(() => {
-    const template = templateOf(dims.w, dims.h);
+    const template = templateOf(dims.w, dims.h, isPhone);
     if (template !== 'E') return;
     const t = setInterval(() => setShowMain((m) => (m === 'map' ? 'cam' : 'map')), 20000);
     return () => clearInterval(t);
   }, [dims]);
 
   const kpi = snap?.kpi;
-  const template = templateOf(dims.w, dims.h);
+  const template = templateOf(dims.w, dims.h, isPhone);
   const winPortrait = typeof window !== 'undefined' ? window.innerWidth < window.innerHeight : false;
   const rotate = isPhone && !portraitMode && winPortrait;
   const scale = Math.min(1.5, Math.max(0.6, Math.min(dims.w, dims.h) / 720));
@@ -485,8 +462,8 @@ export const DashboardPage = () => {
 
   const mapSection = (
     <section className="area-map">
-      <Mod title="地块分布全景" badge={lands ? `${lands.length} 块` : undefined} className="mod-map">
-        <MapPanel lands={lands} devices={devices} />
+      <Mod title="地块分布全景" badge={polygons.length ? `${polygons.length} 块` : undefined} className="mod-map">
+        <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} />
       </Mod>
     </section>
   );
