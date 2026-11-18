@@ -105,11 +105,13 @@ const MapPanel = ({
   devices,
   center,
   mapRef,
+  onDeviceClick,
 }: {
   polygons: LandPoly[];
   devices: DeviceMarker[];
   center?: [number, number];
   mapRef: MutableRefObject<any>;
+  onDeviceClick?: (d: DeviceMarker) => void;
 }) => {
   if (!center) {
     return (
@@ -119,12 +121,29 @@ const MapPanel = ({
       </div>
     );
   }
-  return <MapComponent ref={mapRef} isFullScreen={false} center={center} polygon={[]} polygons={polygons} devices={devices} />;
+  return (
+    <MapComponent
+      ref={mapRef}
+      isFullScreen={false}
+      center={center}
+      polygon={[]}
+      polygons={polygons}
+      devices={devices}
+      onDeviceClick={onDeviceClick}
+    />
+  );
 };
 
 /* ---------- 摄像头（单窗口 + 切换，离线黑屏） ---------- */
-const CameraPanel = ({ cameras }: { cameras: Camera[] | null }) => {
-  const [idx, setIdx] = useState(0);
+const CameraPanel = ({
+  cameras,
+  idx,
+  onSelect,
+}: {
+  cameras: Camera[] | null;
+  idx: number;
+  onSelect: (i: number) => void;
+}) => {
   if (!cameras || cameras.length === 0) {
     return (
       <div className="mod-ph">
@@ -150,7 +169,7 @@ const CameraPanel = ({ cameras }: { cameras: Camera[] | null }) => {
       </div>
       <div className="cam-switch">
         {cameras.map((c, i) => (
-          <button key={c.id} className={`cam-btn ${i === idx ? 'act' : ''}`} onClick={() => setIdx(i)}>
+          <button key={c.id} className={`cam-btn ${i === idx ? 'act' : ''}`} onClick={() => onSelect(i)}>
             {c.name}
             {c.status !== 1 && <span className="cam-btn-off">离线</span>}
           </button>
@@ -216,7 +235,19 @@ export const DashboardPage = () => {
   const [devices, setDevices] = useState<DeviceMarker[]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>();
   const [cameras, setCameras] = useState<Camera[] | null>(null);
+  const [camIdx, setCamIdx] = useState(0);
   const [showMain, setShowMain] = useState<'map' | 'cam'>('map');
+
+  const handleDeviceClick = (d: DeviceMarker) => {
+    if (d.type !== 'camera' || !cameras) return;
+    const i = cameras.findIndex(
+      (c) => c.name === d.name || c.name.includes(d.name) || d.name.includes(c.name)
+    );
+    if (i >= 0) {
+      setCamIdx(i);
+      setShowMain('cam');
+    }
+  };
 
   const clock = useClock();
 
@@ -462,15 +493,19 @@ export const DashboardPage = () => {
 
   const mapSection = (
     <section className="area-map">
-      <Mod title="地块分布全景" badge={polygons.length ? `${polygons.length} 块` : undefined} className="mod-map">
-        <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} />
+      <Mod
+        title="地块分布全景"
+        badge={polygons.length ? `${polygons.length} 块 · 点击摄像头图标切换监控` : undefined}
+        className="mod-map"
+      >
+        <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} onDeviceClick={handleDeviceClick} />
       </Mod>
     </section>
   );
   const camSection = (
     <section className="area-cam">
-      <Mod title="实时监控" badge={cameras ? `${cameras.length} 路` : undefined} className="mod-cam">
-        <CameraPanel cameras={cameras} />
+      <Mod title="实时监控 · 全景放大" badge={cameras ? `${cameras.length} 路` : undefined} className="mod-cam">
+        <CameraPanel cameras={cameras} idx={camIdx} onSelect={(i) => setCamIdx(i)} />
       </Mod>
     </section>
   );

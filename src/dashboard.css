@@ -233,30 +233,30 @@
 .area-kpi, .area-map, .area-cam, .area-wth, .area-ndvi, .area-ins, .area-farm, .area-value { min-height: 0; min-width: 0; }
 .area-kpi { display: grid; gap: 0.5rem; }
 
-/* A 桌面 16:9 */
-.t-A { grid-template-columns: 16.5rem 1fr 21rem; grid-template-rows: 1fr 1fr 6.4rem;
-  grid-template-areas: "kpi map cam" "wth ndvi ins" "value value value"; }
+/* A 桌面 16:9：地图主视觉通高，摄像头横条在其正下方 */
+.t-A { grid-template-columns: 16.5rem 1fr; grid-template-rows: 1fr 12.5rem 6.4rem;
+  grid-template-areas: "kpi map" "kpi cam" "value value"; }
 .t-A .area-kpi { grid-area: kpi; grid-template-columns: 1fr; grid-template-rows: repeat(6, 1fr); }
 .t-A .area-map { grid-area: map; } .t-A .area-cam { grid-area: cam; }
-.t-A .area-wth { grid-area: wth; } .t-A .area-ndvi { grid-area: ndvi; }
-.t-A .area-ins { grid-area: ins; } .t-A .area-value { grid-area: value; }
+.t-A .area-wth, .t-A .area-ndvi, .t-A .area-ins, .t-A .area-farm { display: none; }
+.t-A .area-value { grid-area: value; }
 
-/* B iPad 4:3 */
-.t-B { grid-template-columns: 56fr 44fr; grid-template-rows: 1fr 1fr 6rem;
-  grid-template-areas: "map kpi" "ndvi cam" "value value"; }
+/* B iPad 4:3：地图左列通高，摄像头在地图正下方 */
+.t-B { grid-template-columns: 56fr 44fr; grid-template-rows: 1fr 10.5rem 6rem;
+  grid-template-areas: "map kpi" "cam kpi" "value value"; }
 .t-B .area-kpi { grid-area: kpi; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); }
-.t-B .area-map { grid-area: map; } .t-B .area-ndvi { grid-area: ndvi; }
-.t-B .area-cam { grid-area: cam; } .t-B .area-value { grid-area: value; }
-.t-B .area-wth, .t-B .area-ins, .t-B .area-farm { display: none; }
+.t-B .area-map { grid-area: map; } .t-B .area-cam { grid-area: cam; }
+.t-B .area-wth, .t-B .area-ndvi, .t-B .area-ins, .t-B .area-farm { display: none; }
+.t-B .area-value { grid-area: value; }
 .t-B .value-items { grid-template-columns: repeat(4, 1fr); }
 
-/* C 方形（折叠屏展开） */
+/* C 方形（折叠屏展开）：地图左列通高，摄像头右上紧邻，KPI右下 */
 .t-C { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 6.4rem;
-  grid-template-areas: "map cam" "kpi mix" "value value"; }
+  grid-template-areas: "map cam" "map kpi" "value value"; }
 .t-C .area-kpi { grid-area: kpi; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); }
 .t-C .area-map { grid-area: map; } .t-C .area-cam { grid-area: cam; }
-.t-C .area-ndvi { grid-area: mix; } .t-C .area-value { grid-area: value; }
-.t-C .area-wth, .t-C .area-ins, .t-C .area-farm { display: none; }
+.t-C .area-wth, .t-C .area-ndvi, .t-C .area-ins, .t-C .area-farm { display: none; }
+.t-C .area-value { grid-area: value; }
 .t-C .value-items { grid-template-columns: repeat(4, 1fr); }
 
 /* E 超宽（手机横屏/超宽墙） */
