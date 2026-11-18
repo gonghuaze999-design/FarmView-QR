@@ -222,26 +222,31 @@
 }
 
 /* ===== 气象面板 ===== */
-.wth-wrap { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; }
-.wth-main { display: flex; align-items: center; gap: 0.7rem; }
-.wth-temp-big { font-size: 1.7rem; font-weight: 900; color: #eaf5ee; line-height: 1; font-variant-numeric: tabular-nums; }
+.wth-wrap { display: flex; flex-direction: column; gap: 0.35rem; height: 100%; min-height: 0; overflow: hidden; }
+.wth-main { display: flex; align-items: center; gap: 0.7rem; flex-shrink: 0; }
+.wth-temp-big { font-size: 1.7rem; font-weight: 900; color: #eaf5ee; line-height: 1; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 .wth-temp-big i { font-style: normal; font-size: 0.75rem; font-weight: 500; color: #6ee7b7; margin-left: 0.15rem; }
-.wth-meta { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.62rem; color: #9fd6bb; }
-.wth-station { color: #4b6b5d; font-size: 0.55rem; }
-.wth-warn { border-radius: 0.4rem; padding: 0.25rem 0.5rem; font-size: 0.6rem; font-weight: 800; }
+.wth-metrics { display: grid; grid-template-columns: repeat(3, auto); gap: 0.25rem 0.6rem; }
+.wth-metric { display: flex; flex-direction: column; }
+.wth-metric span { font-size: 0.5rem; color: #6b8a7b; }
+.wth-metric b { font-size: 0.68rem; color: #d1fae5; font-weight: 700; }
+.wth-station { color: #4b6b5d; font-size: 0.55rem; flex-shrink: 0; }
+.wth-warn { border-radius: 0.4rem; padding: 0.25rem 0.5rem; font-size: 0.6rem; font-weight: 800; flex-shrink: 0; }
 .wth-warn.r { background: rgba(220,38,38,.18); color: #fca5a5; border: 1px solid rgba(220,38,38,.4); }
 .wth-warn.b { background: rgba(56,189,248,.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,.4); }
-.wth-fc { display: flex; gap: 0.3rem; }
-.wth-fc-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.2); border-radius: 0.4rem;
-  padding: 0.2rem 0; min-width: 0;
+.wth-fc { display: flex; flex-direction: column; gap: 0.22rem; flex: 1; min-height: 0; overflow: hidden; }
+.wth-fc-row {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.18);
+  border-radius: 0.35rem; padding: 0.18rem 0.4rem; min-height: 0; flex-shrink: 0;
 }
-.wth-fc-item.today { border-color: rgba(52,211,153,.55); box-shadow: 0 0 0.4rem rgba(16,185,129,.25); }
-.wth-fc-d { font-size: 0.52rem; color: #6b8a7b; white-space: nowrap; }
-.wth-fc-t { font-size: 0.62rem; font-weight: 800; color: #eaf5ee; }
-.wth-fc-t i { font-style: normal; color: #6b8a7b; font-weight: 500; margin-left: 0.15rem; }
-.wth-fc-r { font-size: 0.5rem; }
+.wth-fc-row.today { border-color: rgba(52,211,153,.55); box-shadow: 0 0 0.35rem rgba(16,185,129,.22); }
+.wth-fc-d { font-size: 0.55rem; color: #9fd6bb; width: 2.1rem; flex-shrink: 0; white-space: nowrap; }
+.wth-fc-track { flex: 1; height: 0.32rem; background: rgba(16,185,129,.1); border-radius: 0.16rem; position: relative; overflow: hidden; }
+.wth-fc-track i { position: absolute; top: 0; height: 100%; border-radius: 0.16rem; background: linear-gradient(90deg, #38bdf8, #fbbf24, #f87171); }
+.wth-fc-t { font-size: 0.58rem; font-weight: 800; color: #eaf5ee; width: 4.6rem; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.wth-fc-r { font-size: 0.55rem; width: 1.7rem; text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.wth-year { font-size: 0.55rem; color: #6b8a7b; border-top: 1px dashed rgba(16,185,129,.25); padding-top: 0.25rem; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ===== NDVI 面板 ===== */
 .ndvi-wrap { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; min-height: 0; }

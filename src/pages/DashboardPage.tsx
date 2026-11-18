@@ -137,7 +137,11 @@ const MapPanel = ({
 };
 
 /* ---------- 气象面板（气象站实时 + 7日预报 + 灾害提示） ---------- */
-const WeatherPanel = ({ firstLandId, wgsCenter }: { firstLandId?: string; wgsCenter?: [number, number] }) => {
+const WeatherPanel = ({ firstLandId, wgsCenter, kpi }: {
+  firstLandId?: string;
+  wgsCenter?: [number, number];
+  kpi?: SnapshotKpi;
+}) => {
   const [station, setStation] = useState<Record<string, unknown> | null>(null);
   const [fc, setFc] = useState<{ d: string; tmax: number; tmin: number; rain: number }[] | null>(null);
   const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
@@ -179,9 +183,16 @@ const WeatherPanel = ({ firstLandId, wgsCenter }: { firstLandId?: string; wgsCen
 
   const temp = station ? Number(station['空气温度']) : null;
   const humi = station ? Number(station['空气湿度']) : null;
-  const wind = station ? Number(station['风速']) : null;
+  const wdir = station ? String(station['风向'] || '') : '';
+  const wforce = station ? Number(station['fx'] ?? station['风速']) : null;
+  const reportTime = station ? String(station['report_time'] || '') : '';
   const warnHeat = (fc || []).slice(0, 3).some((f) => f.tmax >= 35);
   const warnRain = (fc || []).slice(0, 3).some((f) => f.rain >= 80);
+
+  const metrics: [string, string][] = [];
+  if (humi != null && humi > 0) metrics.push(['湿度', `${humi.toFixed(0)}%`]);
+  if (wdir) metrics.push(['风向', wdir]);
+  if (wforce != null && wforce > 0) metrics.push(['风力', `${wforce.toFixed(0)} m/s`]);
 
   return (
     <div className="wth-wrap">
@@ -190,23 +201,39 @@ const WeatherPanel = ({ firstLandId, wgsCenter }: { firstLandId?: string; wgsCen
           {temp != null ? temp.toFixed(1) : '—'}
           <i>°C</i>
         </div>
-        <div className="wth-meta">
-          <span>湿度 {humi != null ? `${humi.toFixed(0)}%` : '—'}</span>
-          <span>风速 {wind != null ? `${wind.toFixed(1)} m/s` : '—'}</span>
-          <span className="wth-station">{station ? '基地气象站' : '气象站待机'}</span>
+        <div className="wth-metrics">
+          {metrics.map(([k, v]) => (
+            <div key={k} className="wth-metric">
+              <span>{k}</span>
+              <b>{v}</b>
+            </div>
+          ))}
         </div>
       </div>
+      {reportTime && <div className="wth-station">基地气象站 · {reportTime.slice(5, 16)}</div>}
       {warnHeat && <div className="wth-warn r">高温预警：未来3天 ≥35°C</div>}
       {warnRain && <div className="wth-warn b">降雨预警：未来3天概率 ≥80%</div>}
       <div className="wth-fc">
-        {(fc || []).slice(0, 3).map((f, i) => (
-          <div key={i} className={`wth-fc-item ${i === 0 ? 'today' : ''}`}>
-            <span className="wth-fc-d">{i === 0 ? '今天' : f.d}</span>
-            <span className="wth-fc-t">{f.tmax}°<i>{f.tmin}°</i></span>
-            <span className="wth-fc-r">{f.rain}%</span>
-          </div>
-        ))}
+        {(fc || []).map((f, i) => {
+          const lo = ((f.tmin + 5) / 45) * 100;
+          const span = Math.max(8, ((f.tmax - f.tmin) / 45) * 100);
+          return (
+            <div key={i} className={`wth-fc-row ${i === 0 ? 'today' : ''}`}>
+              <span className="wth-fc-d">{i === 0 ? '今天' : f.d}</span>
+              <span className="wth-fc-track">
+                <i style={{ left: `${Math.min(92, lo)}%`, width: `${Math.min(100 - lo, span)}%` }} />
+              </span>
+              <span className="wth-fc-t">{f.tmin}°~{f.tmax}°</span>
+              <span className="wth-fc-r" style={{ color: f.rain >= 60 ? '#38bdf8' : '#64748b' }}>{f.rain}%</span>
+            </div>
+          );
+        })}
       </div>
+      {kpi && (
+        <div className="wth-year">
+          本年度：≥35°C 高温 {kpi.heatDays} 天 · 9月降雨 {kpi.sepRain} mm
+        </div>
+      )}
     </div>
   );
 };
@@ -649,15 +676,21 @@ export const DashboardPage = () => {
     return () => clearInterval(t);
   }, [baseId, siteKey]);
 
-  /* rem 缩放基准：必须设在根元素（rem 只认根字号） */
+  /* rem 缩放基准：基于窗口尺寸（不依赖容器测量时序），设在根元素 */
   useEffect(() => {
-    const el = document.documentElement;
-    const prev = el.style.fontSize;
-    el.style.fontSize = `${Math.min(1.5, Math.max(0.6, Math.min(dims.w, dims.h) / 720)) * 16}px`;
-    return () => {
-      el.style.fontSize = prev;
+    const apply = () => {
+      const scale = Math.min(1.5, Math.max(0.6, Math.min(window.innerWidth, window.innerHeight) / 720));
+      document.documentElement.style.fontSize = `${scale * 16}px`;
     };
-  }, [dims]);
+    apply();
+    window.addEventListener('resize', apply);
+    window.addEventListener('orientationchange', apply);
+    return () => {
+      document.documentElement.style.fontSize = '';
+      window.removeEventListener('resize', apply);
+      window.removeEventListener('orientationchange', apply);
+    };
+  }, []);
 
   /* 地图初始化期自适应（AMap 异步加载，轮询 resize 直到就绪） */
   useEffect(() => {
@@ -710,7 +743,7 @@ export const DashboardPage = () => {
   const wthSection = (
     <section className="area-wth">
       <Mod title="气象环境" className="mod-wth">
-        <WeatherPanel firstLandId={polygons[0]?.id} wgsCenter={wgsCenter} />
+        <WeatherPanel firstLandId={polygons[0]?.id} wgsCenter={wgsCenter} kpi={kpi} />
       </Mod>
     </section>
   );
