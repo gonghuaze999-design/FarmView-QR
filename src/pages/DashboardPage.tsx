@@ -183,38 +183,27 @@ const WeatherPanel = ({ firstLandId, wgsCenter }: { firstLandId?: string; wgsCen
   const warnHeat = (fc || []).slice(0, 3).some((f) => f.tmax >= 35);
   const warnRain = (fc || []).slice(0, 3).some((f) => f.rain >= 80);
 
-  const gauge = temp != null ? Math.max(0, Math.min(1, (temp + 10) / 55)) : 0.5;
-  const arc = (from: number, to: number) => {
-    const a0 = Math.PI * (0.75 + 0.5 * from);
-    const a1 = Math.PI * (0.75 + 0.5 * to);
-    const r = 40, cx = 52, cy = 52;
-    const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${to - from > 0.5 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
-  };
-
   return (
     <div className="wth-wrap">
-      <div className="wth-now">
-        <svg viewBox="0 0 104 66" className="wth-gauge">
-          <path d={arc(0, 1)} stroke="rgba(16,185,129,.25)" strokeWidth="8" fill="none" strokeLinecap="round" />
-          <path d={arc(0, gauge)} stroke="#34d399" strokeWidth="8" fill="none" strokeLinecap="round" />
-          <text x="52" y="52" textAnchor="middle" className="wth-temp">{temp != null ? `${temp.toFixed(1)}°` : '—'}</text>
-        </svg>
+      <div className="wth-main">
+        <div className="wth-temp-big">
+          {temp != null ? temp.toFixed(1) : '—'}
+          <i>°C</i>
+        </div>
         <div className="wth-meta">
           <span>湿度 {humi != null ? `${humi.toFixed(0)}%` : '—'}</span>
           <span>风速 {wind != null ? `${wind.toFixed(1)} m/s` : '—'}</span>
-          <span className="wth-station">{station ? `气象站 ${station['report_time'] || ''}` : '气象站待机'}</span>
+          <span className="wth-station">{station ? '基地气象站' : '气象站待机'}</span>
         </div>
       </div>
       {warnHeat && <div className="wth-warn r">高温预警：未来3天 ≥35°C</div>}
-      {warnRain && <div className="wth-warn b">降雨预警：未来3天降雨概率 ≥80%</div>}
+      {warnRain && <div className="wth-warn b">降雨预警：未来3天概率 ≥80%</div>}
       <div className="wth-fc">
-        {(fc || []).map((f, i) => (
+        {(fc || []).slice(0, 3).map((f, i) => (
           <div key={i} className={`wth-fc-item ${i === 0 ? 'today' : ''}`}>
             <span className="wth-fc-d">{i === 0 ? '今天' : f.d}</span>
             <span className="wth-fc-t">{f.tmax}°<i>{f.tmin}°</i></span>
-            <span className="wth-fc-r" style={{ color: f.rain >= 60 ? '#38bdf8' : '#64748b' }}>{f.rain}%</span>
+            <span className="wth-fc-r">{f.rain}%</span>
           </div>
         ))}
       </div>
@@ -313,20 +302,6 @@ const NdviPanel = ({ polygons }: { polygons: LandPoly[] }) => {
   );
 };
 
-/* ---------- 产业价值阶梯（实绩→目标→展望） ---------- */
-const ValueLadder = ({ vals }: { vals: { label: string; v: number; gold?: boolean }[] }) => (
-  <div className="value-ladder">
-    {vals.map((x, i) => (
-      <div key={i} className="value-ladder-col">
-        <div className="value-ladder-num" style={{ color: x.gold ? '#fbbf24' : '#9fd6bb' }}>{x.v.toLocaleString()}<i>元/亩</i></div>
-        <div className="value-ladder-bar" style={{ height: `${(x.v / (vals[vals.length - 1].v || 1)) * 100}%`, background: x.gold ? 'linear-gradient(180deg,#fbbf24,#b45309)' : 'linear-gradient(180deg,#34d399,#0e5c33)' }} />
-        <div className="value-ladder-label">{x.label}</div>
-      </div>
-    ))}
-  </div>
-);
-
-/* ---------- 摄像头（单窗口 + 切换，离线黑屏） ---------- */
 const CameraPanel = ({
   cameras,
   idx,
@@ -432,9 +407,9 @@ export const DashboardPage = () => {
   const [mapCenter, setMapCenter] = useState<[number, number]>();
   const [cameras, setCameras] = useState<Camera[] | null>(null);
   const [camIdx, setCamIdx] = useState(0);
-  const [showMain, setShowMain] = useState<'map' | 'cam' | 'ndvi'>('map');
+  const [showMain, setShowMain] = useState<'map' | 'cam'>('map');
 
-  const switchMain = (m: 'map' | 'cam' | 'ndvi') => {
+  const switchMain = (m: 'map' | 'cam') => {
     setShowMain(m);
   };
 
@@ -710,7 +685,6 @@ export const DashboardPage = () => {
     <div className="main-switch">
       <button className={showMain === 'map' ? 'act' : ''} onClick={() => switchMain('map')}>地图</button>
       <button className={showMain === 'cam' ? 'act' : ''} onClick={() => switchMain('cam')}>监控</button>
-      <button className={showMain === 'ndvi' ? 'act' : ''} onClick={() => switchMain('ndvi')}>长势</button>
     </div>
   ));
 
@@ -742,7 +716,7 @@ export const DashboardPage = () => {
   );
   const ndviSection = (
     <section className="area-ndvi">
-      <Mod title="长势 NDVI" badge="30天" className="mod-ndvi" extra={template === 'E' ? mainSwitch : undefined}>
+      <Mod title="长势 NDVI" badge="30天" className="mod-ndvi">
         <NdviPanel polygons={polygons} />
       </Mod>
     </section>
@@ -824,7 +798,7 @@ export const DashboardPage = () => {
 
           {template === 'E' ? (
             <>
-              {showMain === 'map' ? mapSection : showMain === 'cam' ? camSection : ndviSection}
+              {showMain === 'map' ? mapSection : camSection}
               {wthSection}
               <section className="area-ins">
                 <Mod title="虫情监测" badge="P4">
@@ -863,13 +837,6 @@ export const DashboardPage = () => {
                     </div>
                   ))}
                 </div>
-                <ValueLadder
-                  vals={[
-                    { label: '2026 实绩', v: (kpi?.yieldActual ?? 250) * 6 },
-                    { label: '2027 目标', v: (kpi?.targetYield?.[0] ?? 500) * 6 },
-                    { label: '2028 展望', v: (kpi?.targetYield?.[1] ?? 600) * 6, gold: true },
-                  ]}
-                />
                 <div className="value-items">
                   {(snap?.value.items || []).slice(0, 4).map((it, i) => (
                     <div key={i} className="value-item">

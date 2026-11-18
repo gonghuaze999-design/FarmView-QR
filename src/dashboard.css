@@ -223,15 +223,15 @@
 
 /* ===== 气象面板 ===== */
 .wth-wrap { display: flex; flex-direction: column; gap: 0.4rem; height: 100%; }
-.wth-now { display: flex; align-items: center; gap: 0.5rem; }
-.wth-gauge { width: 4.6rem; height: 2.9rem; flex-shrink: 0; }
-.wth-temp { fill: #eaf5ee; font-size: 0.85rem; font-weight: 900; }
+.wth-main { display: flex; align-items: center; gap: 0.7rem; }
+.wth-temp-big { font-size: 1.7rem; font-weight: 900; color: #eaf5ee; line-height: 1; font-variant-numeric: tabular-nums; }
+.wth-temp-big i { font-style: normal; font-size: 0.75rem; font-weight: 500; color: #6ee7b7; margin-left: 0.15rem; }
 .wth-meta { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.62rem; color: #9fd6bb; }
 .wth-station { color: #4b6b5d; font-size: 0.55rem; }
 .wth-warn { border-radius: 0.4rem; padding: 0.25rem 0.5rem; font-size: 0.6rem; font-weight: 800; }
 .wth-warn.r { background: rgba(220,38,38,.18); color: #fca5a5; border: 1px solid rgba(220,38,38,.4); }
 .wth-warn.b { background: rgba(56,189,248,.15); color: #7dd3fc; border: 1px solid rgba(56,189,248,.4); }
-.wth-fc { display: flex; gap: 0.3rem; flex: 1; min-height: 0; }
+.wth-fc { display: flex; gap: 0.3rem; }
 .wth-fc-item {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.2); border-radius: 0.4rem;
@@ -257,14 +257,6 @@
 .ndvi-img { position: relative; border-radius: 0.45rem; overflow: hidden; border: 1px solid rgba(16,185,129,.3); }
 .ndvi-img img { width: 100%; height: 4.6rem; object-fit: cover; display: block; }
 .ndvi-img-cap { position: absolute; bottom: 0.2rem; left: 0.3rem; font-size: 0.52rem; color: #fff; background: rgba(6,20,28,.75); border-radius: 0.25rem; padding: 0.05rem 0.35rem; }
-
-/* ===== 产业价值阶梯 ===== */
-.value-ladder { display: flex; gap: 0.6rem; align-items: flex-end; height: 5.6rem; padding: 0.2rem 0.4rem; flex-shrink: 0; }
-.value-ladder-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 0.15rem; }
-.value-ladder-num { font-size: 0.62rem; font-weight: 800; }
-.value-ladder-num i { font-style: normal; font-size: 0.5rem; font-weight: 500; opacity: .7; margin-left: 0.1rem; }
-.value-ladder-bar { width: 55%; max-width: 3.2rem; border-radius: 0.3rem 0.3rem 0 0; box-shadow: 0 0 0.6rem rgba(52,211,153,.35); transition: height .8s ease; }
-.value-ladder-label { font-size: 0.55rem; color: #6b8a7b; }
 
 /* ===== 产业价值区 ===== */
 .value-strip { display: flex; flex-direction: column; gap: 0.5rem; height: 100%; justify-content: center; }
@@ -329,10 +321,10 @@
 .t-E .kpi-value { font-size: 1.25rem; }
 .t-E .kpi-sub { display: none; }
 .t-E .ladder { display: none; }
-.t-E .area-map { grid-area: main; } .t-E .area-cam { grid-area: main; } .t-E .area-ndvi { grid-area: main; }
+.t-E .area-map { grid-area: main; } .t-E .area-cam { grid-area: main; }
 .t-E .area-wth { grid-area: wth; } .t-E .area-ins { grid-area: ins; }
 .t-E .area-value { grid-area: value; }
-.t-E .area-farm { display: none; }
+.t-E .area-ndvi, .t-E .area-farm { display: none; }
 .t-E .value-items { grid-template-columns: repeat(6, 1fr); }
 .t-E .value-strip { flex-direction: row; align-items: center; gap: 0.9rem; }
 .t-E .value-chain { flex-wrap: nowrap; flex-shrink: 0; }
