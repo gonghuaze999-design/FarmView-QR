@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据大屏设计文档 v1.0 · 重庆药用高辣度辣椒基地</title>
+<style>
+:root{--ink:#16231d;--sub:#5b6b62;--green:#15803d;--sky:#0284c7;--chili:#dc2626;--amber:#d97706;--purple:#7c3aed;--line:#e8e6df;--bg:#f6f5f0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.8;font-size:15px}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+.cover{background:linear-gradient(150deg,#06141c 0%,#0d2e24 55%,#0e3a2b 100%);color:#eaf5ee;padding:64px 24px 56px;margin-bottom:36px}
+.cover .inner{max-width:960px;margin:0 auto}
+.cover .tag{display:inline-block;border:1px solid rgba(16,185,129,.5);color:#6ee7b7;border-radius:999px;padding:4px 15px;font-size:12px;letter-spacing:.12em;margin-bottom:20px}
+.cover h1{font-size:30px;font-weight:800;letter-spacing:.02em}
+.cover .sub{margin-top:12px;color:#9fd6bb;font-size:14px}
+.cover .meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+.cover .meta span{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);border-radius:8px;padding:4px 12px;font-size:12px;color:#cfe8da}
+section{margin:34px 0}
+h2{font-size:21px;font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+h2 .no{font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--green),#0e5c33);border-radius:7px;padding:3px 11px;letter-spacing:.08em}
+p.lead{color:var(--sub);font-size:13.5px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(22,35,29,.04)}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+th{background:#f0f4f1;color:#2c4638;font-weight:700;text-align:left;padding:7px 10px;border-bottom:2px solid #dde7df}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.pill{display:inline-block;border-radius:999px;padding:1px 10px;font-size:11.5px;font-weight:700}
+.pill.g{background:#dcfce7;color:var(--green)}.pill.b{background:#e0f2fe;color:var(--sky)}
+.pill.r{background:#fee2e2;color:var(--chili)}.pill.a{background:#fef3c7;color:var(--amber)}.pill.p{background:#ede9fe;color:var(--purple)}
+.mono{font-family:"SF Mono",Menlo,monospace;font-size:12px;background:#f4f4f1;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;overflow-x:auto;white-space:pre;color:#2c4638}
+/* 布局示意图 */
+.mock{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;background:#0b1f18;border-radius:12px;padding:10px;margin:12px 0;color:#cfe8da;font-size:11px}
+.mock>div{background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.22);border-radius:8px;padding:8px 10px;text-align:center}
+.mock .hdr{grid-column:span 12;background:rgba(16,185,129,.14)}
+.mock .kpi{grid-column:span 2}
+.mock .map{grid-column:span 5;grid-row:span 2;background:rgba(2,132,199,.13)}
+.mock .cam{grid-column:span 5}
+.mock .wth{grid-column:span 2}
+.mock .ndvi{grid-column:span 7}
+.mock .ins{grid-column:span 2;grid-row:span 2}
+.mock .farm{grid-column:span 3}
+.mock .ftr{grid-column:span 12;font-size:10px;color:#8fae9d}
+ul{padding-left:20px;font-size:14px;color:#37463d}
+ul li{margin:4px 0}
+.footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:#8a988f;font-size:12px;text-align:center}
+@media print{.cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="inner">
+    <span class="tag">DESIGN DOC · v1.0 · 2026-11-18</span>
+    <h1>基地数据大屏 · 设计文档</h1>
+    <div class="sub">重庆药用高辣度辣椒基地 · 全屏可视化监控大屏 · 移动端/平板/桌面三端适配</div>
+    <div class="meta">
+      <span>入口：总览页"数据大屏"色块</span>
+      <span>状态：待确认设计</span>
+      <span>关联：年度分析报告 KPI 体系</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<section>
+  <h2><span class="no">01</span>定位与目标</h2>
+  <p class="lead">一屏看懂基地今日全貌：空间（地图）、画面（摄像头）、环境（气象）、长势（NDVI）、虫情、农事六位一体，科技感强、动态实时，既适合基地现场电视/大屏展示，也适合管理者手机随时查看。</p>
+  <div class="card">
+    <table>
+      <tr><th style="width:130px">维度</th><th>设计目标</th></tr>
+      <tr><td>展示场景</td><td>① 基地会议室/展厅大屏（电视、投影）② 管理者手机横屏 ③ 平板</td></tr>
+      <tr><td>视觉风格</td><td><b>深色科技风</b>：深墨绿/藏青底 + 荧光绿/天蓝/琥珀多色点缀 + 发光边框；与报告"温暖浅色"形成互补（大屏=夜间监控台，报告=白天文档）</td></tr>
+      <tr><td>数据实时性</td><td>关键数据自动刷新（见第 05 节刷新策略），故障降级显示"数据暂不可用"占位</td></tr>
+      <tr><td>零学习成本</td><td>扫码即看，无需登录；与现有软件同一域名、同一套数据</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">02</span>整体布局</h2>
+  <p class="lead">桌面/大屏 16:9 经典"三段式"仪表台；移动端自动降级为单列滚动。</p>
+  <div class="mock">
+    <div class="hdr">顶部状态栏：基地名 + 北京时间 + 天气实况（温度/湿度/风速）+ 设备在线数</div>
+    <div class="kpi">KPI 卡 ×6：亩产 / 面积 / 地块 / 设备 / 摄像头 / 高温天数</div>
+    <div class="kpi">KPI 卡</div><div class="kpi">KPI 卡</div><div class="kpi">KPI 卡</div><div class="kpi">KPI 卡</div><div class="kpi">KPI 卡</div>
+    <div class="map">地图模块：28 块地边界 + 区域色 + 设备标记 + 摄像头标记（可点击弹详情）</div>
+    <div class="cam">摄像头直播 ×3 路（新元1号 / 新元2号 / 关坪）自动播放 · 点击全屏</div>
+    <div class="ndvi">NDVI 长势模块：全基地曲线 + 分区对比 + 最新卫星影像轮播</div>
+    <div class="wth">气象面板：气象站实时 + 7 日预报</div>
+    <div class="ins">虫情面板：三灯总量 + 虫种排行 + AI 图片轮播</div>
+    <div class="farm">农事模块：近期农事滚动 + 采摘倒计时提醒</div>
+    <div class="ftr">底部跑马灯：年度关键指标摘要 + 报告入口</div>
+  </div>
+  <div class="card">
+    <table>
+      <tr><th>断点</th><th>布局</th></tr>
+      <tr><td>桌面 / 大屏 ≥1280px</td><td>16:9 网格：左列 KPI+气象，中央地图，右列摄像头+虫情，底部 NDVI+农事</td></tr>
+      <tr><td>平板 768–1280px</td><td>两列栅格：地图+摄像头并排，其余模块依次排布</td></tr>
+      <tr><td>手机横屏 640–768px</td><td>单列紧凑：顶栏精简，地图+摄像头优先，KPI 双行网格</td></tr>
+      <tr><td>手机竖屏 &lt;640px</td><td>单列滚动：模块顺序＝KPI → 地图 → 摄像头 → 气象 → NDVI → 虫情 → 农事</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">03</span>模块详细设计</h2>
+
+  <div class="card">
+    <h3>3.1 顶部状态栏</h3>
+    <table>
+      <tr><th style="width:110px">元素</th><th>内容</th><th style="width:150px">数据来源</th></tr>
+      <tr><td>基地名 + LOGO</td><td>"重庆药用高辣度辣椒基地" + 数字农业标识</td><td>sites-config</td></tr>
+      <tr><td>北京时间</td><td>秒级时钟，UTC+8</td><td>前端本地</td></tr>
+      <tr><td>天气实况</td><td>温度/湿度/风速图标行</td><td>Open-Meteo current（15 分钟级）+ 新元气象站实时快照</td></tr>
+      <tr><td>在线统计</td><td>设备 X/Y 在线、摄像头 X 路在线（呼吸灯圆点）</td><td>locationList + cameraList</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>3.2 KPI 指标卡（6 张）</h3>
+    <p class="lead">数字滚动动画（0→当前值 1.2s 缓动），数值变化时脉冲高亮。</p>
+    <table>
+      <tr><th>卡片</th><th>指标</th><th>数据来源</th><th>刷新</th></tr>
+      <tr><td>亩产（鲜重）</td><td>250 kg/亩（2026 实际）+ 500kg 目标对比条</td><td>分析报告口径（静态）</td><td>—</td></tr>
+      <tr><td>种植面积</td><td>343.8 亩</td><td>land/list 汇总</td><td>10 min</td></tr>
+      <tr><td>地块数</td><td>28 块</td><td>queryBaseData</td><td>10 min</td></tr>
+      <tr><td>IoT 设备</td><td>7 台（气象1/虫情3/摄像头3）</td><td>getCountByType</td><td>5 min</td></tr>
+      <tr><td>摄像头在线</td><td>X/3 路</td><td>cameraList status</td><td>1 min</td></tr>
+      <tr><td>本年高温日</td><td>≥35°C 天数（累计）</td><td>Open-Meteo 日值累计</td><td>1 h</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>3.3 地图模块（核心）</h3>
+    <ul>
+      <li>复用年度报告的地块分布图方案：<b>纯空白/浅色底 + 28 块地真实边界 + 区域彩色气泡</b>（大屏版改深色底：地块边线荧光绿、区域色提高饱和度）</li>
+      <li>叠加 IoT 设备图标（气象站蓝 / 虫情灯紫 / 摄像头红），摄像头图标带"LIVE"角标</li>
+      <li>交互：点击地块 → 右侧滑出详情（名称/面积/作物/最新 NDVI）；点击设备 → 弹实时数据</li>
+      <li>自动视野：`setFitView` 按地块范围自适应，罗田片区（南侧）默认缩小全景可见</li>
+      <li>数据来源：land/list（WKT 边界）+ locationList（设备坐标）+ FarmMonitor NDVI</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3.4 摄像头直播模块（用户最常用）</h3>
+    <ul>
+      <li>3 路 HLS（萤石云）网格自动播放，复用现有 <b>HlsPlayer</b>（含 WeChat X5 兼容、失败自动重试）</li>
+      <li>每路叠加：摄像头名 + 在线状态呼吸灯 + 时间戳；离线显示最近画面占位+"设备离线"</li>
+      <li>点击单路 → 全屏播放（支持横屏、滑动切换下一路）</li>
+      <li>大屏上 3 路常驻常播；手机竖屏显示 1 路大图 + 左右滑动切换</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3.5 气象面板</h3>
+    <ul>
+      <li>左侧：新元气象站实时快照（温度/湿度/风速/风向，秒级圆环仪表）</li>
+      <li>右侧：Open-Meteo 7 日预报（温度区间条 + 降雨概率）</li>
+      <li>灾害提示：高温 ≥35°C / 暴雨预警红色高亮横幅（呼应 2026 年 8-9 月灾害复盘）</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3.6 NDVI 长势模块</h3>
+    <ul>
+      <li>全基地 NDVI 曲线（近 30 天，含 8 月高温/9 月降雨事件标注）</li>
+      <li>分区对比迷你柱状（罗田/新元/关坪…7 区）</li>
+      <li>右侧轮播最新地块 NDVI 影像（ndvi_field_view 图）</li>
+      <li>数据来源：FarmMonitor /api/farm-monitor/satellite（缓存 30 分钟）</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3.7 虫情面板</h3>
+    <ul>
+      <li>三盏虫情灯总量数字 + 本周趋势迷你图</li>
+      <li>主要害虫 TOP5 排行条（斜纹夜蛾/黏虫等红色高亮）</li>
+      <li>AI 识别图片轮播（原图+标注图自动切换，5s/张）</li>
+      <li>数据来源：getInsectStatistics + getInsectImages（缓存 10 分钟）</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>3.8 农事模块</h3>
+    <ul>
+      <li>近期农事记录滚动列表（时间+任务+地块，新记录从顶部滑入）</li>
+      <li>2027 关键节点倒计时：定植窗口、采摘窗口（结合罗田"早定植 20 天"经验）</li>
+      <li>数据来源：queryWorkTask（缓存 15 分钟）</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">04</span>动效与交互规范</h2>
+  <div class="card">
+    <table>
+      <tr><th>动效</th><th>应用位置</th><th>说明</th></tr>
+      <tr><td>数字滚动</td><td>KPI 卡、虫情总量</td><td>1.2s ease-out，数值更新时脉冲光晕</td></tr>
+      <tr><td>呼吸灯</td><td>在线状态点、LIVE 角标</td><td>2s 周期透明度呼吸，离线灰色静止</td></tr>
+      <tr><td>图表入场</td><td>所有 ECharts</td><td>framer-motion 上浮淡入，级联延迟 80ms</td></tr>
+      <tr><td>轮播</td><td>NDVI 影像、虫情图片、农事滚动</td><td>5s 切换；手动滑动暂停</td></tr>
+      <tr><td>粒子/流光边框</td><td>模块卡片边框</td><td>CSS 渐变流光，桌面大屏开启，低端设备自动关闭</td></tr>
+      <tr><td>点击反馈</td><td>地块/设备/摄像头</td><td>弹层滑出（移动端底部 Sheet，桌面侧边抽屉）</td></tr>
+    </table>
+    <p class="lead" style="margin-top:10px">动效原则：<b>克制、有节奏、不影响数据读取</b>。全部动效 ≤1.5s 完成，无无限循环高耗能动画（呼吸灯除外）。</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">05</span>刷新与降级策略</h2>
+  <div class="card">
+    <table>
+      <tr><th>数据</th><th>刷新周期</th><th>实现</th></tr>
+      <tr><td>摄像头状态 / 直播流</td><td>常驻；状态 1min</td><td>HLS 长连接 + 状态轮询</td></tr>
+      <tr><td>气象实况 / 气象站快照</td><td>5 min</td><td>Open-Meteo + getEnvRecordNow</td></tr>
+      <tr><td>NDVI / 卫星影像</td><td>30 min</td><td>后端缓存直接复用</td></tr>
+      <tr><td>虫情 / 农事 / 设备 / 地块</td><td>10–15 min</td><td>后端缓存直接复用（现有 CACHE_TTL）</td></tr>
+      <tr><td>KPI（产量等年度口径）</td><td>静态</td><td>报告口径常量</td></tr>
+    </table>
+    <p class="lead" style="margin-top:10px">降级：接口失败 → 模块内显示"数据暂不可用"+ 重试按钮；连续失败 3 次 → 该模块灰化。摄像头离线 → 最近画面+灰罩。页面级：`Promise.allSettled` 并行加载，首屏骨架屏。</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">06</span>技术方案</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:140px">层</th><th>方案</th></tr>
+      <tr><td>路由</td><td>新增 <span class="pill b">/dashboard?site=xxx</span> 全屏路由（无 Header/TabBar，独立全屏容器），从"数据大屏"色块进入</td></tr>
+      <tr><td>渲染</td><td>React 19 + ECharts 5（与报告同源）+ framer-motion 动效</td></tr>
+      <tr><td>视频</td><td>hls.js 复用现有 HlsPlayer（X5 兼容/自动重试已打磨）</td></tr>
+      <tr><td>地图</td><td>复用报告的地块分布方案（ECharts scatter+polygon，无外部瓦片依赖）</td></tr>
+      <tr><td>数据</td><td>全部走现有 /api 代理 + FarmMonitor 缓存端点，<b>无新增后端接口</b>（除可选 /api/reports 清单）</td></tr>
+      <tr><td>性能</td><td>懒加载地图/图表；摄像头 IntersectionObserver 懒加载；低端设备关闭流光动效</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>数据接口清单（全部已在线验证）</h3>
+    <div class="mono">GET  /api/farm/land/list?baseId=5              # 地块边界 WKT
+GET  /api/collect/iot/locationList?baseId=5    # 设备位置
+POST /api/collect/collection/cameraList        # 摄像头 + HLS
+POST /api/collect/iot/getEnvRecordNow          # 气象站实时
+POST /api/collect/iot/getInsectStatistics      # 虫情统计
+POST /api/collect/iot/getInsectImages          # 虫情 AI 图片
+POST /api/farm/work/queryWorkTask              # 农事记录
+GET  /api/farm-monitor/satellite?site=...      # NDVI（后端已缓存）
+GET  /api/site-binding?site=...                # 基地信息
+# Open-Meteo current/daily（外部，前端直连）</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">07</span>实施计划</h2>
+  <div class="card">
+    <table>
+      <tr><th>阶段</th><th>内容</th><th>验收标准</th></tr>
+      <tr><td><span class="pill g">P1</span> 框架 + KPI</td><td>/dashboard 全屏路由、深色主题、顶栏时钟天气、6 张 KPI 数字卡、入场动效</td><td>手机/平板/桌面三端布局正确，KPI 数据与报告一致</td></tr>
+      <tr><td><span class="pill g">P2</span> 地图 + 摄像头</td><td>地块分布深色版 + 设备标记 + 点击弹层；3 路 HLS 直播网格 + 全屏切换</td><td>微信内自动播放；点击/滑动交互流畅</td></tr>
+      <tr><td><span class="pill b">P3</span> 气象 + NDVI</td><td>气象站仪表 + 7 日预报；NDVI 曲线 + 分区对比 + 影像轮播</td><td>数据 10s 内首屏呈现；灾害提示触发正确</td></tr>
+      <tr><td><span class="pill b">P4</span> 虫情 + 农事 + 打磨</td><td>虫情排行 + AI 图轮播；农事滚动 + 倒计时；流光边框、轮播、降级完善</td><td>全部模块无空态裸奔；动效符合规范</td></tr>
+    </table>
+    <p class="lead" style="margin-top:10px">每阶段完成后本地验证 + 三端截图，经确认后随软件发布节奏推送 GitHub → 服务器部署。</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">08</span>待确认事项</h2>
+  <div class="card">
+    <table>
+      <tr><th>#</th><th>事项</th><th>建议默认值</th></tr>
+      <tr><td>1</td><td>摄像头在手机竖屏下是否自动播放 3 路？</td><td>竖屏只播 1 路（省流量），横屏/大屏播 3 路</td></tr>
+      <tr><td>2</td><td>大屏是否需要 AI 助手入口（悬浮球）？</td><td>暂不加入，保持大屏纯展示</td></tr>
+      <tr><td>3</td><td>底部跑马灯是否需要？</td><td>仅桌面大屏开启，移动端隐藏</td></tr>
+      <tr><td>4</td><td>亩产等年度口径指标是否随 2027 年更新？</td><td>支持后台配置（后续版本）</td></tr>
+      <tr><td>5</td><td>大屏深色主题是否需要"浅色模式"切换？</td><td>v1 仅深色</td></tr>
+    </table>
+  </div>
+</section>
+
+<div class="footer">数据大屏设计文档 v1.0 · 2026-11-18 · 待确认后进入开发 · 关联文档：年度种植分析报告（HTML/PDF）</div>
+</div>
+</body>
+</html>

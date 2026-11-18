@@ -14,6 +14,7 @@ import { CameraTab } from './components/CameraTab';
 import { AiFloatingBall } from './components/AiFloatingBall';
 import { AiChatPanel } from './components/AiChatPanel';
 import { JoinUsButton } from './components/JoinUsButton';
+import { QuickEntry } from './components/QuickEntry';
 import { TabBar, type TabKey } from './components/TabBar';
 import { AdminPage } from './pages/AdminPage';
 import { SiteProvider, SiteBinding } from './contexts/SiteContext';
@@ -213,6 +214,7 @@ const AppContent = () => {
                     </div>
                   ))}
                 </div>
+                <QuickEntry />
                 <div className="pt-1.5">
                   <JoinUsButton compact />
                 </div>
