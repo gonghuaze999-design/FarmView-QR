@@ -39,34 +39,30 @@ export const QuickEntry = () => {
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2.5">
-        {/* 报告 */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
+        {/* 报告 — 宽度与上方指标卡拉齐 */}
         <button
           onClick={handleReport}
-          className="rounded-xl p-3 flex items-center gap-2.5 text-left transition-transform active:scale-[0.98]"
+          className="rounded-xl p-2.5 flex flex-col items-start gap-1.5 text-left transition-transform active:scale-[0.98]"
           style={{ background: '#f5f3ff' }}
         >
-          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(124,58,237,0.12)' }}>
-            <FileText size={18} style={{ color: '#7c3aed' }} />
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(124,58,237,0.12)' }}>
+            <FileText size={16} style={{ color: '#7c3aed' }} />
           </span>
-          <span>
-            <span className="block text-sm font-bold" style={{ color: '#7c3aed' }}>报告</span>
-            <span className="block text-[10px] font-medium opacity-65" style={{ color: '#7c3aed' }}>年度种植分析</span>
-          </span>
+          <span className="block text-xs font-bold leading-tight" style={{ color: '#7c3aed' }}>报告</span>
+          <span className="block text-[9px] font-medium opacity-65 leading-tight" style={{ color: '#7c3aed' }}>年度种植分析</span>
         </button>
         {/* 数据大屏 */}
         <button
           onClick={() => setShowDash(true)}
-          className="rounded-xl p-3 flex items-center gap-2.5 text-left transition-transform active:scale-[0.98]"
+          className="rounded-xl p-2.5 flex flex-col items-start gap-1.5 text-left transition-transform active:scale-[0.98]"
           style={{ background: '#f0f9ff' }}
         >
-          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(2,132,199,0.12)' }}>
-            <MonitorPlay size={18} style={{ color: '#0284c7' }} />
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(2,132,199,0.12)' }}>
+            <MonitorPlay size={16} style={{ color: '#0284c7' }} />
           </span>
-          <span>
-            <span className="block text-sm font-bold" style={{ color: '#0284c7' }}>数据大屏</span>
-            <span className="block text-[10px] font-medium opacity-65" style={{ color: '#0284c7' }}>基地全景监控</span>
-          </span>
+          <span className="block text-xs font-bold leading-tight" style={{ color: '#0284c7' }}>数据大屏</span>
+          <span className="block text-[9px] font-medium opacity-65 leading-tight" style={{ color: '#0284c7' }}>基地全景监控</span>
         </button>
       </div>
 
