@@ -378,7 +378,7 @@ const PESTS = ['斜纹夜蛾', '黏虫', '烟青虫', '棉铃虫', '蚜虫', '�
 const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLands: string[] }) => {
   const [total, setTotal] = useState<number | null>(null);
   const [top, setTop] = useState<{ name: string; v: number }[]>([]);
-  const [imgs, setImgs] = useState<{ ai: string; time: string }[]>([]);
+  const [imgs, setImgs] = useState<{ ai: string; orig: string; time: string }[]>([]);
   const [imgIdx, setImgIdx] = useState(0);
   const [wallOff, setWallOff] = useState(0);
   const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
@@ -422,9 +422,12 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
         });
         const d = await r.json();
         const list = Array.isArray(d.data?.images) ? d.data.images : [];
+        const n = list.length;
+        const picked = Array.from({ length: 8 }, (_, i) => list[Math.min(n - 1, Math.floor((i * (n - 1)) / 7))]);
         setImgs(
-          list.slice(-8).reverse().map((x: Record<string, unknown>) => ({
+          picked.reverse().map((x: Record<string, unknown>) => ({
             ai: String(x.imageResult || x.image || ''),
+            orig: String(x.image || x.imageResult || ''),
             time: String(x.reportTime || '').slice(0, 16),
           }))
         );
@@ -467,8 +470,8 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
         <div className="ins-wall">
           {[...imgs.slice(wallOff), ...imgs.slice(0, wallOff)].slice(0, 6).map((im, i) => (
             <div key={`${im.time}-${i}`} className={`ins-cell ${i === 0 ? 'big' : ''}`}>
-              <img src={im.ai} alt="" />
-              <span>{im.time.slice(5, 10)}</span>
+              <img src={i === 0 ? im.ai : im.orig} alt="" />
+              <span>{im.time.slice(5, 10)}{i === 0 ? ' ·AI' : ''}</span>
             </div>
           ))}
         </div>
@@ -1080,13 +1083,22 @@ export const DashboardPage = () => {
                     </div>
                   ))}
                 </div>
-                <div className="value-items">
-                  {(snap?.value.items || []).slice(0, 6).map((it, i) => (
-                    <div key={i} className="value-item">
-                      <span className="value-item-label">{it.label}</span>
-                      <span className="value-item-text">{it.text}</span>
-                    </div>
-                  ))}
+                <div className="value-nums">
+                  <div className="value-num">
+                    <span className="value-num-label">目标亩产</span>
+                    <b>{kpi?.targetYield?.[0] ?? '—'}–{kpi?.targetYield?.[1] ?? '—'}<i>kg/亩</i></b>
+                    <span className="value-num-tip">2027 年攻坚目标</span>
+                  </div>
+                  <div className="value-num">
+                    <span className="value-num-label">保本亩产</span>
+                    <b>{kpi?.breakeven ?? '—'}<i>kg/亩</i></b>
+                    <span className="value-num-tip">成本控制线</span>
+                  </div>
+                  <div className="value-num">
+                    <span className="value-num-label">标杆亩产值</span>
+                    <b>{(kpi?.benchmarkRevenue ?? 0).toLocaleString()}<i>元/亩</i></b>
+                    <span className="value-num-tip">罗田 0.5 吨 × 6 元</span>
+                  </div>
                 </div>
               </div>
             </Mod>

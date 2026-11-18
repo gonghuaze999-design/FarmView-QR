@@ -194,8 +194,11 @@ export const MapComponent = forwardRef(({
             }
 
             const markerContent = device.type === 'benchmark' ? `
-              <div style="width: 44px; height: 44px; border-radius: 50%; border: 3px solid #fbbf24; box-shadow: 0 0 18px rgba(251,191,36,.8), inset 0 0 12px rgba(251,191,36,.35); ${markerAnim} display: flex; align-items: center; justify-content: center;">
-                <div style="width: 10px; height: 10px; border-radius: 50%; background: #fbbf24;"></div>
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; ${markerAnim}">
+                <div style="width: 44px; height: 44px; border-radius: 50%; border: 3px solid #fbbf24; box-shadow: 0 0 18px rgba(251,191,36,.8), inset 0 0 12px rgba(251,191,36,.35); display: flex; align-items: center; justify-content: center;">
+                  <div style="width: 10px; height: 10px; border-radius: 50%; background: #fbbf24;"></div>
+                </div>
+                <div style="background: rgba(6,20,28,.85); color: #fbbf24; font-size: 11px; font-weight: 700; border: 1px solid rgba(251,191,36,.5); border-radius: 4px; padding: 1px 6px; white-space: nowrap;">罗田标杆区</div>
               </div>
             ` : `
               <div style="background-color: ${iconColor}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white; ${markerAnim}">
