@@ -380,6 +380,7 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
   const [top, setTop] = useState<{ name: string; v: number }[]>([]);
   const [imgs, setImgs] = useState<{ ai: string; time: string }[]>([]);
   const [imgIdx, setImgIdx] = useState(0);
+  const [wallOff, setWallOff] = useState(0);
   const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
 
   useEffect(() => {
@@ -422,7 +423,7 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
         const d = await r.json();
         const list = Array.isArray(d.data?.images) ? d.data.images : [];
         setImgs(
-          list.slice(-6).reverse().map((x: Record<string, unknown>) => ({
+          list.slice(-8).reverse().map((x: Record<string, unknown>) => ({
             ai: String(x.imageResult || x.image || ''),
             time: String(x.reportTime || '').slice(0, 16),
           }))
@@ -433,7 +434,10 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
 
   useEffect(() => {
     if (!imgs.length) return;
-    const t = setInterval(() => setImgIdx((i) => (i + 1) % imgs.length), 5000);
+    const t = setInterval(() => {
+      setImgIdx((i) => (i + 1) % imgs.length);
+      setWallOff((o) => (o + 1) % imgs.length);
+    }, 5000);
     return () => clearInterval(t);
   }, [imgs]);
 
@@ -460,9 +464,13 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
         )}
       </div>
       {imgs.length > 0 && (
-        <div className="ins-img">
-          <img src={imgs[imgIdx].ai} alt="" />
-          <span className="ins-img-cap">AI识别 · {imgs[imgIdx].time}</span>
+        <div className="ins-wall">
+          {[...imgs.slice(wallOff), ...imgs.slice(0, wallOff)].slice(0, 6).map((im, i) => (
+            <div key={`${im.time}-${i}`} className={`ins-cell ${i === 0 ? 'big' : ''}`}>
+              <img src={im.ai} alt="" />
+              <span>{im.time.slice(5, 10)}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -538,6 +546,14 @@ const FarmPanel = ({ baseId }: { baseId: number | null }) => {
 };
 
 /* ---------- 子组件 ---------- */
+const KpiBar = ({ segs }: { segs: { pct: number; color: string }[] }) => (
+  <div className="kpi-bar">
+    {segs.map((s, i) => (
+      <div key={i} style={{ width: `${s.pct}%`, background: s.color }} />
+    ))}
+  </div>
+);
+
 const KpiCard = ({
   label, value, unit, sub, color, delay, children,
 }: {
@@ -545,7 +561,7 @@ const KpiCard = ({
 }) => (
   <div className="kpi-card" style={{ animationDelay: `${delay}ms` }}>
     <div className="kpi-label">{label}</div>
-    <div className="kpi-value" style={{ color }}>
+    <div className="kpi-value" style={{ color }} key={value}>
       {value}
       {unit && <span className="kpi-unit">{unit}</span>}
     </div>
@@ -885,6 +901,14 @@ export const DashboardPage = () => {
     </div>
   ));
 
+  const insectLands = devices.filter((d) => d.type === 'insect' && d.farmlandId).map((d) => d.farmlandId as string);
+  const benchmarkMarkers: DeviceMarker[] = (() => {
+    const lt = polygons.filter((p) => p.farmlandName.includes('罗田'));
+    if (!lt.length) return [];
+    const big = lt.reduce((a, b) => (b.size > a.size ? b : a));
+    return [{ id: 'benchmark-luotian', type: 'benchmark' as DeviceMarker['type'], name: '罗田标杆区', position: big.centroid, status: 'online' }];
+  })();
+  const mapDevices = [...devices, ...benchmarkMarkers];
   const mapSection = (
     <section className="area-map">
       <Mod
@@ -893,7 +917,7 @@ export const DashboardPage = () => {
         className="mod-map"
         extra={mainSwitch}
       >
-        <MapPanel polygons={polygons} devices={devices} center={mapCenter} mapRef={mapRef} onDeviceClick={handleDeviceClick} />
+        <MapPanel polygons={polygons} devices={mapDevices} center={mapCenter} mapRef={mapRef} onDeviceClick={handleDeviceClick} />
       </Mod>
     </section>
   );
@@ -904,7 +928,6 @@ export const DashboardPage = () => {
       </Mod>
     </section>
   );
-  const insectLands = devices.filter((d) => d.type === 'insect' && d.farmlandId).map((d) => d.farmlandId as string);
   const wthSection = (
     <section className="area-wth">
       <Mod title="气象环境" className="mod-wth">
@@ -989,11 +1012,31 @@ export const DashboardPage = () => {
               sub="早定植20天 + 精细管理"
               color="#fbbf24"
               delay={80}
-            />
-            <KpiCard label="种植面积" value={String(vArea)} unit="亩" sub={`${kpi?.landCount || '—'} 块地 · ${kpi?.regionCount || '—'} 个区域`} color="#34d399" delay={160} />
-            <KpiCard label="地块数量" value={String(vLand)} unit="块" sub="卫星遥感全覆盖" color="#34d399" delay={240} />
-            <KpiCard label="IoT 设备" value={String(vDev)} unit="台" sub="气象站·虫情灯·摄像头" color="#38bdf8" delay={320} />
-            <KpiCard label="摄像头在线" value={String(vCam)} unit="路" sub="萤石云 HLS 直播" color="#f87171" delay={400} />
+            >
+              <KpiBar segs={[{ pct: 33, color: '#0e5c33' }, { pct: 67, color: '#fbbf24' }]} />
+              <div className="kpi-note">基地平均 0.25 → 标杆 0.5</div>
+            </KpiCard>
+            <KpiCard label="种植面积" value={String(vArea)} unit="亩" sub={`${kpi?.landCount || '—'} 块地 · ${kpi?.regionCount || '—'} 个区域`} color="#34d399" delay={160}>
+              <KpiBar
+                segs={[
+                  { pct: 28, color: '#fbbf24' }, { pct: 25, color: '#a78bfa' }, { pct: 18, color: '#38bdf8' },
+                  { pct: 10, color: '#f87171' }, { pct: 9, color: '#f59e0b' }, { pct: 7, color: '#2dd4bf' }, { pct: 3, color: '#f472b6' },
+                ]}
+              />
+              <div className="kpi-note">罗田 97.1 亩最大 · 紫水 85.1</div>
+            </KpiCard>
+            <KpiCard label="地块数量" value={String(vLand)} unit="块" sub="卫星遥感全覆盖" color="#34d399" delay={240}>
+              <KpiBar segs={[{ pct: 100, color: 'linear-gradient(90deg,#0e5c33,#34d399)' }]} />
+              <div className="kpi-note">28/28 遥感覆盖</div>
+            </KpiCard>
+            <KpiCard label="IoT 设备" value={String(vDev)} unit="台" sub="气象站·虫情灯·摄像头" color="#38bdf8" delay={320}>
+              <KpiBar segs={[{ pct: 14, color: '#38bdf8' }, { pct: 43, color: '#a78bfa' }, { pct: 43, color: '#f87171' }]} />
+              <div className="kpi-note">气象 1 · 虫情 3 · 摄像 3</div>
+            </KpiCard>
+            <KpiCard label="摄像头在线" value={String(vCam)} unit="路" sub="萤石云 HLS 直播" color="#f87171" delay={400}>
+              <KpiBar segs={[{ pct: 100, color: 'linear-gradient(90deg,#7f1d1d,#f87171)' }]} />
+              <div className="kpi-note">3/3 在线 · LIVE</div>
+            </KpiCard>
             <KpiCard label="目标亩产" value={`${kpi?.targetYield?.[0] ?? '—'}–${kpi?.targetYield?.[1] ?? '—'}`} unit="kg/亩" sub={`2026 实绩 ${kpi?.yieldActual ?? '—'} kg`} color="#a78bfa" delay={480}>
               <div className="ladder">
                 {[kpi?.yieldActual ?? 0, kpi?.targetYield?.[0] ?? 0, kpi?.targetYield?.[1] ?? 0].map((v, i) => (
@@ -1026,7 +1069,7 @@ export const DashboardPage = () => {
           )}
 
           <section className="area-value">
-            <Mod title="产业价值 · 发展前景" badge={String(year)}>
+            <Mod title="产业价值 · 发展前景" badge={`${year} 年数据`} className="mod-value">
               <div className="value-strip">
                 <div className="value-chain">
                   {snap?.value.chain.map((c, i) => (
@@ -1038,7 +1081,7 @@ export const DashboardPage = () => {
                   ))}
                 </div>
                 <div className="value-items">
-                  {(snap?.value.items || []).slice(0, 4).map((it, i) => (
+                  {(snap?.value.items || []).slice(0, 6).map((it, i) => (
                     <div key={i} className="value-item">
                       <span className="value-item-label">{it.label}</span>
                       <span className="value-item-text">{it.text}</span>
