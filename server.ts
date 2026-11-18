@@ -1638,6 +1638,22 @@ async function startServer() {
   process.on('SIGTERM', () => clearInterval(DAILY_POLL_INTERVAL));
   process.on('SIGINT', () => clearInterval(DAILY_POLL_INTERVAL));
 
+  // 天气预报代理（手机网络直连 Open-Meteo 不稳定，走后端转发）
+  app.get('/api/weather-forecast', async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+    try {
+      const r = await axios.get(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FShanghai&forecast_days=7`,
+        { timeout: 15000 }
+      );
+      res.json(r.data);
+    } catch (e: any) {
+      res.status(502).json({ error: e.message });
+    }
+  });
+
   // --- 代理中间件：转发所有 /api/* 到后端（含缓存） ---
   app.use('/api', async (req, res) => {
     const siteKey = String(req.headers['x-site-name'] || DEFAULT_SITE_KEY);

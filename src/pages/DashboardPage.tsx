@@ -162,23 +162,33 @@ const WeatherPanel = ({ firstLandId, wgsCenter, kpi }: {
   useEffect(() => {
     if (!wgsCenter) return;
     const [lng, lat] = wgsCenter;
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FShanghai&forecast_days=7`
-    )
+    const parse = (d: { daily?: Record<string, unknown[]> }) => {
+      const daily = d.daily;
+      if (!daily) return;
+      setFc(
+        (daily.time as string[]).map((t: string, i: number) => ({
+          d: t.slice(5),
+          tmax: Math.round(Number(daily.temperature_2m_max?.[i])),
+          tmin: Math.round(Number(daily.temperature_2m_min?.[i])),
+          rain: Number(daily.precipitation_probability_max?.[i] ?? 0),
+        }))
+      );
+    };
+    // 优先走后端代理(手机网络稳定), 失败再直连 Open-Meteo
+    fetch(`/api/weather-forecast?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`)
       .then((r) => r.json())
       .then((d) => {
-        const daily = d.daily;
-        if (!daily) return;
-        setFc(
-          daily.time.map((t: string, i: number) => ({
-            d: t.slice(5),
-            tmax: Math.round(daily.temperature_2m_max[i]),
-            tmin: Math.round(daily.temperature_2m_min[i]),
-            rain: daily.precipitation_probability_max[i] ?? 0,
-          }))
-        );
+        if (d.daily) parse(d);
+        else throw new Error('proxy empty');
       })
-      .catch(() => {});
+      .catch(() =>
+        fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FShanghai&forecast_days=7`
+        )
+          .then((r) => r.json())
+          .then(parse)
+          .catch(() => {})
+      );
   }, [wgsCenter]);
 
   const temp = station ? Number(station['空气温度']) : null;

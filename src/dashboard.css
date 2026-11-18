@@ -154,6 +154,11 @@
 .mod-map .mod-bd .map-wrap { position: absolute !important; inset: 0 !important; }
 .mod-map .mod-bd .amap-container, .mod-map .mod-bd .amap-layers, .mod-map .mod-bd .amap-maps { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 
+/* E窄卡: 预报行宽度收紧, 温度区间条有空间 */
+.t-E .wth-fc-d { width: 1.7rem; }
+.t-E .wth-fc-t { width: 3.6rem; }
+.t-E .wth-fc-r { width: 1.2rem; }
+
 /* 主位切换按钮（E 模板）——位于标题行右端 */
 .mod-hd-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .main-switch {
@@ -254,7 +259,7 @@
 .wth-fc-row {
   display: flex; align-items: center; gap: 0.4rem;
   background: rgba(16,185,129,.06); border: 1px solid rgba(16,185,129,.18);
-  border-radius: 0.35rem; padding: 0.18rem 0.4rem; min-height: 0; flex-shrink: 0;
+  border-radius: 0.35rem; padding: 0.16rem 0.4rem; min-height: 0; flex-shrink: 1;
 }
 .wth-fc-row.today { border-color: rgba(52,211,153,.55); box-shadow: 0 0 0.35rem rgba(16,185,129,.22); }
 .wth-fc-d { font-size: 0.55rem; color: #9fd6bb; width: 2.1rem; flex-shrink: 0; white-space: nowrap; }
