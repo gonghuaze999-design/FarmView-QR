@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileText, MonitorPlay, X } from 'lucide-react';
 
 interface ReportItem {
@@ -16,8 +17,13 @@ const openReport = (file: string) => {
 };
 
 export const QuickEntry = () => {
+  const navigate = useNavigate();
   const [picker, setPicker] = useState<ReportItem[] | null>(null);
-  const [showDash, setShowDash] = useState(false);
+
+  const openDashboard = () => {
+    const siteKey = new URLSearchParams(window.location.search).get('site') || 'base-current';
+    navigate(`/dashboard?site=${encodeURIComponent(siteKey)}`);
+  };
 
   const handleReport = async () => {
     try {
@@ -54,7 +60,7 @@ export const QuickEntry = () => {
         </button>
         {/* 数据大屏 */}
         <button
-          onClick={() => setShowDash(true)}
+          onClick={openDashboard}
           className="rounded-xl p-2.5 flex flex-col items-start gap-1.5 text-left transition-transform active:scale-[0.98]"
           style={{ background: '#f0f9ff' }}
         >
@@ -104,25 +110,6 @@ export const QuickEntry = () => {
         </div>
       )}
 
-      {/* 数据大屏占位 */}
-      {showDash && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center" onClick={() => setShowDash(false)}>
-          <div
-            className="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl p-5 pb-7"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-bold" style={{ color: '#1c2b24' }}>数据大屏</h3>
-              <button onClick={() => setShowDash(false)} className="p-1.5 rounded-full hover:bg-gray-100">
-                <X size={16} style={{ color: '#5b6b62' }} />
-              </button>
-            </div>
-            <p className="text-sm leading-relaxed" style={{ color: '#5b6b62' }}>
-              基地全景数据大屏正在设计中，设计文档 v1.0 已发布，待确认后将开发上线。敬请期待。
-            </p>
-          </div>
-        </div>
-      )}
     </>
   );
 };

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据大屏设计文档 v2.0 · 重庆药用高辣度辣椒基地</title>
+<style>
+:root{--ink:#16231d;--sub:#5b6b62;--green:#15803d;--sky:#0284c7;--chili:#dc2626;--amber:#d97706;--purple:#7c3aed;--line:#e8e6df;--bg:#f6f5f0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.8;font-size:15px}
+.wrap{max-width:980px;margin:0 auto;padding:0 20px 80px}
+.cover{background:radial-gradient(1000px 420px at 85% -10%,rgba(16,185,129,.28),transparent 60%),linear-gradient(150deg,#06141c 0%,#0d2e24 55%,#0e3a2b 100%);color:#eaf5ee;padding:64px 24px 56px;margin-bottom:36px}
+.cover .inner{max-width:980px;margin:0 auto}
+.cover .tag{display:inline-block;border:1px solid rgba(16,185,129,.5);color:#6ee7b7;border-radius:999px;padding:4px 15px;font-size:12px;letter-spacing:.12em;margin-bottom:20px}
+.cover h1{font-size:30px;font-weight:800;letter-spacing:.02em}
+.cover .sub{margin-top:12px;color:#9fd6bb;font-size:14px;line-height:1.9}
+.cover .meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+.cover .meta span{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);border-radius:8px;padding:4px 12px;font-size:12px;color:#cfe8da}
+section{margin:34px 0}
+h2{font-size:21px;font-weight:800;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+h2 .no{font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--green),#0e5c33);border-radius:7px;padding:3px 11px;letter-spacing:.08em}
+p.lead{color:var(--sub);font-size:13.5px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0;box-shadow:0 1px 3px rgba(22,35,29,.04)}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+th{background:#f0f4f1;color:#2c4638;font-weight:700;text-align:left;padding:7px 10px;border-bottom:2px solid #dde7df}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.pill{display:inline-block;border-radius:999px;padding:1px 10px;font-size:11.5px;font-weight:700}
+.pill.g{background:#dcfce7;color:var(--green)}.pill.b{background:#e0f2fe;color:var(--sky)}
+.pill.r{background:#fee2e2;color:var(--chili)}.pill.a{background:#fef3c7;color:var(--amber)}.pill.p{background:#ede9fe;color:var(--purple)}
+.mono{font-family:"SF Mono",Menlo,monospace;font-size:12px;background:#f4f4f1;border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:10px 0;overflow-x:auto;white-space:pre;color:#2c4638}
+.mock{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;background:#0b1f18;border-radius:12px;padding:10px;margin:12px 0;color:#cfe8da;font-size:11px}
+.mock>div{background:rgba(255,255,255,.07);border:1px dashed rgba(255,255,255,.22);border-radius:8px;padding:8px 10px;text-align:center}
+.mock .hdr{grid-column:span 12;background:rgba(16,185,129,.14)}
+.mock .ftr{grid-column:span 12;font-size:10px;color:#8fae9d}
+.swatches{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.sw{width:120px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.sw .c{height:46px}
+.sw .t{padding:5px 8px;font-size:11px;color:var(--sub)}
+ul{padding-left:20px;font-size:14px;color:#37463d}
+ul li{margin:4px 0}
+.new{background:#ecfdf5;border-left:4px solid var(--green);border-radius:0 10px 10px 0;padding:10px 14px;margin:10px 0;font-size:13.5px}
+.new .t{font-weight:800;color:var(--green);font-size:12.5px;letter-spacing:.1em;margin-bottom:3px}
+.footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:#8a988f;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="inner">
+    <span class="tag">DESIGN DOC · v2.0 · 2026-11-18</span>
+    <h1>基地数据大屏 · 设计文档 v2.0</h1>
+    <div class="sub">按终端纵横比自适应 · 产业价值叙事 · 年度报告联动机制<br>iPhone 13 / 华为折叠屏 / iPad / 电脑 / 上墙大屏 全场景覆盖</div>
+    <div class="meta">
+      <span>v2.0 新增：纵横比适配体系、产业价值指标叙事、年度切换机制</span>
+      <span>入口：总览页"数据大屏"色块</span>
+      <span>状态：<b style="color:#6ee7b7">已确认（2026-11-18，6/6 项）</b></span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<section>
+  <h2><span class="no">01</span>定位、受众与核心诉求</h2>
+  <p class="lead">大屏是基地对外展示与对内管理的"第一屏"：既要让管理者直观感知基地运行，也要向产业同行与主管部门呈现产业前景。</p>
+  <div class="card">
+    <table>
+      <tr><th style="width:130px">受众</th><th>关注点</th><th>大屏对应设计</th></tr>
+      <tr><td>基地管理者</td><td>今日运行是否正常：设备、气象、长势、农事</td><td>实时运行监测区（设备在线、摄像头、气象、NDVI、虫情）</td></tr>
+      <tr><td>产业同行</td><td>模式亮点：罗田标杆模式、数字化手段</td><td>标杆对比模块（罗田模式数据故事）</td></tr>
+      <tr><td>主管部门领导</td><td>产业价值、带动效应、发展前景</td><td><b>产业价值区</b>（带动面积、种植户、全产业链、目标阶梯）</td></tr>
+    </table>
+  </div>
+  <div class="new"><div class="t">v2.0 核心诉求（用户明确）</div>
+  ① 按终端<b>横纵比</b>自适应（iPhone 13 / 华为折叠屏 / iPad / 电脑 / 上墙大屏），默认横屏，小屏大屏都高级、丰富、有科技感、有动效但不杂乱；<br>
+  ② <b>产量产值与产业价值</b>不直接呈现基地实际运行惨淡数据，改为呈现"标杆 + 目标 + 前景趋势"的产业叙事；<br>
+  ③ 数据<b>按年度</b>，年份切换由<b>年度报告</b>驱动（年度报告更新 → 大屏出现新年度），实时数据走接口自动更新；<br>
+  ④ 色调与软件主色（翠绿）衔接过渡 + 科技感。</div>
+</section>
+
+<section>
+  <h2><span class="no">02</span>纵横比适配体系（v2.0 核心）</h2>
+  <p class="lead">不再按"宽度断点"设计，改按<b>宽高比（AR = 宽÷高）分档</b>，同一套内容自动重排为对应模板。进入大屏默认横屏；检测到竖屏时显示"旋转设备"引导（竖屏降级布局仍可用）。</p>
+  <div class="card">
+    <h3>目标设备与纵横比档案</h3>
+    <table>
+      <tr><th>设备</th><th>典型分辨率（横屏）</th><th>宽高比</th><th>AR 档位</th><th>布局模板</th></tr>
+      <tr><td>iPhone 13</td><td>844 × 390</td><td>≈ 2.16 : 1（超宽扁）</td><td>AR ≥ 1.9</td><td><span class="pill a">E 超宽横屏</span></td></tr>
+      <tr><td>iPhone 13（竖屏降级）</td><td>390 × 844</td><td>≈ 0.46 : 1</td><td>AR &lt; 1</td><td><span class="pill r">F 竖屏滚动</span> + 旋转引导</td></tr>
+      <tr><td>华为折叠屏（展开）</td><td>2200 × 2480</td><td>≈ 0.89 : 1（近方形）</td><td>1 ≤ AR &lt; 1.35</td><td><span class="pill p">C 方形四象限</span></td></tr>
+      <tr><td>华为折叠屏（半折）</td><td>约 1000 × 2480</td><td>≈ 0.40 : 1（竖长条）</td><td>AR &lt; 1</td><td><span class="pill r">F 竖屏滚动</span></td></tr>
+      <tr><td>iPad（横屏）</td><td>1024×768 / 1180×820 / 1366×1024</td><td>1.33–1.44 : 1</td><td>1.35 ≤ AR &lt; 1.55</td><td><span class="pill b">B iPad 双栏</span></td></tr>
+      <tr><td>电脑 / 上墙大屏</td><td>1920×1080（可 4K）</td><td>16:9 ≈ 1.78 : 1</td><td>1.55 ≤ AR &lt; 1.9</td><td><span class="pill g">A 桌面三段式</span></td></tr>
+      <tr><td>超宽屏 / 拼接墙</td><td>2560×1080 及以上</td><td>≥ 2.3 : 1</td><td>AR ≥ 1.9</td><td><span class="pill a">E 超宽横屏</span></td></tr>
+    </table>
+    <p class="lead" style="margin-top:8px">判定优先级：AR ≥ 1.9 → E；1.55–1.9 → A；1.35–1.55 → B；1–1.35 → C；&lt;1 → F。同档位内模块按比例缩放（rem 基准随 min(w,h) 缩放），保证"最全最优"填充。</p>
+  </div>
+
+  <div class="card">
+    <h3>五套布局模板</h3>
+    <table>
+      <tr><th>模板</th><th>结构</th><th>模块取舍</th></tr>
+      <tr><td><b>A 桌面三段式</b>（16:9）</td><td>顶栏 + 左列(KPI/气象) + 中央(地图/NDVI) + 右列(摄像头/虫情) + 底部(农事/产业价值) </td><td>全模块</td></tr>
+      <tr><td><b>B iPad 双栏</b>（4:3）</td><td>顶栏 + 左 55%(地图+NDVI) + 右 45%(KPI+摄像头+虫情) + 底条(产业价值横条)</td><td>全模块，图表简化（去 mini 图）</td></tr>
+      <tr><td><b>C 方形四象限</b>（折叠屏展开）</td><td>顶栏 + 2×2 四宫格：地图｜摄像头｜KPI+气象｜NDVI+虫情，底部通栏产业价值滚动条</td><td>全模块，每格内信息层级化</td></tr>
+      <tr><td><b>E 超宽横屏</b>（手机横屏/超宽墙）</td><td>顶栏(精简) + 左右两翼窄列(气象/虫情) + 中央宽区(KPI 条 + 地图/摄像头主轮播区)</td><td>KPI 横条化；地图与摄像头按 30s 自动轮换主位</td></tr>
+      <tr><td><b>F 竖屏滚动</b>（降级）</td><td>顶栏 + 单列：KPI → 产业价值 → 地图 → 摄像头 → 气象 → NDVI → 虫情 → 农事</td><td>全模块单列，顶部悬浮"旋转体验更佳"提示</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">03</span>色调与视觉体系（v2.0 更新）</h2>
+  <p class="lead">深色科技底，<b>翠绿主强调色与软件主色调衔接过渡</b>——软件是暖白+翠绿，大屏是深墨绿+荧光翠绿，同一色相家族，从 App 进入大屏时视觉自然延续。</p>
+  <div class="card">
+    <h3>色板</h3>
+    <div class="swatches">
+      <div class="sw"><div class="c" style="background:linear-gradient(160deg,#06141c,#0d2e24)"></div><div class="t">主背景 深墨绿渐变</div></div>
+      <div class="sw"><div class="c" style="background:#10b981"></div><div class="t">主强调 荧光翠绿（衔接软件 emerald）</div></div>
+      <div class="sw"><div class="c" style="background:#34d399"></div><div class="t">数据高亮 浅翠</div></div>
+      <div class="sw"><div class="c" style="background:#fbbf24"></div><div class="t">产值/价值 金色（产业前景）</div></div>
+      <div class="sw"><div class="c" style="background:#38bdf8"></div><div class="t">气象/科技 天蓝</div></div>
+      <div class="sw"><div class="c" style="background:#a78bfa"></div><div class="t">AI/分析 紫罗兰</div></div>
+      <div class="sw"><div class="c" style="background:#f87171"></div><div class="t">告警/虫害 珊瑚红</div></div>
+      <div class="sw"><div class="c" style="background:rgba(16,185,129,.14)"></div><div class="t">卡片底 半透明翠绿玻璃</div></div>
+    </div>
+    <ul>
+      <li>卡片：半透明深色玻璃（rgba 翠绿 8–14%）+ 1px 翠绿发光边框 + 圆角 16px</li>
+      <li>标题/数字：白色主文字 + 翠绿数字高亮；产业价值类数字用金色</li>
+      <li>衔接细节：大屏入场 400ms 从软件暖白背景"暗场过渡"到深色（fade-through），回退同理，避免视觉跳变</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">04</span>指标体系与产业价值叙事（v2.0 核心）</h2>
+  <p class="lead">指标分三层：<b>运行层（真实实时）→ 成果层（标杆叙事）→ 价值层（前景叙事）</b>。产量产值产业价值不直接呈现亏损实绩，改以"标杆引领 + 目标阶梯 + 产业前景"的方式表达。</p>
+  <div class="card">
+    <h3>4.1 运行层 — 基地运行监测（真实数据，实时刷新）</h3>
+    <table>
+      <tr><th>模块</th><th>呈现</th><th>数据源</th></tr>
+      <tr><td>设备在线</td><td>设备 X/Y 在线 + 摄像头 3 路 LIVE 呼吸灯</td><td>locationList / cameraList（1min）</td></tr>
+      <tr><td>今日气象</td><td>气象站实时温度/湿度/风速圆环</td><td>getEnvRecordNow + Open-Meteo（5min）</td></tr>
+      <tr><td>长势（NDVI）</td><td>全基地 NDVI 曲线 + 分区对比</td><td>farm-monitor/satellite（30min）</td></tr>
+      <tr><td>虫情</td><td>三灯总量 + 主要虫种排行</td><td>getInsectStatistics（10min）</td></tr>
+      <tr><td>农事动态</td><td>近期农事滚动</td><td>queryWorkTask（15min）</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>4.2 成果层 — 产量产值（标杆 + 目标叙事，不呈现亏损口径）</h3>
+    <ul>
+      <li><b>标杆亩产</b>：罗田区域 0.5 吨/亩（金色高亮，"早定植 20 天 + 精细管理"模式标签）——展示最佳实践而非平均值</li>
+      <li><b>亩产达成阶梯</b>：2026 实际 250kg → 2027 目标 500–600kg 的三阶阶梯图（上行动画），表达"翻番路径"</li>
+      <li><b>产值提升趋势</b>：以标杆亩产 × 基地面积 × 收购价口径绘制的 2026→2027→2028 产业产值增长曲线（展望线用虚线金光）</li>
+      <li><b>品质价值</b>：高辣度品质指标（辣度收购价体系 7.5 元/辣度、生物刺激素保辣度、AI 虫情精准防控）作为"品质溢价"叙事</li>
+      <li>口径标注：小字注明"基于标杆地块与年度目标测算"，不直接罗列亏损数字</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>4.3 价值层 — 产业价值（前景与带动，金色系）</h3>
+    <table>
+      <tr><th>指标</th><th>叙事内容</th><th>依据</th></tr>
+      <tr><td>产业规模</td><td>基地 343.8 亩示范 + 推广目标面积（发展商/村集体/散户三类体系）</td><td>会议决议 5</td></tr>
+      <tr><td>带动种植户</td><td>推广体系：镇政府/村集体、发展商、散户三类对象，建档备案+公司统一供苗肥</td><td>会议决议 2、5</td></tr>
+      <tr><td>全产业链</td><td>种植 → 烘干厂 → 11 月萃取实验线（精深加工）闭环示意动画</td><td>会议决议 8、9</td></tr>
+      <tr><td>品种科技</td><td>自育"江椒 3 号" + 基地试种新品种（小夏两品种、毒蝎）+ 中药材轮种 200 亩</td><td>会议决议 4、7</td></tr>
+      <tr><td>乡村振兴</td><td>强村强镇资金、农事服务中心、统一标准化服务带动效应</td><td>会议决议 6、10</td></tr>
+    </table>
+    <p class="lead" style="margin-top:8px">呈现形式：底部"产业价值横条"（滚动数字 + 前景阶梯图）＋ 顶栏年度标语（如"打造高辣度辣椒全产业链标杆基地"）。</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">05</span>年度机制与数据源（v2.0 新增）</h2>
+  <div class="card">
+    <h3>年度切换逻辑（由年度报告驱动）</h3>
+    <ul>
+      <li>报告清单 `reports/index.json` 增加字段：<span class="mono" style="display:inline;padding:1px 8px">{"id","title","type":"annual|其他","year":2026,"file","updated"}</span></li>
+      <li>大屏年份列表 = 清单中 <b>type=annual</b> 的报告按 year 去重排序；<b>其他类型报告不影响大屏</b></li>
+      <li>年度报告更新（新增/替换某年度）→ 大屏自动出现该年度选项；用户顶部<b>下拉切换年份</b>，默认最新年度</li>
+      <li>尚无新年度数据时，大屏保持显示上一年底数据（默认行为）</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>数据分层：年度快照 vs 实时接口</h3>
+    <table>
+      <tr><th>数据</th><th>来源</th><th>说明</th></tr>
+      <tr><td>年度指标（亩产阶梯/产值趋势/产业价值）</td><td><b>年度快照文件</b> <span class="mono" style="display:inline;padding:1px 8px">/reports/dashboard/2026.json</span></td><td>与年度报告同步生成（同一套数据管道），大屏按所选年份加载对应快照，保证跨年口径一致、离线稳定</td></tr>
+      <tr><td>实时运行（设备/气象/NDVI/虫情/农事）</td><td>现有 /api 接口</td><td>不随年份切换（展示"当下"运行状态）；接口地址不变</td></tr>
+      <tr><td>基地基础信息（地块边界/名称）</td><td>land/list（缓存）</td><td>当年最新地块数据</td></tr>
+    </table>
+    <div class="new"><div class="t">联动闭环</div>生成年度报告时，同一管道同时产出 `dashboard/{year}.json` 快照并随报告发布 → 大屏年份列表出现新年份 → 用户下拉切换。年度报告未更新 = 大屏停留在上年数据（符合用户要求）。</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">06</span>模块详细设计（v2.0 精简更新）</h2>
+  <div class="card">
+    <table>
+      <tr><th>模块</th><th>内容</th><th>动效</th></tr>
+      <tr><td>顶部状态栏</td><td>基地名 + 北京时间 + 天气实况 + 设备在线 + <b>年份下拉选择器</b></td><td>时钟秒级</td></tr>
+      <tr><td>KPI 数字卡（6）</td><td>标杆亩产 / 种植面积 / 地块数 / 设备在线 / 摄像头在线 / 目标达成阶梯入口</td><td>数字滚动 + 光晕</td></tr>
+      <tr><td>地图（核心）</td><td>28 块地深色版：荧光绿边界 + 区域色气泡 + 设备标记 + 点击弹详情；罗田区域金色光环标注"标杆区"</td><td>视野缓动入场</td></tr>
+      <tr><td>摄像头（常用）</td><td>3 路 HLS 网格（横屏）/ 1 路大图滑动（竖屏、超宽主轮播），复用 HlsPlayer</td><td>LIVE 呼吸灯</td></tr>
+      <tr><td>气象面板</td><td>气象站实时圆环 + 7 日预报</td><td>仪表指针</td></tr>
+      <tr><td>NDVI 长势</td><td>曲线 + 分区对比 + 影像轮播</td><td>生长动画</td></tr>
+      <tr><td>虫情面板</td><td>总量 + TOP5 + AI 图轮播</td><td>排行条生长</td></tr>
+      <tr><td>农事模块</td><td>近期农事滚动 + 2027 节点倒计时（定植/采摘窗口）</td><td>列表滑入</td></tr>
+      <tr><td>产业价值区（新）</td><td>产值趋势曲线 + 产业链闭环示意 + 带动数字滚动</td><td>金光流动线</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">07</span>动效、刷新与技术方案</h2>
+  <div class="card">
+    <h3>动效规范（克制原则）</h3>
+    <ul>
+      <li>入场：模块 400ms 上浮淡入，级联 80ms；大屏整体"暗场过渡"入场</li>
+      <li>持续动效仅 4 类：数字滚动（1.2s）、呼吸灯（2s）、轮播（5s）、产业价值金光流动线（6s 循环）——<b>同屏同时最多 2–3 处动态，避免杂乱</b></li>
+      <li>数据更新：数字脉冲高亮 300ms；图表 smooth 过渡</li>
+      <li>低端设备（≤2GB 内存或省电模式）自动关闭流动线与粒子</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>刷新策略</h3>
+    <table>
+      <tr><th>数据</th><th>周期</th></tr>
+      <tr><td>摄像头状态 / 直播</td><td>常驻；状态 1min</td></tr>
+      <tr><td>气象实况 / 气象站</td><td>5 min</td></tr>
+      <tr><td>NDVI / 卫星</td><td>30 min（后端缓存复用）</td></tr>
+      <tr><td>虫情 / 农事 / 设备</td><td>10–15 min（后端缓存复用）</td></tr>
+      <tr><td>年度快照（亩产/产值/价值）</td><td>按年份加载，切年即换，不轮询</td></tr>
+    </table>
+    <p class="lead" style="margin-top:8px">降级：接口失败 → 模块内"数据暂不可用"+ 重试；摄像头离线 → 灰罩占位；快照缺失 → 年份列表不含该年。首屏 `Promise.allSettled` 并行 + 骨架屏。</p>
+  </div>
+  <div class="card">
+    <h3>技术方案</h3>
+    <table>
+      <tr><th style="width:130px">项</th><th>方案</th></tr>
+      <tr><td>路由</td><td>`/dashboard?site=xxx` 全屏路由；入场暗场过渡动画衔接 App 暖白主色</td></tr>
+      <tr><td>模板切换</td><td>JS 监听 resize + orientationchange，按宽高比 AR 分档切换 A/B/C/E/F 五套模板（CSS Grid 区域重排，组件复用同一套）</td></tr>
+      <tr><td>渲染</td><td>React 19 + ECharts 5 + framer-motion；rem 基准随 min(w,h) 缩放保证等比填充</td></tr>
+      <tr><td>视频/地图</td><td>复用 HlsPlayer；地图复用报告的地块分布方案（深色变体）</td></tr>
+      <tr><td>数据</td><td>年度快照文件 + 现有 /api 代理，<b>无新增后端接口</b>（快照为静态 JSON 随镜像发布）</td></tr>
+      <tr><td>横屏引导</td><td>AR&lt;1 时顶部悬浮"旋转设备，体验更佳"轻提示（3s 自动消失），竖屏降级布局照常可用</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">08</span>实施计划（v2.0）</h2>
+  <div class="card">
+    <table>
+      <tr><th>阶段</th><th>内容</th><th>验收标准</th></tr>
+      <tr><td><span class="pill g">P1</span> 框架+模板+KPI</td><td>路由、暗场过渡、AR 分档五模板、顶栏（含年份下拉）、KPI 卡、年度快照机制 + index.json 类型字段</td><td>iPhone13 横竖屏 / 折叠屏展开 / iPad / 16:9 五种分辨率截图全通过；年份列表与清单联动</td></tr>
+      <tr><td><span class="pill g">P2</span> 地图+摄像头</td><td>深色地块图 + 罗田标杆光环 + 设备标记；3 路 HLS 各模板自适应</td><td>微信内自动播放；模板切换无黑屏</td></tr>
+      <tr><td><span class="pill b">P3</span> 气象+NDVI+产业价值区</td><td>气象圆环、NDVI 曲线、产值趋势阶梯、产业链闭环、带动数字</td><td>产业价值区数据与年度快照一致</td></tr>
+      <tr><td><span class="pill b">P4</span> 虫情+农事+动效打磨</td><td>虫情排行、农事滚动倒计时、流光/呼吸灯/轮播统一、降级完善</td><td>同屏动效 ≤3 处；低端设备降级生效</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="no">09</span>待确认事项（v2.0）</h2>
+  <div class="card">
+    <table>
+      <tr><th>#</th><th>事项</th><th>建议默认值</th></tr>
+      <tr><td>1</td><td>产业价值区口径：标杆亩产 0.5 吨/亩作为对外展示基准，是否可公开？</td><td>可公开（罗田实绩）</td></tr>
+      <tr><td>2</td><td>2027–2028 产值展望线的假设增速？</td><td>按"目标达成"口径：2027 达 500–600kg/亩，2028 按推广面积扩张测算</td></tr>
+      <tr><td>3</td><td>手机端横竖屏策略？</td><td><b>已确认：mobile 端默认横屏显示（旋转适配），提供按钮切回竖屏</b></td></tr>
+      <tr><td>4</td><td>产业价值区数字（带动户数/推广面积）当前无确切数据，是否先放会议纪要口径估算并标注"规划值"？</td><td>是，标注"规划"</td></tr>
+      <tr><td>5</td><td>年度快照文件命名 `dashboard/2026.json` 随镜像发布，是否认可？</td><td>认可</td></tr>
+      <tr><td>6</td><td>大屏是否保留摄像头在 16:9 大屏上 3 路常驻常播（流量考虑）？</td><td>大屏/平板常驻；手机竖屏 1 路</td></tr>
+    </table>
+  </div>
+</section>
+
+<div class="footer">数据大屏设计文档 v2.0 · 2026-11-18 · 已确认（6/6），进入 P1 开发 · 关联：年度分析报告 / 会议纪要 11 项决议</div>
+</div>
+</body>
+</html>

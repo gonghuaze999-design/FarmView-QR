@@ -1,0 +1,62 @@
+{
+  "year": 2026,
+  "baseName": "重庆药用高辣度辣椒基地",
+  "updated": "2026-11-18",
+  "kpi": {
+    "benchmarkYield": 0.5,
+    "benchmarkRegion": "罗田",
+    "area": 343.8,
+    "landCount": 28,
+    "regionCount": 7,
+    "price": 6,
+    "breakeven": 400,
+    "yieldActual": 250,
+    "targetYield": [
+      500,
+      600
+    ],
+    "heatDays": 35,
+    "sepRain": 264.6,
+    "ndviPeak": 0.68,
+    "insectTotal": 2186,
+    "cameras": 3,
+    "devices": 7,
+    "workTasks": 43,
+    "benchmarkRevenue": 3000
+  },
+  "value": {
+    "headline": "打造高辣度辣椒全产业链标杆基地",
+    "chain": [
+      "自育良种 江椒3号",
+      "标准化种植 三类推广体系",
+      "烘干加工 烘干厂投产",
+      "萃取精加工 11月实验线"
+    ],
+    "items": [
+      {
+        "label": "标杆模式",
+        "text": "罗田早定植20天+精细管理，亩产0.5吨"
+      },
+      {
+        "label": "推广体系",
+        "text": "镇政府/村集体、发展商、散户三类对象"
+      },
+      {
+        "label": "品种科技",
+        "text": "自育江椒3号，试种小夏两品种+毒蝎"
+      },
+      {
+        "label": "品质保障",
+        "text": "采收4批后生物刺激素(6瓶/亩)保辣度"
+      },
+      {
+        "label": "轮作扩面",
+        "text": "中药材轮种200亩（黄精/川白芷）"
+      },
+      {
+        "label": "乡村振兴",
+        "text": "农事服务中心+强村强镇资金"
+      }
+    ]
+  }
+}

@@ -17,6 +17,7 @@ import { JoinUsButton } from './components/JoinUsButton';
 import { QuickEntry } from './components/QuickEntry';
 import { TabBar, type TabKey } from './components/TabBar';
 import { AdminPage } from './pages/AdminPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { SiteProvider, SiteBinding } from './contexts/SiteContext';
 import { getBaseData, getMainCrop, getCropGrowth, getDeviceCountByType, getCameraCount, getFarmlandList } from './services/api';
 
@@ -252,6 +253,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<AppContent />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
       </Routes>
     </BrowserRouter>
   );
