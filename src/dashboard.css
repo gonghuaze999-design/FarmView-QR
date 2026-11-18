@@ -139,8 +139,8 @@
 /* 地图模块：布满显示区 */
 .mod-map, .mod-cam { border-radius: 0.75rem; }
 .mod-map .mod-bd, .mod-cam .mod-bd { padding: 0.2rem; position: relative; overflow: hidden; }
-/* AMap 容器：强制约束在卡片内 */
-.mod-map .mod-bd > div { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
+/* AMap 容器：强制约束在卡片内（仅精确命中地图包裹层，避免误伤其他子元素） */
+.mod-map .mod-bd .map-wrap { position: absolute !important; inset: 0 !important; }
 .mod-map .mod-bd .amap-container, .mod-map .mod-bd .amap-layers, .mod-map .mod-bd .amap-maps { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; }
 
 /* 主位切换按钮（E 模板） */

@@ -122,15 +122,17 @@ const MapPanel = ({
     );
   }
   return (
-    <MapComponent
-      ref={mapRef}
-      isFullScreen={false}
-      center={center}
-      polygon={[]}
-      polygons={polygons}
-      devices={devices}
-      onDeviceClick={onDeviceClick}
-    />
+    <div className="map-wrap">
+      <MapComponent
+        ref={mapRef}
+        isFullScreen={false}
+        center={center}
+        polygon={[]}
+        polygons={polygons}
+        devices={devices}
+        onDeviceClick={onDeviceClick}
+      />
+    </div>
   );
 };
 
