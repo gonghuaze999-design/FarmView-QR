@@ -479,11 +479,31 @@ export const DashboardPage = () => {
     return () => clearInterval(t);
   }, [dims]);
 
+  /* rem 缩放基准：必须设在根元素（rem 只认根字号） */
+  useEffect(() => {
+    const el = document.documentElement;
+    const prev = el.style.fontSize;
+    el.style.fontSize = `${Math.min(1.5, Math.max(0.6, Math.min(dims.w, dims.h) / 720)) * 16}px`;
+    return () => {
+      el.style.fontSize = prev;
+    };
+  }, [dims]);
+
+  /* 地图初始化期自适应（AMap 异步加载，轮询 resize 直到就绪） */
+  useEffect(() => {
+    if (!mapCenter) return;
+    const t = setInterval(() => mapRef.current?.resize?.(), 1500);
+    const stop = setTimeout(() => clearInterval(t), 15000);
+    return () => {
+      clearInterval(t);
+      clearTimeout(stop);
+    };
+  }, [mapCenter]);
+
   const kpi = snap?.kpi;
   const template = templateOf(dims.w, dims.h, isPhone);
   const winPortrait = typeof window !== 'undefined' ? window.innerWidth < window.innerHeight : false;
   const rotate = isPhone && !portraitMode && winPortrait;
-  const scale = Math.min(1.5, Math.max(0.6, Math.min(dims.w, dims.h) / 720));
 
   const vArea = useCountUp(kpi?.area ?? 0, 1);
   const vLand = useCountUp(kpi?.landCount ?? 0);
@@ -513,7 +533,7 @@ export const DashboardPage = () => {
   return (
     <div className={`dash-root ${rotate ? 'dash-rotated' : ''}`} ref={rootRef}>
       <div className="dash-bg" />
-      <div className="dash-inner" data-template={template} style={{ fontSize: `${scale * 16}px` }}>
+      <div className="dash-inner" data-template={template}>
         {/* ===== 顶栏 ===== */}
         <header className="dash-top">
           <div className="dash-brand">
