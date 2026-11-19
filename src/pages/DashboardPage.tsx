@@ -60,6 +60,7 @@ interface Camera {
   status: number;
 }
 
+const px = (url: string) => `/api/image-proxy?url=${encodeURIComponent(url)}`;
 const useCountUp = (target: number, decimals = 0, duration = 1400) => {
   const [v, setV] = useState(0);
   useEffect(() => {
@@ -331,7 +332,7 @@ const NdviPanel = ({ polygons }: { polygons: LandPoly[] }) => {
       </div>
       {view.imgs.length > 0 && (
         <div className="ndvi-img">
-          <img src={view.imgs[imgIdx].url} alt="" />
+          <img src={px(view.imgs[imgIdx].url)} alt="" />
           <span className="ndvi-img-cap">{view.imgs[imgIdx].land} · {view.imgs[imgIdx].date}</span>
         </div>
       )}
@@ -480,7 +481,7 @@ const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLan
         <div className="ins-wall">
           {[...imgs.slice(wallOff), ...imgs.slice(0, wallOff)].slice(0, 6).map((im, i) => (
             <div key={`${im.time}-${i}`} className={`ins-cell ${i === 0 ? 'big' : ''}`}>
-              <img src={i === 0 ? im.ai : im.orig} alt="" />
+              <img src={px(i === 0 ? im.ai : im.orig)} alt="" />
               <span>{im.time.slice(5, 10)}{i === 0 ? ' ·AI' : ''}</span>
             </div>
           ))}
@@ -983,6 +984,8 @@ export const DashboardPage = () => {
               <div className="dash-slogan">{snap?.value.headline || '数字农业基地全景监控'}</div>
             </div>
           </div>
+          <div className="dash-top-line" />
+          <div className="dash-top-line r" />
           <div className="dash-top-right">
             <div className="dash-clock">
               <span className="dash-time">{clock.time}</span>
@@ -1097,7 +1100,7 @@ export const DashboardPage = () => {
                   <div className="value-num">
                     <span className="value-num-label">目标亩产</span>
                     <b>{kpi?.targetYield?.[0] ?? '—'}–{kpi?.targetYield?.[1] ?? '—'}<i>kg/亩</i></b>
-                    <span className="value-num-tip">2027 年攻坚目标</span>
+                    <span className="value-num-tip">2027 攻坚目标</span>
                   </div>
                   <div className="value-num">
                     <span className="value-num-label">保本亩产</span>
@@ -1108,6 +1111,29 @@ export const DashboardPage = () => {
                     <span className="value-num-label">标杆亩产值</span>
                     <b>{(kpi?.benchmarkRevenue ?? 0).toLocaleString()}<i>元/亩</i></b>
                     <span className="value-num-tip">罗田 0.5 吨 × 6 元</span>
+                  </div>
+                  <div className="value-num">
+                    <span className="value-num-label">品种科技</span>
+                    <b>江椒 3 号</b>
+                    <span className="value-num-tip">自育品种 · 试种扩面</span>
+                  </div>
+                  <div className="value-trend">
+                    <span className="value-num-label">亩产进阶</span>
+                    <div className="trend-bars">
+                      {[
+                        { l: '2026', v: kpi?.yieldActual ?? 250 },
+                        { l: '2027', v: kpi?.targetYield?.[0] ?? 500 },
+                        { l: '2028', v: kpi?.targetYield?.[1] ?? 600 },
+                      ].map((x, i) => (
+                        <div key={i} className="trend-col">
+                          <div className="trend-bar" style={{ height: `${(x.v / 650) * 100}%`, background: i === 2 ? 'linear-gradient(180deg,#fbbf24,#b45309)' : 'linear-gradient(180deg,#34d399,#0e5c33)' }}>
+                            <span>{x.v}</span>
+                          </div>
+                          <i>{x.l}</i>
+                        </div>
+                      ))}
+                    </div>
+                    <span className="value-num-tip">公斤/亩 · 翻番路径</span>
                   </div>
                 </div>
               </div>

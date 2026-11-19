@@ -42,11 +42,11 @@
 }
 /* 全屏扫描线（极淡） */
 .dash-inner::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 26%;
-  background: linear-gradient(180deg, transparent, rgba(52,211,153,.05), transparent);
-  animation: scanline 9s linear infinite; pointer-events: none; z-index: 6;
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 22%;
+  background: linear-gradient(180deg, transparent, rgba(52,211,153,.09), transparent);
+  animation: scanline 7s linear infinite; pointer-events: none; z-index: 6;
 }
-@keyframes scanline { 0% { top: -30%; } 100% { top: 110%; } }
+@keyframes scanline { 0% { top: -25%; } 100% { top: 110%; } }
 
 /* ===== 顶栏（醒目） ===== */
 .dash-top {
@@ -78,6 +78,8 @@
   text-shadow: 0 0 1rem rgba(52,211,153,.4);
 }
 .dash-slogan { font-size: 0.7rem; color: #6ee7b7; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-top-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(52,211,153,.45), transparent); margin: 0 0.6rem; min-width: 1.5rem; }
+.dash-top-line.r { background: linear-gradient(270deg, rgba(52,211,153,.45), transparent); }
 .dash-top-right { display: flex; align-items: center; gap: 0.8rem; flex-shrink: 0; }
 .dash-clock { text-align: right; line-height: 1.1; }
 .dash-time { font-size: 1.6rem; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: .05em; display: block; }
@@ -319,11 +321,6 @@
 .farm-land { color: #6b8a7b; flex-shrink: 0; max-width: 5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .farm-time { color: #4b6b5d; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
-/* 降级: 用户偏好减少动效 */
-@media (prefers-reduced-motion: reduce) {
-  .dash-root *, .dash-root *::before, .dash-root *::after { animation: none !important; transition: none !important; }
-}
-
 /* ===== 产业价值区 ===== */
 .value-strip { display: flex; flex-direction: column; gap: 0.3rem; height: 100%; justify-content: flex-start; overflow: hidden; }
 .value-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
@@ -340,7 +337,7 @@
 @keyframes chainPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.25); opacity: 1; } }
 .chain-text { white-space: nowrap; }
 .chain-arrow { color: #f59e0b; opacity: .7; }
-.value-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; width: 100%; }
+.value-nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem; width: 100%; }
 .value-num {
   background: linear-gradient(160deg, rgba(251,191,36,.12), rgba(251,191,36,.05));
   border: 1px solid rgba(251,191,36,.35); border-radius: 0.5rem;
@@ -356,6 +353,23 @@
 .value-num b { font-size: 0.85rem; color: #fbbf24; font-weight: 900; font-variant-numeric: tabular-nums; text-shadow: 0 0 0.5rem rgba(251,191,36,.4); }
 .value-num b i { font-style: normal; font-size: 0.5rem; font-weight: 500; opacity: .75; margin-left: 0.1rem; }
 .value-num-tip { font-size: 0.46rem; color: #8a7a45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.value-trend {
+  background: linear-gradient(160deg, rgba(16,185,129,.1), rgba(16,185,129,.04));
+  border: 1px solid rgba(16,185,129,.3); border-radius: 0.5rem;
+  padding: 0.2rem 0.4rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.1rem; line-height: 1.2; position: relative; overflow: hidden; min-width: 0;
+}
+.value-trend .value-num-label { font-size: 0.52rem; color: #6ee7b7; font-weight: 700; letter-spacing: .08em; }
+.trend-bars { display: flex; align-items: flex-end; gap: 0.3rem; height: 1.9rem; padding: 0 0.2rem; }
+.trend-col { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.trend-bar {
+  width: 1.1rem; border-radius: 0.22rem 0.22rem 0 0; position: relative;
+  box-shadow: 0 0 0.5rem rgba(52,211,153,.4); transition: height .8s ease;
+  animation: barGrow 1s ease-out both;
+}
+@keyframes barGrow { from { height: 0 !important; } }
+.trend-bar span { position: absolute; top: -0.7rem; left: 50%; transform: translateX(-50%); font-size: 0.48rem; color: #eaf5ee; font-weight: 700; }
+.trend-col i { font-style: normal; font-size: 0.46rem; color: #6b8a7b; margin-top: 0.05rem; }
 .t-E .value-nums { display: none; }
 .value-chain { justify-content: space-between; width: 100%; flex-wrap: wrap; row-gap: 0.15rem; }
 @keyframes shine { 0% { left: -35%; } 60%, 100% { left: 110%; } }

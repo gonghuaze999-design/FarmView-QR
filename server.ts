@@ -1638,6 +1638,23 @@ async function startServer() {
   process.on('SIGTERM', () => clearInterval(DAILY_POLL_INTERVAL));
   process.on('SIGINT', () => clearInterval(DAILY_POLL_INTERVAL));
 
+  // 图片代理（手机网络直连 OSS/卫星影像不稳定，走后端转发；白名单域名防滥用）
+  app.get('/api/image-proxy', async (req, res) => {
+    const raw = String(req.query.url || '');
+    if (!raw) return res.status(400).json({ error: 'url required' });
+    try {
+      const u = new URL(raw);
+      const allowed = ['hoire.oss-cn-shenzhen.aliyuncs.com', 'farm-api.mcfly.com.cn', 'cpca.hyspi.com'];
+      if (!allowed.includes(u.hostname)) return res.status(400).json({ error: 'host not allowed' });
+      const r = await axios.get(raw, { responseType: 'arraybuffer', timeout: 20000 });
+      res.set('Content-Type', String(r.headers['content-type'] || 'image/jpeg'));
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.send(Buffer.from(r.data));
+    } catch (e: any) {
+      res.status(502).json({ error: e.message });
+    }
+  });
+
   // 天气预报代理（手机网络直连 Open-Meteo 不稳定，走后端转发）
   app.get('/api/weather-forecast', async (req, res) => {
     const lat = Number(req.query.lat);
