@@ -385,6 +385,12 @@ const CameraPanel = ({
 };
 
 /* ---------- 虫情面板（三灯总量 + 害虫排行 + AI图轮播） ---------- */
+const CHAIN_ITEMS = [
+  { name: '自育良种・江椒 3 号', desc: '基地自主选育，高辣度专属品种' },
+  { name: '标准化种植・三类推广体系', desc: '统一标准、分类种植，规范管理' },
+  { name: '烘干加工・烘干厂投产', desc: '产地就近加工，保障原料品质' },
+  { name: '萃取精加工・11 月实验线', desc: '布局精深加工，延伸产品价值' },
+];
 const PESTS = ['斜纹夜蛾', '黏虫', '烟青虫', '棉铃虫', '蚜虫', '甜菜夜蛾', '小菜蛾', '玉米螟', '二化螟', '稻纵卷叶螟', '草地贪夜蛾'];
 const InsectPanel = ({ baseId, insectLands }: { baseId: number | null; insectLands: string[] }) => {
   const [total, setTotal] = useState<number | null>(null);
@@ -585,13 +591,16 @@ const KpiCard = ({
 );
 
 const Mod = ({
-  title, badge, children, className, extra,
+  title, badge, children, className, extra, subtitle,
 }: {
-  title: string; badge?: string; children?: ReactNode; className?: string; extra?: ReactNode;
+  title: string; badge?: string; children?: ReactNode; className?: string; extra?: ReactNode; subtitle?: string;
 }) => (
   <div className={`mod ${className || ''}`}>
     <div className="mod-hd">
-      <span className="mod-title">{title}</span>
+      <div className="mod-hd-left">
+        <span className="mod-title">{title}</span>
+        {subtitle && <span className="mod-subtitle">{subtitle}</span>}
+      </div>
       <div className="mod-hd-right">
         {extra}
         {badge && <span className="mod-badge">{badge}</span>}
@@ -1085,14 +1094,22 @@ export const DashboardPage = () => {
           )}
 
           <section className="area-value">
-            <Mod title="产业价值 · 发展前景" badge={`${year} 年数据`} className="mod-value">
+            <Mod
+              title="产业价值 · 发展前景"
+              subtitle="覆盖「育种 — 种植 — 烘干 — 萃取」全产业链，从原料基地向精深加工延伸"
+              badge={`${year} 年数据`}
+              className="mod-value"
+            >
               <div className="value-strip">
                 <div className="value-chain">
-                  {snap?.value.chain.map((c, i) => (
+                  {CHAIN_ITEMS.map((c, i) => (
                     <div key={i} className="chain-node">
                       <span className="chain-dot" style={{ animationDelay: `${i * 300}ms` }} />
-                      <span className="chain-text">{c}</span>
-                      {i < (snap?.value.chain.length || 1) - 1 && <span className="chain-arrow">→</span>}
+                      <span className="chain-text">
+                        <b>{c.name}</b>
+                        <i>{c.desc}</i>
+                      </span>
+                      {i < CHAIN_ITEMS.length - 1 && <span className="chain-arrow">→</span>}
                     </div>
                   ))}
                 </div>

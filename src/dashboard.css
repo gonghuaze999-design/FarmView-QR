@@ -162,6 +162,8 @@
 .t-E .wth-fc-r { width: 1.2rem; }
 
 /* 主位切换按钮（E 模板）——位于标题行右端 */
+.mod-hd-left { display: flex; flex-direction: column; gap: 0.08rem; min-width: 0; }
+.mod-subtitle { font-size: 0.48rem; color: #7d9387; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mod-hd-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 .main-switch {
   display: flex; gap: 0.2rem;
@@ -335,7 +337,9 @@
   animation: chainPulse 2s ease-in-out infinite;
 }
 @keyframes chainPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.25); opacity: 1; } }
-.chain-text { white-space: nowrap; }
+.chain-text { display: flex; flex-direction: column; line-height: 1.25; }
+.chain-text b { font-size: 0.66rem; color: #d1fae5; font-weight: 700; white-space: nowrap; }
+.chain-text i { font-style: normal; font-size: 0.48rem; color: #7d9387; white-space: nowrap; }
 .chain-arrow { color: #f59e0b; opacity: .7; }
 .value-nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem; width: 100%; }
 .value-num {
