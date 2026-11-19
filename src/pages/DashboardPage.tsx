@@ -1109,7 +1109,6 @@ export const DashboardPage = () => {
                         <b>{c.name}</b>
                         <i>{c.desc}</i>
                       </span>
-                      {i < CHAIN_ITEMS.length - 1 && <span className="chain-arrow">→</span>}
                     </div>
                   ))}
                 </div>

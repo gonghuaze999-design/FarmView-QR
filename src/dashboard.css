@@ -327,9 +327,9 @@
 .value-strip { display: flex; flex-direction: column; gap: 0.3rem; height: 100%; justify-content: flex-start; overflow: hidden; }
 .value-chain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem 0.5rem; }
 .chain-node {
-  display: flex; align-items: center; gap: 0.35rem; font-size: 0.68rem; color: #d1fae5; flex-shrink: 0;
+  display: flex; align-items: center; gap: 0.22rem; font-size: 0.68rem; color: #d1fae5; flex-shrink: 0;
   background: rgba(16,185,129,.07); border: 1px solid rgba(16,185,129,.25);
-  border-radius: 0.45rem; padding: 0.15rem 0.5rem;
+  border-radius: 0.45rem; padding: 0.12rem 0.3rem;
 }
 .chain-dot {
   width: 0.5rem; height: 0.5rem; border-radius: 50%;
@@ -337,9 +337,9 @@
   animation: chainPulse 2s ease-in-out infinite;
 }
 @keyframes chainPulse { 0%,100% { transform: scale(1); opacity: .8; } 50% { transform: scale(1.25); opacity: 1; } }
-.chain-text { display: flex; flex-direction: row; align-items: baseline; gap: 0.35rem; line-height: 1.25; }
-.chain-text b { font-size: 0.66rem; color: #d1fae5; font-weight: 700; white-space: nowrap; }
-.chain-text i { font-style: normal; font-size: 0.48rem; color: #7d9387; white-space: nowrap; }
+.chain-text { display: flex; flex-direction: row; align-items: baseline; gap: 0.16rem; line-height: 1.25; }
+.chain-text b { font-size: 0.6rem; color: #d1fae5; font-weight: 700; white-space: nowrap; }
+.chain-text i { font-style: normal; font-size: 0.42rem; color: #7d9387; white-space: nowrap; }
 .chain-arrow { color: #f59e0b; opacity: .7; }
 .value-nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem; width: 100%; }
 .value-num {
@@ -375,7 +375,7 @@
 .trend-bar span { position: absolute; top: -0.7rem; left: 50%; transform: translateX(-50%); font-size: 0.48rem; color: #eaf5ee; font-weight: 700; }
 .trend-col i { font-style: normal; font-size: 0.46rem; color: #6b8a7b; margin-top: 0.05rem; }
 .t-E .value-nums { display: none; }
-.value-chain { justify-content: space-between; width: 100%; flex-wrap: wrap; row-gap: 0.15rem; }
+.value-chain { display: grid; grid-template-columns: repeat(2, auto); gap: 0.3rem 0.35rem; justify-content: center; width: 100%; }
 @keyframes shine { 0% { left: -35%; } 60%, 100% { left: 110%; } }
 .mod-value .mod-badge { color: #fbbf24; border-color: rgba(251,191,36,.55); }
 
